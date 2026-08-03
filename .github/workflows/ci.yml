@@ -1,0 +1,158 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality and database contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      MIX_ENV: test
+      CLUBEIRA_TEST_DB_HOST: localhost
+      CLUBEIRA_TEST_DB_PORT: 5432
+      CLUBEIRA_TEST_DB_USER: postgres
+      CLUBEIRA_TEST_DB_PASSWORD: postgres
+    services:
+      postgres:
+        image: postgres:18.4@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Erlang and Elixir
+        uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        with:
+          version-file: mise.toml
+          version-type: strict
+
+      - name: Cache Mix dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            deps
+            _build
+          key: quality-${{ runner.os }}-${{ hashFiles('mise.toml', 'mix.exs', 'mix.lock') }}
+
+      - name: Install Mix tooling and dependencies
+        run: |
+          mix local.hex --force
+          mix local.rebar --force
+          mix deps.get --only test --check-locked
+          mix deps.compile
+
+      - name: Verify exact migration and runtime database roles
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql --host localhost --username postgres --dbname postgres \
+            --file docker/postgres/init.sql
+          MIX_ENV=prod \
+            CLUBEIRA_DATABASE_ROLE_MODE=migrator \
+            MIGRATOR_DATABASE_URL=ecto://clubeira_migrator:clubeira_migrator@localhost:5432/clubeira_dev \
+            SECRET_KEY_BASE=ci-only-secret-key-base-ci-only-secret-key-base-ci-only-secret-key-base \
+            mix ecto.migrate --quiet
+          PGPASSWORD=clubeira_app \
+            psql --host localhost --username clubeira_app --dbname clubeira_dev \
+            --file docker/postgres/verify-runtime-role.sql
+
+      - name: Verify reversible schema and route migration guards
+        run: |
+          mix ecto.create
+          mix ecto.migrate
+          PGPASSWORD=postgres psql \
+            --host localhost \
+            --username postgres \
+            --dbname clubeira_test \
+            --command "WITH city AS (INSERT INTO cities (country_code, subdivision_code, external_code, name, timezone, status) VALUES ('BR', 'BR-CI', 'rollback-orphan-city', 'Rollback orphan city', 'America/Sao_Paulo', 'active') RETURNING id) INSERT INTO polos (city_id, name, timezone, status) SELECT id, 'Rollback orphan polo', 'America/Sao_Paulo', 'active' FROM city;"
+          mix ecto.rollback --all
+          mix ecto.migrate --to 20260803223641
+          PGPASSWORD=postgres psql \
+            --host localhost \
+            --username postgres \
+            --dbname clubeira_test \
+            --command "WITH city AS (INSERT INTO cities (country_code, subdivision_code, external_code, name, timezone, status) VALUES ('BR', 'BR-CI', 'legacy-slug-city', 'Legacy slug city', 'America/Sao_Paulo', 'active') RETURNING id) INSERT INTO polos (city_id, slug, name, timezone, status) SELECT id, 'Legacy_Slug', 'Legacy slug polo', 'America/Sao_Paulo', 'active' FROM city;"
+          if migration_output=$(mix ecto.migrate --quiet 2>&1); then
+            echo "route migration accepted an invalid legacy slug"
+            exit 1
+          fi
+          echo "$migration_output"
+          if [[ "$migration_output" != *"cannot migrate 1 invalid legacy polo slug(s)"* ]]; then
+            echo "route migration failed without the expected legacy slug diagnostic"
+            exit 1
+          fi
+          PGPASSWORD=postgres psql \
+            --host localhost \
+            --username postgres \
+            --dbname clubeira_test \
+            --command "UPDATE polos SET slug = 'legacy-slug' WHERE slug = 'Legacy_Slug';"
+          mix ecto.migrate
+          PGPASSWORD=postgres psql \
+            --host localhost \
+            --username postgres \
+            --dbname clubeira_test \
+            --command "DELETE FROM polo_routes WHERE slug = 'legacy-slug'; DELETE FROM polos WHERE name = 'Legacy slug polo'; DELETE FROM cities WHERE external_code = 'legacy-slug-city';"
+
+      - name: Run quality gate
+        run: mix quality
+
+      - name: Compile production and build assets
+        run: |
+          MIX_ENV=prod mix compile --warnings-as-errors
+          MIX_ENV=prod mix assets.deploy
+
+  dialyzer:
+    name: Dialyzer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      MIX_ENV: dev
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Erlang and Elixir
+        uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        with:
+          version-file: mise.toml
+          version-type: strict
+
+      - name: Cache Mix dependencies and PLT
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            deps
+            _build
+            priv/plts
+          key: dialyzer-${{ runner.os }}-${{ hashFiles('mise.toml', 'mix.exs', 'mix.lock') }}
+
+      - name: Install Mix tooling and dependencies
+        run: |
+          mix local.hex --force
+          mix local.rebar --force
+          mix deps.get --only dev --check-locked
+          mix deps.compile
+
+      - name: Run Dialyzer
+        run: mix dialyzer
