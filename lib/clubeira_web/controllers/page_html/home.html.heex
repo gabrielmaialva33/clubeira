@@ -1,0 +1,49 @@
+<Layouts.app flash={@flash}>
+  <section
+    id="clubeira-foundation"
+    class="relative overflow-hidden rounded-3xl border border-slate-200 bg-white px-6 py-12 shadow-sm sm:px-10 dark:border-slate-800 dark:bg-slate-900"
+  >
+    <div class="absolute -right-20 -top-24 size-72 rounded-full bg-violet-200/60 blur-3xl dark:bg-violet-900/30" />
+    <div class="relative max-w-3xl">
+      <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+        <span class="size-2 rounded-full bg-emerald-500" /> Fundação operacional
+      </div>
+
+      <h1 class="text-4xl font-black tracking-tight text-slate-950 sm:text-6xl dark:text-white">
+        Clubeira
+      </h1>
+      <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-300">
+        Backend multi-tenant para clubes de benefícios, preparado para múltiplos polos,
+        ciclos independentes e resgates transacionais.
+      </p>
+    </div>
+
+    <div class="relative mt-10 grid gap-4 sm:grid-cols-3">
+      <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-950">
+        <p class="text-xs font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">
+          Tenancy
+        </p>
+        <p class="mt-2 font-semibold">RLS por polo</p>
+      </div>
+      <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-950">
+        <p class="text-xs font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">
+          Resgate
+        </p>
+        <p class="mt-2 font-semibold">Consumo atômico</p>
+      </div>
+      <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-950">
+        <p class="text-xs font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">
+          Persistência
+        </p>
+        <p class="mt-2 font-semibold">PostgreSQL 18</p>
+      </div>
+    </div>
+
+    <div class="relative mt-8 flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+      <code class="rounded-lg bg-slate-100 px-3 py-1.5 font-mono text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+        GET /health
+      </code>
+      <span>liveness endpoint</span>
+    </div>
+  </section>
+</Layouts.app>
