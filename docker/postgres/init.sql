@@ -1,0 +1,36 @@
+CREATE ROLE clubeira_migrator
+  LOGIN
+  PASSWORD 'clubeira_migrator'
+  NOSUPERUSER
+  NOCREATEDB
+  NOCREATEROLE
+  INHERIT
+  NOBYPASSRLS;
+
+CREATE ROLE clubeira_app
+  LOGIN
+  PASSWORD 'clubeira_app'
+  NOSUPERUSER
+  NOCREATEDB
+  NOCREATEROLE
+  NOINHERIT
+  NOBYPASSRLS;
+
+CREATE DATABASE clubeira_dev OWNER clubeira_migrator;
+
+REVOKE CONNECT ON DATABASE clubeira_dev FROM PUBLIC;
+GRANT CONNECT ON DATABASE clubeira_dev TO clubeira_migrator, clubeira_app;
+
+\connect clubeira_dev
+
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+GRANT USAGE ON SCHEMA public TO clubeira_app;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE clubeira_migrator IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO clubeira_app;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE clubeira_migrator IN SCHEMA public
+  GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO clubeira_app;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE clubeira_migrator IN SCHEMA public
+  GRANT EXECUTE ON FUNCTIONS TO clubeira_app;

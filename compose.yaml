@@ -1,0 +1,23 @@
+name: clubeira
+
+services:
+  postgres:
+    image: postgres:18.4@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+    ports:
+      - "127.0.0.1:${CLUBEIRA_POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/001-clubeira.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d clubeira_dev"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+      start_period: 3s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
