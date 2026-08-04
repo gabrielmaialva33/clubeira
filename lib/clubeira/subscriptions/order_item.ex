@@ -21,4 +21,16 @@ defmodule Clubeira.Subscriptions.OrderItem do
     field :total_amount, :decimal
     field :inserted_at, :utc_datetime_usec
   end
+
+  @type t :: %__MODULE__{
+          id: Ecto.UUID.t(),
+          polo_id: Ecto.UUID.t(),
+          order_id: Ecto.UUID.t(),
+          product_offering_version_id: Ecto.UUID.t(),
+          offering_price_id: Ecto.UUID.t(),
+          quantity: pos_integer(),
+          unit_amount: Decimal.t(),
+          total_amount: Decimal.t(),
+          inserted_at: DateTime.t()
+        }
 end

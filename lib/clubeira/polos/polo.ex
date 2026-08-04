@@ -16,4 +16,14 @@ defmodule Clubeira.Polos.Polo do
 
     timestamps()
   end
+
+  @type t :: %__MODULE__{
+          id: Ecto.UUID.t(),
+          city_id: Ecto.UUID.t(),
+          name: String.t(),
+          timezone: String.t(),
+          status: String.t(),
+          inserted_at: DateTime.t(),
+          updated_at: DateTime.t()
+        }
 end

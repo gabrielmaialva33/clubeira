@@ -28,4 +28,21 @@ defmodule Clubeira.Subscriptions.AccessContract do
 
     timestamps()
   end
+
+  @type t :: %__MODULE__{
+          id: Ecto.UUID.t(),
+          polo_id: Ecto.UUID.t(),
+          purchaser_user_id: Ecto.UUID.t(),
+          order_item_id: Ecto.UUID.t(),
+          product_offering_version_id: Ecto.UUID.t(),
+          polo_policy_version_id: Ecto.UUID.t(),
+          billing_agreement_id: Ecto.UUID.t() | nil,
+          status: String.t(),
+          starts_at: DateTime.t() | nil,
+          activated_at: DateTime.t() | nil,
+          ends_at: DateTime.t() | nil,
+          cancelled_at: DateTime.t() | nil,
+          inserted_at: DateTime.t(),
+          updated_at: DateTime.t()
+        }
 end

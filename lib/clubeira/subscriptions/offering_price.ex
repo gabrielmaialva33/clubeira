@@ -23,4 +23,19 @@ defmodule Clubeira.Subscriptions.OfferingPrice do
     field :valid_during, TstzRange
     field :inserted_at, :utc_datetime_usec
   end
+
+  @type t :: %__MODULE__{
+          id: Ecto.UUID.t(),
+          polo_id: Ecto.UUID.t(),
+          product_offering_version_id: Ecto.UUID.t(),
+          price_key: String.t(),
+          currency: String.t(),
+          amount: Decimal.t(),
+          billing_model: String.t(),
+          billing_interval_unit: String.t() | nil,
+          billing_interval_count: pos_integer() | nil,
+          installments: pos_integer(),
+          valid_during: Postgrex.Range.t(),
+          inserted_at: DateTime.t()
+        }
 end

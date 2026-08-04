@@ -24,4 +24,21 @@ defmodule Clubeira.Subscriptions.Order do
 
     timestamps()
   end
+
+  @type t :: %__MODULE__{
+          id: Ecto.UUID.t(),
+          polo_id: Ecto.UUID.t(),
+          purchaser_user_id: Ecto.UUID.t(),
+          order_number: String.t(),
+          idempotency_key: String.t(),
+          currency: String.t(),
+          subtotal_amount: Decimal.t(),
+          discount_amount: Decimal.t(),
+          total_amount: Decimal.t(),
+          status: String.t(),
+          placed_at: DateTime.t() | nil,
+          cancelled_at: DateTime.t() | nil,
+          inserted_at: DateTime.t(),
+          updated_at: DateTime.t()
+        }
 end

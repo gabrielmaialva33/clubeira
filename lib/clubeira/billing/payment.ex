@@ -23,4 +23,19 @@ defmodule Clubeira.Billing.Payment do
     field :failed_at, :utc_datetime_usec
     field :inserted_at, :utc_datetime_usec
   end
+
+  @type t :: %__MODULE__{
+          id: Ecto.UUID.t(),
+          polo_id: Ecto.UUID.t(),
+          payment_intent_id: Ecto.UUID.t(),
+          merchant_account_id: Ecto.UUID.t(),
+          provider_reference: String.t(),
+          currency: String.t(),
+          amount: Decimal.t(),
+          status: String.t(),
+          authorized_at: DateTime.t() | nil,
+          captured_at: DateTime.t() | nil,
+          failed_at: DateTime.t() | nil,
+          inserted_at: DateTime.t()
+        }
 end

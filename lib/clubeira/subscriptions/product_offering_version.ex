@@ -29,4 +29,25 @@ defmodule Clubeira.Subscriptions.ProductOfferingVersion do
     field :published_at, :utc_datetime_usec
     field :inserted_at, :utc_datetime_usec
   end
+
+  @type t :: %__MODULE__{
+          id: Ecto.UUID.t(),
+          polo_id: Ecto.UUID.t(),
+          product_offering_id: Ecto.UUID.t(),
+          version: pos_integer(),
+          name: String.t(),
+          description: String.t(),
+          effective_during: Postgrex.Range.t(),
+          activation_policy: String.t(),
+          cycle_policy: String.t(),
+          cycle_interval_unit: String.t() | nil,
+          cycle_interval_count: pos_integer() | nil,
+          renewal_policy: String.t(),
+          minimum_beneficiaries: pos_integer(),
+          maximum_beneficiaries: pos_integer(),
+          delinquency_grace_days_override: non_neg_integer() | nil,
+          status: String.t(),
+          published_at: DateTime.t() | nil,
+          inserted_at: DateTime.t()
+        }
 end

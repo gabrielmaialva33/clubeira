@@ -21,4 +21,18 @@ defmodule Clubeira.Subscriptions.BenefitPackageItem do
     field :priority, :integer
     field :inserted_at, :utc_datetime_usec
   end
+
+  @type t :: %__MODULE__{
+          id: Ecto.UUID.t(),
+          polo_id: Ecto.UUID.t(),
+          benefit_package_version_id: Ecto.UUID.t(),
+          benefit_offer_version_id: Ecto.UUID.t(),
+          entitlement_scope_id: Ecto.UUID.t(),
+          allowance_per_cycle: pos_integer(),
+          consumption_unit: String.t(),
+          subject_policy: String.t(),
+          stacking_policy: String.t(),
+          priority: integer(),
+          inserted_at: DateTime.t()
+        }
 end
