@@ -199,7 +199,7 @@ defmodule Clubeira.Subscriptions do
         cycle.access_contract_id == contract.id and
           cycle.polo_id == contract.polo_id and
           cycle.status == "active" and
-          fragment("? @> now()", cycle.benefits_during)
+          fragment("? @> statement_timestamp()", cycle.benefits_during)
     )
     |> where([contract], contract.purchaser_user_id == ^user_id)
     |> order_by([contract], desc: contract.inserted_at, desc: contract.id)
@@ -337,7 +337,7 @@ defmodule Clubeira.Subscriptions do
     |> where([polo_place: polo_place], polo_place.status == "active")
     |> where(
       [polo_place: polo_place],
-      fragment("? @> now()", polo_place.participation_during)
+      fragment("? @> statement_timestamp()", polo_place.participation_during)
     )
     |> where([place: place], place.status == "active")
     |> order_by([allocation: allocation, place: place, polo_place: polo_place],
@@ -424,20 +424,20 @@ defmodule Clubeira.Subscriptions do
       contract.status == "active" or
         (contract.status == "past_due" and
            policy.delinquency_mode == "grace_period" and
-           cycle.delinquency_grace_until >= fragment("now()"))
+           cycle.delinquency_grace_until >= fragment("statement_timestamp()"))
     )
     |> where(
       [contract: contract],
-      is_nil(contract.starts_at) or contract.starts_at <= fragment("now()")
+      is_nil(contract.starts_at) or contract.starts_at <= fragment("statement_timestamp()")
     )
     |> where(
       [contract: contract],
-      is_nil(contract.ends_at) or contract.ends_at > fragment("now()")
+      is_nil(contract.ends_at) or contract.ends_at > fragment("statement_timestamp()")
     )
     |> where([cycle: cycle], cycle.status == "active")
     |> where(
       [cycle: cycle],
-      fragment("? @> now()", cycle.benefits_during)
+      fragment("? @> statement_timestamp()", cycle.benefits_during)
     )
     |> where(
       [allocation: allocation, cycle: cycle, item: item],
@@ -449,7 +449,7 @@ defmodule Clubeira.Subscriptions do
     |> where([offer_version: offer_version], offer_version.status == "published")
     |> where(
       [offer_version: offer_version],
-      fragment("? @> now()", offer_version.effective_during)
+      fragment("? @> statement_timestamp()", offer_version.effective_during)
     )
   end
 
