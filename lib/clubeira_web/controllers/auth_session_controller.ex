@@ -2,12 +2,14 @@ defmodule ClubeiraWeb.AuthSessionController do
   use ClubeiraWeb, :controller
 
   alias Clubeira.Accounts
+  alias Clubeira.Accounts.RequestContext
   alias ClubeiraWeb.ErrorJSON
 
   def create(conn, %{"email" => email, "password" => password}) do
     conn = put_resp_header(conn, "cache-control", "private, no-store")
+    context = RequestContext.new!(conn.assigns.request_id)
 
-    case Accounts.login(email, password) do
+    case Accounts.login(email, password, context) do
       {:ok, session} ->
         conn
         |> put_status(:created)
@@ -17,6 +19,12 @@ defmodule ClubeiraWeb.AuthSessionController do
         conn
         |> put_status(:unauthorized)
         |> json(ErrorJSON.render("401.json", %{}))
+
+      {:error, :rate_limited} ->
+        conn
+        |> put_resp_header("retry-after", "1")
+        |> put_status(:too_many_requests)
+        |> json(ErrorJSON.render("429.json", %{}))
     end
   end
 

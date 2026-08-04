@@ -7,16 +7,20 @@ defmodule Clubeira.Application do
 
   @impl true
   def start(_type, _args) do
-    children = [
-      ClubeiraWeb.Telemetry,
-      Clubeira.Repo,
-      {DNSCluster, query: Application.get_env(:clubeira, :dns_cluster_query) || :ignore},
-      {Phoenix.PubSub, name: Clubeira.PubSub},
-      # Start a worker by calling: Clubeira.Worker.start_link(arg)
-      # {Clubeira.Worker, arg},
-      # Start to serve requests, typically the last entry
-      ClubeiraWeb.Endpoint
-    ]
+    children =
+      [
+        ClubeiraWeb.Telemetry,
+        Clubeira.Repo,
+        {Clubeira.Security.LoginRateLimiter, clean_period: :timer.minutes(1)},
+        {Clubeira.Security.PasswordGate,
+         Application.fetch_env!(:clubeira, Clubeira.Security.PasswordGate)}
+      ] ++
+        session_janitor_children() ++
+        [
+          {DNSCluster, query: Application.get_env(:clubeira, :dns_cluster_query) || :ignore},
+          {Phoenix.PubSub, name: Clubeira.PubSub},
+          ClubeiraWeb.Endpoint
+        ]
 
     # See https://elixir.hexdocs.pm/Supervisor.html
     # for other strategies and supported options
@@ -30,5 +34,15 @@ defmodule Clubeira.Application do
   def config_change(changed, _new, removed) do
     ClubeiraWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  defp session_janitor_children do
+    options = Application.fetch_env!(:clubeira, Clubeira.Accounts.SessionJanitor)
+
+    if Keyword.get(options, :enabled, false) do
+      [{Clubeira.Accounts.SessionJanitor, Keyword.delete(options, :enabled)}]
+    else
+      []
+    end
   end
 end

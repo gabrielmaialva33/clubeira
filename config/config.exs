@@ -11,6 +11,27 @@ config :clubeira,
   ecto_repos: [Clubeira.Repo],
   generators: [timestamp_type: :utc_datetime, binary_id: true]
 
+config :argon2_elixir,
+  t_cost: 3,
+  m_cost: 16,
+  parallelism: 4
+
+config :clubeira, Clubeira.Security.PasswordGate, max_concurrency: 8
+
+config :clubeira, Clubeira.Accounts.SessionJanitor,
+  enabled: true,
+  initial_delay_ms: 60_000,
+  interval_ms: 3_600_000,
+  retention_seconds: 30 * 24 * 60 * 60
+
+config :clubeira, ClubeiraWeb.Plugs.LoginRateLimit,
+  limiter: Clubeira.Security.LoginRateLimiter,
+  limits: [
+    global: [scale_ms: 1_000, limit: 40],
+    ip: [scale_ms: 60_000, limit: 20],
+    identity: [scale_ms: 900_000, limit: 10]
+  ]
+
 # Configure the endpoint
 config :clubeira, ClubeiraWeb.Endpoint,
   url: [host: "localhost"],

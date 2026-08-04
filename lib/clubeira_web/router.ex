@@ -26,6 +26,10 @@ defmodule ClubeiraWeb.Router do
     plug ClubeiraWeb.Plugs.ApiAuth
   end
 
+  pipeline :login_api do
+    plug ClubeiraWeb.Plugs.LoginRateLimit
+  end
+
   scope "/", ClubeiraWeb do
     pipe_through :browser
 
@@ -39,9 +43,14 @@ defmodule ClubeiraWeb.Router do
   end
 
   scope "/api/v1", ClubeiraWeb do
-    pipe_through :api
+    pipe_through [:api, :login_api]
 
     post "/auth/sessions", AuthSessionController, :create
+  end
+
+  scope "/api/v1", ClubeiraWeb do
+    pipe_through :api
+
     get "/polos/:polo_slug/catalog", CatalogController, :show
   end
 

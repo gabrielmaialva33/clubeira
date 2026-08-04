@@ -6,6 +6,7 @@ defmodule ClubeiraWeb.Plugs.ApiAuth do
   import Plug.Conn
 
   alias Clubeira.Accounts
+  alias Clubeira.Accounts.RequestContext
   alias ClubeiraWeb.ErrorJSON
 
   @behaviour Plug
@@ -15,8 +16,10 @@ defmodule ClubeiraWeb.Plugs.ApiAuth do
 
   @impl true
   def call(conn, _options) do
+    context = RequestContext.new!(conn.assigns.request_id)
+
     with {:ok, token} <- bearer_token(conn),
-         {:ok, scope} <- Accounts.fetch_scope_by_api_token(token) do
+         {:ok, scope} <- Accounts.fetch_scope_by_api_token(token, context) do
       conn
       |> put_resp_header("cache-control", "private, no-store")
       |> assign(:current_account_scope, scope)

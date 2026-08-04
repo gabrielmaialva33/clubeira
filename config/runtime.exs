@@ -41,6 +41,55 @@ if config_env() == :dev do
 end
 
 if config_env() == :prod do
+  integer_in_range! = fn name, default, range ->
+    value = System.get_env(name, Integer.to_string(default))
+
+    case Integer.parse(value) do
+      {parsed, ""} ->
+        if parsed in range do
+          parsed
+        else
+          raise "#{name} must be an integer in #{inspect(range)}, got: #{inspect(value)}"
+        end
+
+      _invalid ->
+        raise "#{name} must be an integer in #{inspect(range)}, got: #{inspect(value)}"
+    end
+  end
+
+  config :argon2_elixir,
+    t_cost: integer_in_range!.("ARGON2_T_COST", 3, 2..10),
+    m_cost: integer_in_range!.("ARGON2_M_COST", 16, 16..20),
+    parallelism: integer_in_range!.("ARGON2_PARALLELISM", 4, 1..16)
+
+  config :clubeira, Clubeira.Security.PasswordGate,
+    max_concurrency: integer_in_range!.("ARGON2_MAX_CONCURRENCY", 8, 1..64)
+
+  config :clubeira, ClubeiraWeb.Plugs.LoginRateLimit,
+    limiter: Clubeira.Security.LoginRateLimiter,
+    limits: [
+      global: [
+        scale_ms: 1_000,
+        limit: integer_in_range!.("LOGIN_RATE_GLOBAL_PER_SECOND", 40, 1..10_000)
+      ],
+      ip: [
+        scale_ms: 60_000,
+        limit: integer_in_range!.("LOGIN_RATE_IP_PER_MINUTE", 20, 1..10_000)
+      ],
+      identity: [
+        scale_ms: 900_000,
+        limit: integer_in_range!.("LOGIN_RATE_IDENTITY_PER_15_MINUTES", 10, 1..10_000)
+      ]
+    ]
+
+  retention_days = integer_in_range!.("SESSION_RETENTION_DAYS", 30, 1..365)
+
+  config :clubeira, Clubeira.Accounts.SessionJanitor,
+    enabled: true,
+    initial_delay_ms: 60_000,
+    interval_ms: 3_600_000,
+    retention_seconds: retention_days * 24 * 60 * 60
+
   database_role_mode = System.get_env("CLUBEIRA_DATABASE_ROLE_MODE", "runtime")
 
   {database_url, database_role_options} =

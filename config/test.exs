@@ -25,7 +25,19 @@ config :clubeira, ClubeiraWeb.Endpoint,
 config :clubeira, Clubeira.Mailer, adapter: Swoosh.Adapters.Test
 
 # Keep password hashing semantics while making the test suite fast.
-config :argon2_elixir, t_cost: 1, m_cost: 8
+config :argon2_elixir, t_cost: 1, m_cost: 8, parallelism: 1
+
+config :clubeira, Clubeira.Security.PasswordGate, max_concurrency: 2
+
+config :clubeira, Clubeira.Accounts.SessionJanitor, enabled: false
+
+config :clubeira, ClubeiraWeb.Plugs.LoginRateLimit,
+  limiter: Clubeira.Security.LoginRateLimiter,
+  limits: [
+    global: [scale_ms: 1_000, limit: 10_000],
+    ip: [scale_ms: 60_000, limit: 10_000],
+    identity: [scale_ms: 900_000, limit: 10_000]
+  ]
 
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false

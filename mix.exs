@@ -50,6 +50,7 @@ defmodule Clubeira.MixProject do
       {:ecto_sql, "~> 3.13"},
       {:postgrex, ">= 0.0.0"},
       {:argon2_elixir, "~> 4.1"},
+      {:hammer, "~> 7.4"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.2.0"},
