@@ -1,15 +1,42 @@
 # Clubeira
 
-Fundação backend de um SaaS multi-tenant para clubes de vouchers por assinatura.
-Um único produto atende vários polos independentes — cidades, regiões ou
+Backend de um SaaS multi-tenant para clubes de vouchers por assinatura. Um
+único produto atende vários polos independentes — cidades, regiões ou
 franquias — e o mesmo usuário pode manter contratos, ciclos e benefícios
 separados em cada um deles.
 
-O estado atual já inclui a base de domínio e persistência, catálogo público por
-polo, autenticação por sessão bearer revogável, descoberta de assinaturas
-multi-polo, carteira de vouchers, isolamento por RLS, seeds/factories e o
-núcleo transacional de resgate. Cobrança integrada e o protocolo de QR entram
-nas próximas fatias verticais.
+O projeto segue uma arquitetura de monólito modular em Elixir/Phoenix, com
+PostgreSQL, domínio normalizado e isolamento por Row-Level Security (RLS).
+
+## O que já funciona
+
+- catálogo público, autenticação por sessão bearer revogável, descoberta de
+  assinaturas multi-polo e carteira de vouchers;
+- planos, contratos, ciclos e alocações de benefício independentes por polo;
+- checkout e liquidação de pagamento transacionais, idempotentes e neutros em
+  relação ao provedor;
+- contas de recebimento globais vinculadas explicitamente a cada polo, com
+  vigência e integridade referencial entre tenant e conta;
+- resgate online atômico, com elegibilidade, proteção contra replay, ledger,
+  auditoria, eventos de domínio e outbox;
+- migrations, seeds, factories, RLS forçado e testes de concorrência contra
+  bancos isolados reais.
+
+O fluxo de venda implementado no domínio é:
+
+```text
+checkout autenticado
+  -> pedido aguardando pagamento
+  -> captura autenticada pelo adaptador do provedor
+  -> pagamento e pedido liquidado
+  -> contrato e ciclo de benefício
+  -> alocações de vouchers
+```
+
+A liquidação persiste esse resultado de forma atômica e aceita reprocessamento
+seguro. O adaptador HTTP/webhook do PSP e o protocolo de QR ainda são bordas a
+serem implementadas; o core não recebe webhook bruto nem confia em prova não
+autenticada.
 
 ## Subir o projeto
 
@@ -55,9 +82,10 @@ de assinaturas também usa cursor: `?limit=20&after=...`, com limite máximo de
 
 ## Banco e multi-tenancy
 
-O banco usa um schema PostgreSQL compartilhado e normalizado. Dados tenant
-carregam `polo_id`; chaves estrangeiras compostas impedem referências entre
-polos e todas as tabelas com `polo_id` são protegidas por RLS forçado.
+O banco usa um único schema PostgreSQL, compartilhado pelos polos e
+normalizado. Dados tenant carregam `polo_id`; chaves estrangeiras compostas
+impedem referências entre polos e todas as tabelas com `polo_id` são protegidas
+por RLS forçado.
 
 Existem credenciais locais diferentes para cada responsabilidade:
 
@@ -98,6 +126,13 @@ Ele publica o catálogo comercial vigente do polo; disponibilidade individual,
 janelas e blackouts são regras da elegibilidade de resgate, não dessa vitrine
 pública.
 
+As contas de recebimento ficam em `merchant_accounts` e podem ser
+compartilhadas entre polos. A relação normalizada `polo_merchant_accounts`
+define quais contas cada polo pode usar, sua função e seu período de vigência.
+Pagamentos, intents e eventos do provedor usam chaves compostas para impedir
+que uma conta seja referenciada pelo tenant errado. O runtime lê apenas
+vínculos vigentes do polo atual; mutações são reservadas à role dona do schema.
+
 ```sh
 mix db.migrate  # sobe o container e migra com clubeira_migrator
 mix db.reset    # recria o schema de desenvolvimento e reaplica as seeds
@@ -118,13 +153,22 @@ mix precommit   # formata e executa o quality gate
 
 A CI repete as migrations a partir de um banco vazio, testa o rollback total,
 roda os gates de qualidade, compila em produção e constrói os assets.
+Localmente, `CLUBEIRA_TEST_DB_POOL_SIZE` permite ajustar o pool da suíte sem
+alterar a configuração versionada.
+
+## Limites atuais
+
+- `Clubeira.Billing.place_order/2` é a entrada autenticada do checkout;
+- `Clubeira.Billing.settle_payment/2` é uma porta interna e só aceita uma
+  captura cuja autenticidade já foi verificada pelo futuro adaptador do PSP;
+- `Clubeira.Redemptions.confirm/2` recebe uma confirmação já autenticada; token,
+  QR e autenticação do ponto de validação pertencem à borda de entrada;
+- a outbox é persistida atomicamente, mas o publicador assíncrono ainda será uma
+  fatia própria;
+- renovação automática, reembolso e chargeback ainda não fazem parte do fluxo
+  operacional.
 
 ## Documentação
 
 - [Arquitetura](docs/architecture.md)
 - [Desenvolvimento](docs/development.md)
-
-O limite de segurança do resgate também está documentado em
-`Clubeira.Redemptions`: `confirm/2` recebe apenas uma confirmação já
-autenticada. Token, QR e autenticação do ponto de validação pertencem à borda
-de entrada e não podem confiar em IDs enviados pelo cliente.
