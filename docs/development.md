@@ -32,7 +32,9 @@ mix phx.server
 O alias executa, nesta ordem: dependências, container saudável, criação do
 banco, migrations, seeds, instalação e build dos assets. As seeds são
 determinísticas e idempotentes: representam Sobral, Londrina, uma franquia nos
-dois polos e um parceiro local apenas em Sobral.
+dois polos, um parceiro local apenas em Sobral e um membro com assinatura e
+ciclo independentes nos dois polos. A senha local padrão é
+`clubeira-demo-local`; use `CLUBEIRA_DEMO_PASSWORD` para substituí-la.
 
 Factories vivem em `support/factory.ex` e são compiladas apenas em `dev` e
 `test`. Dados estruturais das seeds sempre recebem IDs e valores estáveis;
@@ -128,6 +130,23 @@ end)
 
 Não aceite `polo_id` arbitrário como autorização, não use queries tenant fora
 dessa fronteira e não coloque `SET ROLE` ou `set_config` espalhado em contexts.
+
+Uma leitura autenticada que precisa apenas descobrir polos começa com o escopo
+global do ator e entra em cada tenant sem trocar ator/request:
+
+```elixir
+actor_scope = Clubeira.Tenancy.ActorScope.new!(user_id, request_id)
+
+Clubeira.Repo.transact_as_actor(actor_scope, fn ->
+  # leia apenas a projeção global autorizada e use transact_in_polo/3
+  # para consultar contratos, ciclos e alocações
+  {:ok, resultado}
+end)
+```
+
+Tokens bearer crus nunca entram em fixtures, logs ou banco. Testes criam a
+senha via `Clubeira.Accounts.set_password/2`, autenticam pela API e verificam
+revogação/expiração em vez de fabricar um token persistido.
 
 ## Operação local
 

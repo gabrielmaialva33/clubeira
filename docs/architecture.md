@@ -54,6 +54,14 @@ registro tenant para confirmar status e acessar catálogo ou qualquer outro
 dado local. A tabela também usa RLS: resolução tem policy pública de leitura,
 enquanto inserção, alteração e remoção exigem o `polo_id` ativo.
 
+Há uma segunda projeção global e mínima para o caso autenticado:
+`user_contract_polo_routes`. Um trigger em `access_contracts` registra somente
+o par `user_id + polo_id` do comprador. A policy de leitura compara `user_id`
+com `app.current_actor_user_id`; sem ator, a relação aparece vazia. Essa
+projeção serve para localizar células/polos e não replica status do contrato,
+ciclo, plano ou saldo. Depois de descobrir cada polo, a aplicação precisa
+entrar em sua RLS e reconsultar a fonte de verdade.
+
 Três mecanismos trabalham juntos:
 
 1. **Integridade relacional:** FKs compostas incluem `polo_id`, impedindo que
@@ -61,7 +69,7 @@ Três mecanismos trabalham juntos:
 2. **Escopo na aplicação:** `Clubeira.Tenancy.Scope` carrega polo, ator e
    request. `Clubeira.Repo.transact_in_polo/3` grava esses valores com
    `set_config(..., true)`, portanto eles existem apenas durante a transação.
-3. **Defesa no banco:** `FORCE ROW LEVEL SECURITY` protege `polos`, 59 tabelas
+3. **Defesa no banco:** `FORCE ROW LEVEL SECURITY` protege todas as relações
    tenant e `outbox_messages`. A role da aplicação não é superuser e não pode
    usar `BYPASSRLS`.
 
@@ -87,6 +95,35 @@ ativos no instante da consulta. Janelas semanais e blackouts continuam
 publicados e são avaliados junto de contrato, ciclo e saldo na tentativa de
 resgate. Quando o produto precisar exibir “disponível agora”, isso será um
 campo derivado explícito, sem mudar silenciosamente o significado do catálogo.
+
+## Identidade e API do membro
+
+`users` continua sendo a identidade global mínima. Senhas ficam na relação 1:1
+`user_password_credentials`, nunca em `users`, e são derivadas com Argon2id.
+Sessões usam 32 bytes aleatórios; somente o digest SHA-256 é persistido em
+`user_sessions`, permitindo lookup indexado, expiração e revogação sem tornar
+um vazamento de banco equivalente a roubo imediato dos bearers ativos.
+
+`ClubeiraWeb.Plugs.ApiAuth` aceita exatamente um header `Authorization: Bearer`,
+valida sessão e usuário ativos e constrói `Clubeira.Accounts.Scope`. O cliente
+não envia `user_id`, `actor_user_id` nem roles. Para descoberta cross-polo, o
+context abre primeiro `Clubeira.Tenancy.ActorScope`; cada resultado é reaberto
+com `Clubeira.Tenancy.Scope` usando o mesmo ator e `request_id`. Trocar ator,
+request ou polo dentro de um escopo existente falha fechado.
+
+As bordas iniciais são:
+
+- `POST /api/v1/auth/sessions` — cria uma sessão opaca;
+- `DELETE /api/v1/auth/session` — revoga a sessão corrente;
+- `GET /api/v1/me/subscriptions` — agrega contratos comprados em vários polos;
+- `GET /api/v1/polos/:slug/me/vouchers` — lê o ciclo e as alocações do polo.
+
+A carteira inclui alocações esgotadas para que a interface represente o uso no
+ciclo, mas uma confirmação ainda executa toda a elegibilidade transacional.
+Blackout, janela, dispositivo e concorrência nunca são autorizados pelo read
+model. O primeiro corte atende contratos individuais com sujeito compartilhado
+pelo contrato; vínculo de dependentes será uma fatia explícita antes de expor
+alocações `per_beneficiary`.
 
 ## Assinatura, ciclo e direito de uso
 
