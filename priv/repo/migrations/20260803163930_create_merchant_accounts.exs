@@ -23,6 +23,10 @@ defmodule Clubeira.Repo.Migrations.CreateMerchantAccounts do
              name: :merchant_accounts_provider_reference_uidx
            )
 
+    create unique_index(:merchant_accounts, [:id, :payment_provider_id],
+             name: :merchant_accounts_provider_identity_uidx
+           )
+
     create constraint(:merchant_accounts, :merchant_accounts_kind_check,
              check: "kind IN ('consumer', 'platform')"
            )

@@ -22,6 +22,21 @@ defmodule Clubeira.Billing.DatabaseContractTest do
   test "payment references cannot mix merchant accounts" do
     definitions = constraint_definitions()
 
+    assert definitions["payment_provider_events_account_fkey"] =~
+             "FOREIGN KEY (merchant_account_id, payment_provider_id)"
+
+    assert definitions["payment_provider_events_account_fkey"] =~
+             "REFERENCES merchant_accounts(id, payment_provider_id)"
+
+    assert definitions["payment_provider_events_polo_merchant_account_fkey"] =~
+             "FOREIGN KEY (polo_id, merchant_account_id)"
+
+    assert definitions["payment_provider_events_polo_merchant_account_fkey"] =~
+             "REFERENCES polo_merchant_accounts(polo_id, merchant_account_id)"
+
+    assert definitions["payment_intents_polo_merchant_account_fkey"] =~
+             "FOREIGN KEY (polo_id, merchant_account_id)"
+
     assert definitions["payments_intent_fkey"] =~
              "FOREIGN KEY (payment_intent_id, polo_id, merchant_account_id)"
 
@@ -60,6 +75,9 @@ defmodule Clubeira.Billing.DatabaseContractTest do
       WHERE constraint_record.conname IN (
         'order_items_price_fkey',
         'access_contracts_order_item_fkey',
+        'payment_provider_events_account_fkey',
+        'payment_provider_events_polo_merchant_account_fkey',
+        'payment_intents_polo_merchant_account_fkey',
         'payments_intent_fkey',
         'benefit_cycles_package_assignment_fkey',
         'entitlement_allocations_package_item_fkey'

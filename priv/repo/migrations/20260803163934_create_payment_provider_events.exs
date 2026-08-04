@@ -10,7 +10,12 @@ defmodule Clubeira.Repo.Migrations.CreatePaymentProviderEvents do
           null: false
 
       add :merchant_account_id,
-          references(:merchant_accounts, type: :uuid, on_delete: :restrict),
+          references(:merchant_accounts,
+            type: :uuid,
+            with: [payment_provider_id: :payment_provider_id],
+            name: :payment_provider_events_account_fkey,
+            on_delete: :restrict
+          ),
           null: false
 
       add :polo_id, references(:polos, type: :uuid, on_delete: :restrict)

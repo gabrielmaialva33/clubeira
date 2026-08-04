@@ -41,5 +41,9 @@ defmodule Clubeira.Repo.Migrations.CreateOrders do
              check:
                "status IN ('pending', 'awaiting_payment', 'paid', 'cancelled', 'expired', 'refunded')"
            )
+
+    create constraint(:orders, :orders_placed_at_check,
+             check: "status = 'pending' OR placed_at IS NOT NULL"
+           )
   end
 end

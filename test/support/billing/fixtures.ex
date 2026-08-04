@@ -32,6 +32,13 @@ defmodule Clubeira.BillingFixtures do
         provider = Factory.insert(:payment_provider)
         merchant_account = Factory.insert(:merchant_account, payment_provider: provider)
 
+        polo_merchant_account =
+          Factory.insert(:polo_merchant_account,
+            polo: polo,
+            payment_provider: provider,
+            merchant_account: merchant_account
+          )
+
         {:ok,
          %{
            member_scope: member_scope,
@@ -48,6 +55,7 @@ defmodule Clubeira.BillingFixtures do
            assignment: benefits.assignment,
            provider: provider,
            merchant_account: merchant_account,
+           polo_merchant_account: polo_merchant_account,
            captured_at: DateTime.add(DateTime.utc_now(:microsecond), -1, :second),
            external_event_id: "evt-#{uuid7()}",
            provider_reference: "pay-#{uuid7()}"

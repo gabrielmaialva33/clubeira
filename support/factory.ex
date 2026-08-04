@@ -15,6 +15,7 @@ defmodule Clubeira.Factory do
   alias Clubeira.Billing.PaymentIntent
   alias Clubeira.Billing.PaymentProvider
   alias Clubeira.Billing.PaymentProviderEvent
+  alias Clubeira.Billing.PoloMerchantAccount
   alias Clubeira.Catalog.BenefitOffer
   alias Clubeira.Catalog.BenefitOfferVersion
   alias Clubeira.Catalog.BenefitOfferVersionPlace
@@ -346,6 +347,14 @@ defmodule Clubeira.Factory do
       name: "Conta consumidor #{number}",
       provider_account_reference: "merchant-#{number}",
       status: "active"
+    }
+  end
+
+  def polo_merchant_account_factory do
+    %PoloMerchantAccount{
+      role: "primary",
+      valid_during: tstz_range(@default_range_start),
+      inserted_at: timestamp()
     }
   end
 
