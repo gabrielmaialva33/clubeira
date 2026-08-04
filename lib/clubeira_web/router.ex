@@ -22,6 +22,10 @@ defmodule ClubeiraWeb.Router do
     plug :put_secure_browser_headers, @secure_headers
   end
 
+  pipeline :authenticated_api do
+    plug ClubeiraWeb.Plugs.ApiAuth
+  end
+
   scope "/", ClubeiraWeb do
     pipe_through :browser
 
@@ -37,7 +41,16 @@ defmodule ClubeiraWeb.Router do
   scope "/api/v1", ClubeiraWeb do
     pipe_through :api
 
+    post "/auth/sessions", AuthSessionController, :create
     get "/polos/:polo_slug/catalog", CatalogController, :show
+  end
+
+  scope "/api/v1", ClubeiraWeb do
+    pipe_through [:api, :authenticated_api]
+
+    delete "/auth/session", AuthSessionController, :delete
+    get "/me/subscriptions", SubscriptionController, :index
+    get "/polos/:polo_slug/me/vouchers", WalletController, :index
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
