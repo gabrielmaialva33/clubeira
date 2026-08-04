@@ -35,9 +35,13 @@ defmodule Clubeira.Redemptions.EligibilityTest do
     assert_rejected(fixture, :cycle_inactive)
   end
 
-  test "rejects an allocation inconsistent with its package item" do
-    fixture = RedemptionsFixtures.create!(invalid_entitlement_configuration: true)
-    assert_rejected(fixture, :entitlement_configuration_invalid)
+  test "prevents an allocation inconsistent with its package item" do
+    error =
+      assert_raise Postgrex.Error, fn ->
+        RedemptionsFixtures.create!(invalid_entitlement_configuration: true)
+      end
+
+    assert error.postgres.constraint == "entitlement_allocations_package_item_fkey"
   end
 
   test "rejects an inactive benefit offer" do

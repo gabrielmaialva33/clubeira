@@ -59,5 +59,22 @@ defmodule Clubeira.Repo.Migrations.CreateBenefitOfferVersions do
              check:
                "NOT isempty(effective_during) AND NOT lower_inf(effective_during) AND lower_inc(effective_during) AND NOT upper_inc(effective_during)"
            )
+
+    execute(
+      """
+      ALTER TABLE benefit_offer_versions
+      ADD CONSTRAINT benefit_offer_versions_published_effective_excl
+      EXCLUDE USING gist (
+        polo_id WITH =,
+        benefit_offer_id WITH =,
+        effective_during WITH &&
+      )
+      WHERE (status = 'published')
+      """,
+      """
+      ALTER TABLE benefit_offer_versions
+      DROP CONSTRAINT benefit_offer_versions_published_effective_excl
+      """
+    )
   end
 end

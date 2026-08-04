@@ -21,7 +21,10 @@ defmodule Clubeira.Repo.Migrations.CreateTenantIdempotencyKeys do
       timestamps(@timestamps_opts)
     end
 
-    create unique_index(:tenant_idempotency_keys, [:polo_id, :scope, :idempotency_key],
+    create unique_index(
+             :tenant_idempotency_keys,
+             [:polo_id, :user_id, :scope, :idempotency_key],
+             nulls_distinct: false,
              name: :tenant_idempotency_keys_scope_uidx
            )
 

@@ -20,7 +20,11 @@ defmodule Clubeira.Repo.Migrations.CreateEntitlementAllocations do
       add :benefit_package_item_id,
           references(:benefit_package_items,
             type: :uuid,
-            with: [polo_id: :polo_id],
+            with: [
+              polo_id: :polo_id,
+              entitlement_scope_id: :entitlement_scope_id,
+              allocation_kind: :consumption_unit
+            ],
             name: :entitlement_allocations_package_item_fkey,
             on_delete: :restrict
           ),

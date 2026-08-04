@@ -12,7 +12,10 @@ defmodule Clubeira.Repo.Migrations.CreateAccessContracts do
       add :order_item_id,
           references(:order_items,
             type: :uuid,
-            with: [polo_id: :polo_id],
+            with: [
+              polo_id: :polo_id,
+              product_offering_version_id: :product_offering_version_id
+            ],
             name: :access_contracts_order_item_fkey,
             on_delete: :restrict
           ),
@@ -55,6 +58,10 @@ defmodule Clubeira.Repo.Migrations.CreateAccessContracts do
     end
 
     create unique_index(:access_contracts, [:id, :polo_id], name: :access_contracts_id_polo_uidx)
+
+    create unique_index(:access_contracts, [:polo_id, :order_item_id],
+             name: :access_contracts_order_item_uidx
+           )
 
     create index(:access_contracts, [:purchaser_user_id, :status])
     create index(:access_contracts, [:polo_id, :product_offering_version_id])

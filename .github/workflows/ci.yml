@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, master]
 
 permissions:
   contents: read
@@ -76,42 +76,66 @@ jobs:
             psql --host localhost --username clubeira_app --dbname clubeira_dev \
             --file docker/postgres/verify-runtime-role.sql
 
-      - name: Verify reversible schema and route migration guards
+      - name: Verify reversible final schema
         run: |
           mix ecto.create
           mix ecto.migrate
           PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
             --host localhost \
             --username postgres \
             --dbname clubeira_test \
-            --command "WITH city AS (INSERT INTO cities (country_code, subdivision_code, external_code, name, timezone, status) VALUES ('BR', 'BR-CI', 'rollback-orphan-city', 'Rollback orphan city', 'America/Sao_Paulo', 'active') RETURNING id) INSERT INTO polos (city_id, name, timezone, status) SELECT id, 'Rollback orphan polo', 'America/Sao_Paulo', 'active' FROM city;"
+            --command "
+              WITH city AS (
+                INSERT INTO cities (
+                  country_code, subdivision_code, external_code, name, timezone, status
+                ) VALUES (
+                  'BR', 'BR-CI', 'rollback-city', 'Rollback city',
+                  'America/Sao_Paulo', 'active'
+                )
+                RETURNING id
+              ), polo AS (
+                INSERT INTO polos (city_id, name, timezone, status)
+                SELECT id, 'Rollback polo', 'America/Sao_Paulo', 'active'
+                FROM city
+                RETURNING id
+              )
+              INSERT INTO polo_routes (polo_id, slug)
+              SELECT id, 'rollback-polo' FROM polo;
+            "
           mix ecto.rollback --all
-          mix ecto.migrate --to 20260803223641
-          PGPASSWORD=postgres psql \
-            --host localhost \
-            --username postgres \
-            --dbname clubeira_test \
-            --command "WITH city AS (INSERT INTO cities (country_code, subdivision_code, external_code, name, timezone, status) VALUES ('BR', 'BR-CI', 'legacy-slug-city', 'Legacy slug city', 'America/Sao_Paulo', 'active') RETURNING id) INSERT INTO polos (city_id, slug, name, timezone, status) SELECT id, 'Legacy_Slug', 'Legacy slug polo', 'America/Sao_Paulo', 'active' FROM city;"
-          if migration_output=$(mix ecto.migrate --quiet 2>&1); then
-            echo "route migration accepted an invalid legacy slug"
-            exit 1
-          fi
-          echo "$migration_output"
-          if [[ "$migration_output" != *"cannot migrate 1 invalid legacy polo slug(s)"* ]]; then
-            echo "route migration failed without the expected legacy slug diagnostic"
-            exit 1
-          fi
-          PGPASSWORD=postgres psql \
-            --host localhost \
-            --username postgres \
-            --dbname clubeira_test \
-            --command "UPDATE polos SET slug = 'legacy-slug' WHERE slug = 'Legacy_Slug';"
           mix ecto.migrate
-          PGPASSWORD=postgres psql \
+          if route_output=$(PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
             --host localhost \
             --username postgres \
             --dbname clubeira_test \
-            --command "DELETE FROM polo_routes WHERE slug = 'legacy-slug'; DELETE FROM polos WHERE name = 'Legacy slug polo'; DELETE FROM cities WHERE external_code = 'legacy-slug-city';"
+            --command "
+              WITH city AS (
+                INSERT INTO cities (
+                  country_code, subdivision_code, external_code, name, timezone, status
+                ) VALUES (
+                  'BR', 'BR-CI', 'invalid-route-city', 'Invalid route city',
+                  'America/Sao_Paulo', 'active'
+                )
+                RETURNING id
+              ), polo AS (
+                INSERT INTO polos (city_id, name, timezone, status)
+                SELECT id, 'Invalid route polo', 'America/Sao_Paulo', 'active'
+                FROM city
+                RETURNING id
+              )
+              INSERT INTO polo_routes (polo_id, slug)
+              SELECT id, 'Invalid_Route' FROM polo;
+            " 2>&1); then
+            echo "polo_routes accepted an invalid slug"
+            exit 1
+          fi
+          echo "$route_output"
+          if [[ "$route_output" != *"polo_routes_slug_check"* ]]; then
+            echo "invalid route failed without the expected constraint"
+            exit 1
+          fi
 
       - name: Run quality gate
         run: mix quality

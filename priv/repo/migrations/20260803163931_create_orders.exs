@@ -23,7 +23,9 @@ defmodule Clubeira.Repo.Migrations.CreateOrders do
 
     create unique_index(:orders, [:id, :polo_id], name: :orders_id_polo_uidx)
     create unique_index(:orders, [:polo_id, :order_number])
-    create unique_index(:orders, [:polo_id, :idempotency_key])
+    create unique_index(:orders, [:polo_id, :purchaser_user_id, :idempotency_key],
+             name: :orders_actor_idempotency_uidx
+           )
     create index(:orders, [:purchaser_user_id, :inserted_at])
 
     create constraint(:orders, :orders_amounts_check,

@@ -50,6 +50,12 @@ defmodule Clubeira.Repo.Migrations.CreateBenefitPackageItems do
 
     create unique_index(
              :benefit_package_items,
+             [:id, :polo_id, :entitlement_scope_id, :consumption_unit],
+             name: :benefit_package_items_allocation_identity_uidx
+           )
+
+    create unique_index(
+             :benefit_package_items,
              [
                :polo_id,
                :benefit_package_version_id,

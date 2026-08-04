@@ -18,6 +18,13 @@ defmodule Clubeira.Repo.Migrations.CreateUserSessions do
              name: :user_sessions_active_lookup_idx
            )
 
+    create index(:user_sessions, [:expires_at], name: :user_sessions_expires_at_idx)
+
+    create index(:user_sessions, [:revoked_at],
+             where: "revoked_at IS NOT NULL",
+             name: :user_sessions_revoked_at_idx
+           )
+
     create constraint(:user_sessions, :user_sessions_token_hash_check,
              check: "octet_length(token_hash) = 32"
            )

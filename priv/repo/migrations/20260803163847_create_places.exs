@@ -19,7 +19,16 @@ defmodule Clubeira.Repo.Migrations.CreatePlaces do
 
       add :slug, :citext, null: false
       add :name, :text, null: false
-      add :timezone, :text, null: false
+
+      add :timezone,
+          references(:time_zones,
+            column: :name,
+            type: :text,
+            name: :places_timezone_fkey,
+            on_delete: :restrict
+          ),
+          null: false
+
       add :status, :text, null: false, default: "active"
 
       timestamps(@timestamps_opts)

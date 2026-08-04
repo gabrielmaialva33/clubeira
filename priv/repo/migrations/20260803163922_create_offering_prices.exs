@@ -27,6 +27,13 @@ defmodule Clubeira.Repo.Migrations.CreateOfferingPrices do
     end
 
     create unique_index(:offering_prices, [:id, :polo_id], name: :offering_prices_id_polo_uidx)
+
+    create unique_index(
+             :offering_prices,
+             [:id, :polo_id, :product_offering_version_id],
+             name: :offering_prices_offering_identity_uidx
+           )
+
     create index(:offering_prices, [:polo_id, :product_offering_version_id])
 
     create constraint(:offering_prices, :offering_prices_amount_check,

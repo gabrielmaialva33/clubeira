@@ -33,7 +33,18 @@ defmodule Clubeira.Repo.Migrations.CreatePaymentIntents do
 
     create unique_index(:payment_intents, [:id, :polo_id], name: :payment_intents_id_polo_uidx)
 
-    create unique_index(:payment_intents, [:polo_id, :idempotency_key])
+    create unique_index(:payment_intents, [:polo_id, :order_id, :idempotency_key],
+             name: :payment_intents_order_idempotency_uidx
+           )
+
+    create unique_index(:payment_intents, [:id, :polo_id, :merchant_account_id],
+             name: :payment_intents_merchant_identity_uidx
+           )
+
+    create unique_index(:payment_intents, [:polo_id, :order_id],
+             where: "status NOT IN ('failed', 'cancelled', 'expired')",
+             name: :payment_intents_live_order_uidx
+           )
 
     create unique_index(:payment_intents, [:merchant_account_id, :provider_reference],
              where: "provider_reference IS NOT NULL",

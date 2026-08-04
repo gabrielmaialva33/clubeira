@@ -69,7 +69,12 @@ defmodule Clubeira.Repo.Migrations.CreateRedemptionAttempts do
              name: :redemption_attempts_allocation_identity_uidx
            )
 
-    create unique_index(:redemption_attempts, [:polo_id, :idempotency_key])
+    create unique_index(
+             :redemption_attempts,
+             [:polo_id, :requesting_user_id, :idempotency_key],
+             name: :redemption_attempts_actor_idempotency_uidx
+           )
+
     create unique_index(:redemption_attempts, [:polo_id, :request_nonce_hash])
     create index(:redemption_attempts, [:polo_id, :polo_place_id, :requested_at])
     create index(:redemption_attempts, [:requesting_user_id, :requested_at])

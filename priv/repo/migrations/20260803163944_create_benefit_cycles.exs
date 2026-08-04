@@ -27,7 +27,7 @@ defmodule Clubeira.Repo.Migrations.CreateBenefitCycles do
       add :offering_package_assignment_id,
           references(:product_offering_package_assignments,
             type: :uuid,
-            with: [polo_id: :polo_id],
+            with: [polo_id: :polo_id, benefit_package_version_id: :benefit_package_version_id],
             name: :benefit_cycles_package_assignment_fkey,
             on_delete: :restrict
           ),

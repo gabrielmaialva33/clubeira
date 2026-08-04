@@ -16,30 +16,6 @@ defmodule Clubeira.Repo.Migrations.CreateUserContractPoloRoutes do
 
     create index(:user_contract_polo_routes, [:polo_id])
 
-    execute("""
-    CREATE POLICY access_contracts_owner_route_backfill
-    ON access_contracts
-    FOR SELECT
-    USING (
-      current_user = pg_get_userbyid(
-        (
-          SELECT relowner
-          FROM pg_class
-          WHERE oid = 'public.access_contracts'::regclass
-        )
-      )
-    )
-    """)
-
-    execute("""
-    INSERT INTO user_contract_polo_routes (user_id, polo_id, first_contract_at)
-    SELECT purchaser_user_id, polo_id, min(inserted_at)
-    FROM access_contracts
-    GROUP BY purchaser_user_id, polo_id
-    """)
-
-    execute("DROP POLICY access_contracts_owner_route_backfill ON access_contracts")
-
     execute("ALTER TABLE user_contract_polo_routes ENABLE ROW LEVEL SECURITY")
     execute("ALTER TABLE user_contract_polo_routes FORCE ROW LEVEL SECURITY")
 
@@ -90,9 +66,13 @@ defmodule Clubeira.Repo.Migrations.CreateUserContractPoloRoutes do
     SET search_path = public, pg_temp
     AS $$
     BEGIN
-      INSERT INTO user_contract_polo_routes (user_id, polo_id, first_contract_at)
-      VALUES (NEW.purchaser_user_id, NEW.polo_id, NEW.inserted_at)
-      ON CONFLICT (user_id, polo_id) DO NOTHING;
+      BEGIN
+        INSERT INTO user_contract_polo_routes (user_id, polo_id, first_contract_at)
+        VALUES (NEW.purchaser_user_id, NEW.polo_id, NEW.inserted_at);
+      EXCEPTION
+        WHEN unique_violation THEN
+          NULL;
+      END;
 
       RETURN NEW;
     END

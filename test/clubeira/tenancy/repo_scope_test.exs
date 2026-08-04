@@ -100,16 +100,40 @@ defmodule Clubeira.Tenancy.RepoScopeTest do
       WHERE oid = 'public.user_contract_polo_routes'::regclass
       """)
 
+    %{rows: [[original_function_owner]]} =
+      Repo.query!("""
+      SELECT pg_get_userbyid(proowner)
+      FROM pg_proc
+      WHERE oid = 'public.maintain_user_contract_polo_route()'::regprocedure
+      """)
+
     try do
       Repo.query!(
         "CREATE ROLE #{owner_role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS"
       )
 
       Repo.query!("GRANT USAGE ON SCHEMA public TO #{owner_role}")
+      Repo.query!("GRANT SELECT, UPDATE ON access_contracts TO #{owner_role}")
       Repo.query!("ALTER TABLE user_contract_polo_routes OWNER TO #{owner_role}")
+      Repo.query!("ALTER FUNCTION maintain_user_contract_polo_route() OWNER TO #{owner_role}")
       Repo.query!("SET LOCAL ROLE #{owner_role}")
 
       assert Repo.aggregate(UserContractPoloRoute, :count) == 0
+
+      assert {:ok, %{num_rows: 1}} =
+               Repo.transact_in_polo(fixture.scope, fn ->
+                 result =
+                   Repo.query!(
+                     """
+                     UPDATE access_contracts
+                     SET purchaser_user_id = purchaser_user_id
+                     WHERE id = $1
+                     """,
+                     [Ecto.UUID.dump!(fixture.ids.access_contract)]
+                   )
+
+                 {:ok, result}
+               end)
 
       target_query =
         from(route in UserContractPoloRoute, where: route.user_id == ^fixture.ids.user)
@@ -124,6 +148,11 @@ defmodule Clubeira.Tenancy.RepoScopeTest do
                end)
     after
       Repo.query!("RESET ROLE")
+
+      Repo.query!(
+        "ALTER FUNCTION maintain_user_contract_polo_route() OWNER TO #{original_function_owner}"
+      )
+
       Repo.query!("ALTER TABLE user_contract_polo_routes OWNER TO #{original_owner}")
       Repo.query!("DROP OWNED BY #{owner_role}")
       Repo.query!("DROP ROLE IF EXISTS #{owner_role}")

@@ -9,7 +9,7 @@ defmodule Clubeira.Repo.Migrations.CreatePayments do
       add :payment_intent_id,
           references(:payment_intents,
             type: :uuid,
-            with: [polo_id: :polo_id],
+            with: [polo_id: :polo_id, merchant_account_id: :merchant_account_id],
             name: :payments_intent_fkey,
             on_delete: :restrict
           ),

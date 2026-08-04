@@ -32,6 +32,18 @@ defmodule Clubeira.Repo.Migrations.CreateProductOfferingPackageAssignments do
              name: :offering_package_assignments_id_polo_uidx
            )
 
+    create unique_index(
+             :product_offering_package_assignments,
+             [:id, :polo_id, :product_offering_version_id],
+             name: :offering_package_assignments_offering_identity_uidx
+           )
+
+    create unique_index(
+             :product_offering_package_assignments,
+             [:id, :polo_id, :benefit_package_version_id],
+             name: :offering_package_assignments_package_identity_uidx
+           )
+
     create index(
              :product_offering_package_assignments,
              [:polo_id, :product_offering_version_id],

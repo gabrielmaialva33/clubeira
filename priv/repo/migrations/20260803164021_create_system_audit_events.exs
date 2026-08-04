@@ -11,7 +11,6 @@ defmodule Clubeira.Repo.Migrations.CreateSystemAuditEvents do
       add :resource_id, :uuid
       add :request_id, :uuid
       add :correlation_id, :uuid
-      add :client_ip, :inet
       add :metadata, :map, null: false, default: %{}
       add :occurred_at, :timestamptz, null: false
       add :inserted_at, :timestamptz, null: false, default: fragment("now()")

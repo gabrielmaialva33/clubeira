@@ -27,7 +27,10 @@ defmodule Clubeira.Repo.Migrations.CreateOrderItems do
       add :offering_price_id,
           references(:offering_prices,
             type: :uuid,
-            with: [polo_id: :polo_id],
+            with: [
+              polo_id: :polo_id,
+              product_offering_version_id: :product_offering_version_id
+            ],
             name: :order_items_price_fkey,
             on_delete: :restrict
           ),
@@ -40,6 +43,11 @@ defmodule Clubeira.Repo.Migrations.CreateOrderItems do
     end
 
     create unique_index(:order_items, [:id, :polo_id], name: :order_items_id_polo_uidx)
+
+    create unique_index(:order_items, [:id, :polo_id, :product_offering_version_id],
+             name: :order_items_offering_identity_uidx
+           )
+
     create index(:order_items, [:polo_id, :order_id])
 
     create constraint(:order_items, :order_items_amounts_check,

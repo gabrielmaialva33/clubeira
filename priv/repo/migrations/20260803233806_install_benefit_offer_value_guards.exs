@@ -1,63 +1,7 @@
-defmodule Clubeira.Repo.Migrations.EnforceBenefitOfferValueContract do
+defmodule Clubeira.Repo.Migrations.InstallBenefitOfferValueGuards do
   use Ecto.Migration
 
   def up do
-    execute("ALTER TABLE benefit_offers NO FORCE ROW LEVEL SECURITY")
-    execute("ALTER TABLE benefit_offer_versions NO FORCE ROW LEVEL SECURITY")
-
-    execute("""
-    DO $$
-    BEGIN
-      IF EXISTS (
-        SELECT 1
-        FROM benefit_offer_versions AS version
-        JOIN benefit_offers AS offer
-          ON offer.id = version.benefit_offer_id
-         AND offer.polo_id = version.polo_id
-        WHERE
-          CASE offer.benefit_kind
-            WHEN 'discount_percentage' THEN
-              version.amount_value IS NOT NULL
-              OR version.currency IS NOT NULL
-              OR (
-                version.percentage_value IS NOT NULL
-                AND version.percentage_value > 100
-              )
-              OR (
-                version.status = 'published'
-                AND version.percentage_value IS NULL
-              )
-            WHEN 'discount_amount' THEN
-              version.percentage_value IS NOT NULL
-              OR (
-                version.amount_value IS NOT NULL
-                AND version.amount_value <= 0
-              )
-              OR (
-                version.status = 'published'
-                AND (
-                  version.amount_value IS NULL
-                  OR version.currency IS NULL
-                )
-              )
-            ELSE
-              version.percentage_value IS NOT NULL
-              OR version.amount_value IS NOT NULL
-              OR version.currency IS NOT NULL
-          END
-      ) THEN
-        RAISE EXCEPTION
-          USING
-            MESSAGE = 'existing benefit offer versions violate their benefit kind value contract',
-            HINT = 'repair incompatible values before retrying the migration';
-      END IF;
-    END
-    $$
-    """)
-
-    execute("ALTER TABLE benefit_offer_versions FORCE ROW LEVEL SECURITY")
-    execute("ALTER TABLE benefit_offers FORCE ROW LEVEL SECURITY")
-
     execute("""
     CREATE FUNCTION enforce_benefit_offer_version_value_contract()
     RETURNS trigger
