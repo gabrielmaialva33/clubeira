@@ -1,47 +1,139 @@
-This is a web application written using the Phoenix web framework.
+# Clubeira repository guide
 
-## Project guidelines
+## Produto e arquitetura
 
-- Use `mix precommit` alias when you are done with all changes and fix any pending issues
-- Use the already included and available `:req` (`Req`) library for HTTP requests, **avoid** `:httpoison`, `:tesla`, and `:httpc`. Req is included by default and is the preferred HTTP client for Phoenix apps
+Clubeira é um SaaS multi-tenant de clubes de vouchers por assinatura. Um único
+aplicativo atende vários polos independentes, normalmente cidades, regiões ou
+franquias. O usuário é global e pode manter contratos, ciclos e benefícios
+separados em cada polo.
 
-### Phoenix v1.8 guidelines
+A aplicação começa como um monólito modular em Elixir/Phoenix/Ecto. PostgreSQL
+é a fonte transacional de verdade; invariantes comerciais, auditoria, eventos e
+outbox permanecem na mesma transação. Não extraia serviços ou introduza
+consistência distribuída sem uma necessidade operacional medida.
 
-- **Always** begin your LiveView templates with `<Layouts.app flash={@flash} ...>` which wraps all inner content
-- The `MyAppWeb.Layouts` module is aliased in the `my_app_web.ex` file, so you can use it without needing to alias it again
-- Anytime you run into errors with no `current_scope` assign:
-  - You failed to follow the Authenticated Routes guidelines, or you failed to pass `current_scope` to `<Layouts.app>`
-  - **Always** fix the `current_scope` error by moving your routes to the proper `live_session` and ensure you pass `current_scope` as needed
-- Phoenix v1.8 moved the `<.flash_group>` component to the `Layouts` module. You are **forbidden** from calling `<.flash_group>` outside of the `layouts.ex` module
-- Out of the box, `core_components.ex` imports an `<.icon name="hero-x-mark" class="w-5 h-5"/>` component for hero icons. **Always** use the `<.icon>` component for icons, **never** use `Heroicons` modules or similar
-- **Always** use the imported `<.input>` component for form inputs from `core_components.ex` when available. `<.input>` is imported and using it will save steps and prevent errors
-- If you override the default input classes (`<.input class="myclass px-2 py-1 rounded-lg">)`) class with your own values, no default classes are inherited, so your
-custom classes must fully style the input
+Leia antes de alterar comportamento estrutural:
 
-### JS and CSS guidelines
+- `README.md`: estado atual, setup e limites já conhecidos;
+- `docs/architecture.md`: decisões de domínio e evolução arquitetural;
+- `docs/development.md`: roles, migrations, seeds e validações locais.
 
-- **Use Tailwind CSS classes and custom CSS rules** to create polished, responsive, and visually stunning interfaces.
-- Tailwindcss v4 **no longer needs a tailwind.config.js** and uses a new import syntax in `app.css`:
+## Mapa do repositório
 
-      @import "tailwindcss" source(none);
-      @source "../css";
-      @source "../js";
-      @source "../../lib/my_app_web";
+- `lib/clubeira/`: contexts e domínio puro da aplicação;
+- `lib/clubeira_web/`: controllers, plugs, componentes e roteamento HTTP;
+- `priv/repo/migrations/`: schema normalizado, constraints, triggers e RLS;
+- `support/factory*`: factories reutilizadas por desenvolvimento, testes e
+  seeds;
+- `support/seeds*`: cenários determinísticos e idempotentes;
+- `test/clubeira/`: testes de domínio, contratos do banco, RLS e concorrência;
+- `test/support/`: DataCase, ConnCase, roles restritas e fixtures específicas;
+- `docker/postgres/`: bootstrap e verificação da role de runtime.
 
-- **Always use and maintain this import syntax** in the app.css file for projects generated with `phx.new`
-- **Never** use `@apply` when writing raw css
-- **Always** manually write your own tailwind-based components instead of using daisyUI for a unique, world-class design
-- Out of the box **only the app.js and app.css bundles are supported**
-  - You cannot reference an external vendor'd script `src` or link `href` in the layouts
-  - You must import the vendor deps into app.js and app.css to use them
-  - **Never write inline <script>custom js</script> tags within templates**
+Procure o context e o padrão existente antes de criar módulo, schema, helper ou
+abstração nova. Não mova regra de negócio para controller, LiveView ou seed.
 
-### UI/UX & design guidelines
+## Invariantes de dados e multi-tenancy
 
-- **Produce world-class UI designs** with a focus on usability, aesthetics, and modern design principles
-- Implement **subtle micro-interactions** (e.g., button hover effects, and smooth transitions)
-- Ensure **clean typography, spacing, and layout balance** for a refined, premium look
-- Focus on **delightful details** like hover effects, loading states, and smooth page transitions
+- Todos os polos compartilham um único schema PostgreSQL. Não crie schema ou
+  banco por polo.
+- Tabelas globais não têm `polo_id`; tabelas tenant-aware carregam `polo_id`
+  explicitamente e usam `FORCE ROW LEVEL SECURITY`.
+- Relações tenant-aware devem usar FKs compostas com `polo_id`. Uma FK simples
+  não pode permitir referência cruzada entre polos.
+- Toda operação local recebe `Clubeira.Tenancy.Scope` já autorizado e roda em
+  `Clubeira.Repo.transact_in_polo/3`.
+- Descoberta global autenticada usa `Clubeira.Tenancy.ActorScope` e
+  `Clubeira.Repo.transact_as_actor/2`; `user_contract_polo_routes` é somente uma
+  projeção de roteamento, nunca autorização nem fonte de saldo/status.
+- A role web é `clubeira_app`, sem superuser, ownership ou `BYPASSRLS`.
+  Migrations e seeds usam `clubeira_migrator`. Não contorne RLS em runtime.
+- Use `Clubeira.Schema` e UUIDv7 para novas entidades. Períodos temporais usam
+  `tstzrange` semiaberto quando representam vigência.
+- Dados históricos apontam para versões imutáveis. Não reinterprete contrato,
+  ciclo ou benefício antigo alterando uma versão publicada.
+- `merchant_accounts` é global; `polo_merchant_accounts` é a relação N:N com
+  função e vigência. Payment, intent e evento devem provar por FK composta que
+  a conta está vinculada ao polo correto.
+
+RLS é defesa em profundidade, não autorização de negócio. Nunca trate
+`polo_id`, `user_id`, `validation_point_id`, device ID ou qualquer ID vindo do
+cliente como prova de permissão.
+
+## Fronteiras transacionais
+
+- `Clubeira.Billing.place_order/2` é o comando autenticado de checkout.
+- `Clubeira.Billing.settle_payment/2` é uma porta interna. Ela recebe somente
+  uma captura cuja assinatura/autenticidade já foi validada por um adaptador de
+  PSP e liquida pagamento, pedido, contrato, ciclo, alocações, auditoria,
+  eventos e outbox atomicamente.
+- Timestamp informado pelo provedor é evidência externa; transições de estado e
+  vigência usam o relógio transacional do banco.
+- `Clubeira.Redemptions.confirm/2` recebe uma confirmação previamente
+  autenticada e consome o entitlement atomicamente, com idempotência e proteção
+  contra replay.
+- QR, prova do ponto de validação, webhook HTTP, publicador da outbox,
+  renovações, reembolsos e chargebacks ainda são bordas próprias. Não simule
+  essas integrações dentro do core nem declare uma borda futura como pronta.
+- Eventos de domínio e auditoria carregam IDs internos e o mínimo de dados.
+  Nunca inclua bearer, senha, CPF, contato cifrado ou payload sensível completo.
+
+## Banco, migrations, factories e seeds
+
+- Gere migrations com `mix ecto.gen.migration nome_em_snake_case`; mantenha uma
+  mudança estrutural coesa por arquivo e evite agrupar tabelas não relacionadas.
+- Prefira `change/0`; quando SQL manual exigir `up/0` e `down/0`, garanta
+  rollback real. Constraint e índice precisam corresponder a uma invariável ou
+  query concreta.
+- O projeto ainda está em desenvolvimento inicial: se uma migration não foi
+  publicada e a correção pertence à definição original da tabela, ajuste o
+  arquivo correspondente em vez de acumular `ALTER` corretivo sem necessidade.
+- Factories ficam em `support/factory*` e devem montar dados válidos por padrão.
+  Fixtures específicas de um domínio ficam em `test/support/<dominio>/`.
+- Seeds usam as factories, IDs estruturais estáveis e escrita idempotente.
+  Restrinja Faker a texto de apresentação sem relevância para a regra testada.
+- Não execute `docker compose down -v`, `mix db.reset` ou outra operação que
+  destrua dados sem intenção explícita.
+
+## Desenvolvimento e validação
+
+Setup local:
+
+```sh
+mise install
+mix setup
+mix phx.server
+```
+
+Durante a implementação, rode primeiro o teste mais próximo do comportamento:
+
+```sh
+mix test test/clubeira/caminho_do_teste.exs
+mix test --failed
+```
+
+Antes de concluir qualquer mudança, rode e corrija:
+
+```sh
+mix precommit
+```
+
+Também rode `mix dialyzer` ao alterar tipos públicos, contexts ou fronteiras
+complexas. Mudanças de banco exigem migration e rollback em banco vazio, além
+dos testes de contrato/RLS afetados. Testes tenant-aware devem exercitar a role
+restrita real; não transforme a suíte em falso positivo conectando apenas como
+owner ou `postgres`.
+
+`CLUBEIRA_TEST_DB_POOL_SIZE` ajusta o pool local da suíte. Testes de
+concorrência usam bancos isolados reais e não devem ser substituídos por mocks
+do PostgreSQL.
+
+Use a dependência já instalada `Req` para HTTP. Não adicione `HTTPoison`,
+`Tesla` ou chamadas diretas a `:httpc`. Valide input externo na borda e retorne
+erros com contexto; não crie fallback silencioso.
+
+Atualize README e documentos afetados quando o contrato arquitetural mudar.
+Não faça commit ou push sem pedido explícito.
 
 
 <!-- usage-rules-start -->
