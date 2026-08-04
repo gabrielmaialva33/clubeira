@@ -21,7 +21,12 @@ defmodule Clubeira.SeedsTest do
   alias Clubeira.Subscriptions
 
   test "demo seed is idempotent and isolated by polo under a non-bypass RLS role" do
-    assert Seeds.run!() == Seeds.run!()
+    first_result = Seeds.run!()
+    password = System.get_env("CLUBEIRA_DEMO_PASSWORD", "clubeira-demo-local")
+    assert {:ok, session} = Accounts.login("membro.demo@clubeira.local", password)
+
+    assert Seeds.run!() == first_result
+    assert {:ok, _scope} = Accounts.fetch_scope_by_api_token(session.token)
 
     assert Repo.aggregate(City, :count) == 2
     assert Repo.aggregate(Organization, :count) == 2

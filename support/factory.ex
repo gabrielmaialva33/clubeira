@@ -48,7 +48,7 @@ defmodule Clubeira.Factory do
   alias Faker.Person.PtBr
 
   @default_range_start ~U[2026-01-01 00:00:00Z]
-  @default_range_end ~U[2027-01-01 00:00:00Z]
+  @default_range_end ~U[2100-01-01 00:00:00Z]
 
   def user_factory do
     %User{email: unique_email(), status: "active"}

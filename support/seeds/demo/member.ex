@@ -15,9 +15,6 @@ defmodule Clubeira.Seeds.Demo.Member do
 
   @member_email "membro.demo@clubeira.local"
   @default_password "clubeira-demo-local"
-  @range_start ~U[2026-01-01 00:00:00Z]
-  @range_end ~U[2027-01-01 00:00:00Z]
-
   @user_fields ~w(email status disabled_at updated_at)a
   @access_product_fields ~w(polo_id code name status updated_at)a
 
@@ -82,9 +79,9 @@ defmodule Clubeira.Seeds.Demo.Member do
         @user_fields
       )
 
-    if is_nil(Repo.get(PasswordCredential, user.id)) do
-      password = System.get_env("CLUBEIRA_DEMO_PASSWORD", @default_password)
+    password = System.get_env("CLUBEIRA_DEMO_PASSWORD", @default_password)
 
+    unless current_password?(user, password) do
       case Accounts.set_password(user, password) do
         {:ok, _credential} ->
           :ok
@@ -271,16 +268,24 @@ defmodule Clubeira.Seeds.Demo.Member do
         polo_policy_version: policy
       })
 
+    {cycle_start, cycle_end} = current_cycle_bounds()
+
     cycle =
-      Writer.insert_once!(:benefit_cycle, %{
-        id: id(keyed(:benefit_cycle, key)),
-        polo: polo,
-        access_contract: contract,
-        benefit_package_version: entitlement.package_version,
-        offering_package_assignment: entitlement.assignment,
-        polo_policy_version: policy,
-        benefits_during: Factory.tstz_range(@range_start, @range_end)
-      })
+      Writer.upsert!(
+        :benefit_cycle,
+        %{
+          id: id(keyed(:benefit_cycle, key)),
+          polo: polo,
+          access_contract: contract,
+          benefit_package_version: entitlement.package_version,
+          offering_package_assignment: entitlement.assignment,
+          polo_policy_version: policy,
+          benefits_during: Factory.tstz_range(cycle_start, cycle_end),
+          status: "active",
+          activated_at: cycle_start
+        },
+        [:benefits_during, :status, :activated_at]
+      )
 
     subject =
       Writer.insert_once!(:cycle_entitlement_subject, %{
@@ -313,4 +318,31 @@ defmodule Clubeira.Seeds.Demo.Member do
   defp keyed(prefix, key), do: String.to_existing_atom("#{prefix}_#{key}")
   defp humanize(key), do: key |> to_string() |> String.capitalize()
   defp id(name), do: Ids.fetch!(name)
+
+  defp current_password?(user, password) do
+    case Repo.get(PasswordCredential, user.id) do
+      %PasswordCredential{password_hash: password_hash} ->
+        Argon2.verify_pass(password, password_hash)
+
+      nil ->
+        false
+    end
+  end
+
+  defp current_cycle_bounds do
+    today = Date.utc_today()
+    starts_on = Date.new!(today.year, today.month, 1)
+
+    ends_on =
+      if today.month == 12 do
+        Date.new!(today.year + 1, 1, 1)
+      else
+        Date.new!(today.year, today.month + 1, 1)
+      end
+
+    {
+      DateTime.new!(starts_on, ~T[00:00:00], "Etc/UTC"),
+      DateTime.new!(ends_on, ~T[00:00:00], "Etc/UTC")
+    }
+  end
 end
