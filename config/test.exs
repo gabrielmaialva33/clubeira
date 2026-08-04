@@ -24,6 +24,9 @@ config :clubeira, ClubeiraWeb.Endpoint,
 # In test we don't send emails
 config :clubeira, Clubeira.Mailer, adapter: Swoosh.Adapters.Test
 
+# Keep password hashing semantics while making the test suite fast.
+config :argon2_elixir, t_cost: 1, m_cost: 8
+
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
 
