@@ -1,5 +1,7 @@
 import Config
 
+default_pool_size = min(System.schedulers_online() * 2, 16)
+
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used
@@ -12,7 +14,9 @@ config :clubeira, Clubeira.Repo,
   port: String.to_integer(System.get_env("CLUBEIRA_TEST_DB_PORT", "55432")),
   database: "clubeira_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
-  pool_size: System.schedulers_online() * 2
+  pool_size:
+    System.get_env("CLUBEIRA_TEST_DB_POOL_SIZE", Integer.to_string(default_pool_size))
+    |> String.to_integer()
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
