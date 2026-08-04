@@ -2,7 +2,10 @@ defmodule Clubeira.Tenancy.RepoScopeTest do
   use Clubeira.DataCase, async: false
 
   alias Clubeira.Polos.Polo
+  alias Clubeira.RedemptionsFixtures
   alias Clubeira.Repo
+  alias Clubeira.Subscriptions.UserContractPoloRoute
+  alias Clubeira.Tenancy.ActorScope
   alias Clubeira.Tenancy.Scope
 
   test "database tests execute as a role that cannot bypass RLS", %{database_role: role} do
@@ -47,6 +50,53 @@ defmodule Clubeira.Tenancy.RepoScopeTest do
     assert {:error, {:tenant_scope_mismatch, :polo_id}} =
              Repo.transact_in_polo(scope_a, fn ->
                Repo.transact_in_polo(scope_b, fn -> {:ok, :unreachable} end)
+             end)
+  end
+
+  test "actor scope sees only its routing projection and may enter the same actor's polo" do
+    fixture = RedemptionsFixtures.create!()
+    other_fixture = RedemptionsFixtures.create!()
+    request_id = Ecto.UUID.generate(version: 7)
+    actor_scope = ActorScope.new!(fixture.ids.user, request_id)
+
+    assert Repo.all(UserContractPoloRoute) == []
+
+    assert {:ok, [route]} =
+             Repo.transact_as_actor(actor_scope, fn ->
+               assert [route] = Repo.all(UserContractPoloRoute)
+               assert route.user_id == fixture.ids.user
+               refute route.polo_id == other_fixture.ids.polo
+
+               tenant_scope =
+                 Scope.new!(fixture.ids.polo,
+                   actor_user_id: fixture.ids.user,
+                   request_id: request_id
+                 )
+
+               assert {:ok, [%Polo{id: polo_id}]} =
+                        Repo.transact_in_polo(tenant_scope, fn -> {:ok, Repo.all(Polo)} end)
+
+               assert polo_id == fixture.ids.polo
+               {:ok, [route]}
+             end)
+
+    assert route.polo_id == fixture.ids.polo
+  end
+
+  test "actor scope rejects changing actor while entering a tenant" do
+    actor_id = Ecto.UUID.generate()
+    request_id = Ecto.UUID.generate()
+    actor_scope = ActorScope.new!(actor_id, request_id)
+
+    assert {:error, {:tenant_scope_mismatch, :actor_user_id}} =
+             Repo.transact_as_actor(actor_scope, fn ->
+               forged_scope =
+                 Scope.new!(Ecto.UUID.generate(),
+                   actor_user_id: Ecto.UUID.generate(),
+                   request_id: request_id
+                 )
+
+               Repo.transact_in_polo(forged_scope, fn -> {:ok, :unreachable} end)
              end)
   end
 

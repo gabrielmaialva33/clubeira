@@ -10,6 +10,7 @@ defmodule Clubeira.Repo do
     otp_app: :clubeira,
     adapter: Ecto.Adapters.Postgres
 
+  alias Clubeira.Tenancy.ActorScope
   alias Clubeira.Tenancy.Scope
 
   @scope_query """
@@ -27,6 +28,34 @@ defmodule Clubeira.Repo do
   """
 
   @type transaction_result(result) :: {:ok, result} | {:error, term()}
+
+  @doc """
+  Runs an actor-owned global lookup without selecting a polo.
+
+  This boundary is intentionally narrower than `transact_in_polo/3`: it may
+  locate tenant routes, but tenant-owned records remain protected by polo RLS.
+  """
+  @spec transact_as_actor(
+          ActorScope.t(),
+          (-> transaction_result(result)) | (module() -> transaction_result(result)),
+          keyword()
+        ) :: transaction_result(result)
+        when result: var
+  def transact_as_actor(scope, operation, options \\ [])
+
+  def transact_as_actor(%ActorScope{} = scope, operation, options)
+      when is_function(operation, 0) or is_function(operation, 1) do
+    if in_transaction?() do
+      run_in_scope(__MODULE__, scope, operation)
+    else
+      transact(
+        fn repo -> run_in_scope(repo, scope, operation) end,
+        options
+      )
+    end
+  end
+
+  def transact_as_actor(_scope, _operation, _options), do: {:error, :invalid_actor_scope}
 
   @doc """
   Runs a domain operation with transaction-local polo and actor metadata.
@@ -105,11 +134,7 @@ defmodule Clubeira.Repo do
   end
 
   defp merge_scope(previous, scope) do
-    requested = %{
-      polo_id: scope.polo_id,
-      actor_user_id: scope.actor_user_id,
-      request_id: scope.request_id
-    }
+    requested = requested_scope(scope)
 
     Enum.reduce_while(requested, {:ok, %{}}, fn {key, value}, {:ok, merged} ->
       case merge_setting(Map.fetch!(previous, key), value) do
@@ -117,6 +142,22 @@ defmodule Clubeira.Repo do
         :scope_mismatch -> {:halt, {:error, {:tenant_scope_mismatch, key}}}
       end
     end)
+  end
+
+  defp requested_scope(%Scope{} = scope) do
+    %{
+      polo_id: scope.polo_id,
+      actor_user_id: scope.actor_user_id,
+      request_id: scope.request_id
+    }
+  end
+
+  defp requested_scope(%ActorScope{} = scope) do
+    %{
+      polo_id: nil,
+      actor_user_id: scope.actor_user_id,
+      request_id: scope.request_id
+    }
   end
 
   defp merge_setting("", nil), do: {:ok, ""}
