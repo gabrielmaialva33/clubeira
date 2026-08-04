@@ -88,7 +88,7 @@ defmodule Clubeira.Billing.PaymentSettler do
   end
 
   defp settle_new(repo, scope, request, idempotency_id, now) do
-    with :ok <- lock_merchant_account(repo, scope, request, now),
+    with :ok <- lock_merchant_account_link(repo, scope, request),
          {:ok, order} <- lock_order(repo, scope, request.order_id),
          {:ok, provider_event} <- insert_provider_event(repo, scope, request, now) do
       settle_received_event(repo, scope, request, idempotency_id, order, provider_event, now)
@@ -98,7 +98,8 @@ defmodule Clubeira.Billing.PaymentSettler do
   end
 
   defp settle_received_event(repo, scope, request, idempotency_id, order, provider_event, now) do
-    with :ok <- ensure_order_payable(order),
+    with :ok <- ensure_merchant_account_available(repo, scope, request, now),
+         :ok <- ensure_order_payable(order),
          :ok <- validate_payment(order, request, now),
          {:ok, order_item} <- lock_single_order_item(repo, scope, order),
          {:ok, provisioning_plan} <-
@@ -136,7 +137,20 @@ defmodule Clubeira.Billing.PaymentSettler do
     end
   end
 
-  defp lock_merchant_account(repo, scope, request, now) do
+  defp lock_merchant_account_link(repo, scope, request) do
+    query =
+      from assignment in PoloMerchantAccount,
+        where:
+          assignment.polo_id == ^scope.polo_id and
+            assignment.merchant_account_id == ^request.merchant_account_id and
+            assignment.payment_provider_id == ^request.payment_provider_id,
+        lock: "FOR SHARE",
+        select: assignment.merchant_account_id
+
+    if repo.one(query), do: :ok, else: {:error, :merchant_account_unavailable}
+  end
+
+  defp ensure_merchant_account_available(repo, scope, request, now) do
     query =
       from assignment in PoloMerchantAccount,
         join: account in MerchantAccount,

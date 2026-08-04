@@ -164,6 +164,59 @@ defmodule Clubeira.Billing.PaymentSettlerTest do
              end)
   end
 
+  test "persists a rejected provider event when the merchant account link has expired" do
+    fixture = BillingFixtures.create!()
+    assert {:ok, order} = place_order(fixture)
+    expired_at = DateTime.add(DateTime.utc_now(:microsecond), -10, :second)
+
+    expired_range = %{
+      fixture.polo_merchant_account.valid_during
+      | upper: expired_at,
+        upper_inclusive: false
+    }
+
+    assert {1, nil} =
+             Clubeira.TestDatabaseRole.as_owner(fn ->
+               Repo.update_all(
+                 from(link in Clubeira.Billing.PoloMerchantAccount,
+                   where:
+                     link.polo_id == ^fixture.polo.id and
+                       link.merchant_account_id == ^fixture.merchant_account.id
+                 ),
+                 set: [valid_during: expired_range]
+               )
+             end)
+
+    settlement = BillingFixtures.settled_payment(fixture, order)
+
+    assert {:error, :merchant_account_unavailable} =
+             Billing.settle_payment(fixture.service_scope, settlement)
+
+    assert {:ok, %{rows: [["awaiting_payment", "merchant_account_unavailable", true, 0, 0]]}} =
+             Repo.transact_in_polo(fixture.service_scope, fn repo ->
+               {:ok,
+                repo.query!(
+                  """
+                  SELECT
+                    orders.status,
+                    events.processing_error,
+                    events.payload = $3::jsonb,
+                    (SELECT count(*) FROM payment_intents),
+                    (SELECT count(*) FROM payments)
+                  FROM orders
+                  JOIN payment_provider_events AS events
+                    ON events.external_event_id = $2
+                  WHERE orders.id = $1
+                  """,
+                  [
+                    Ecto.UUID.dump!(order.id),
+                    fixture.external_event_id,
+                    settlement.payload
+                  ]
+                )}
+             end)
+  end
+
   test "does not write a capture when subscription provisioning is invalid" do
     fixture = BillingFixtures.create!()
     assert {:ok, order} = place_order(fixture)
@@ -247,12 +300,16 @@ defmodule Clubeira.Billing.PaymentSettlerTest do
 
     assert {:ok, _assignment} =
              Repo.transact_in_polo(other_polo.service_scope, fn _repo ->
-               {:ok,
-                insert(:polo_merchant_account,
-                  polo: other_polo.polo,
-                  payment_provider: fixture.provider,
-                  merchant_account: fixture.merchant_account
-                )}
+               assignment =
+                 Clubeira.TestDatabaseRole.as_owner(fn ->
+                   insert(:polo_merchant_account,
+                     polo: other_polo.polo,
+                     payment_provider: fixture.provider,
+                     merchant_account: fixture.merchant_account
+                   )
+                 end)
+
+               {:ok, assignment}
              end)
 
     assert {:error, :order_not_found} =
