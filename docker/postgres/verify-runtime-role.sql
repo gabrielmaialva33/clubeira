@@ -23,6 +23,26 @@ SELECT
   \quit 1
 \endif
 
+SELECT NOT EXISTS (
+  SELECT 1
+  FROM pg_class AS relation
+  JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+  WHERE pg_has_role(
+      (SELECT oid FROM pg_roles WHERE rolname = current_user),
+      relation.relowner,
+      'MEMBER'
+    )
+    AND namespace.nspname = 'public'
+    AND relation.relkind IN ('r', 'p')
+) AS runtime_role_controls_no_application_tables
+\gset
+
+\if :runtime_role_controls_no_application_tables
+\else
+  \echo 'runtime role must not own or be a member of roles that own application tables'
+  \quit 1
+\endif
+
 BEGIN;
 
 SELECT uuidv7() AS city_id, uuidv7() AS polo_id

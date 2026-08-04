@@ -66,6 +66,7 @@ defmodule Clubeira.Tenancy.RepoScopeTest do
                assert [route] = Repo.all(UserContractPoloRoute)
                assert route.user_id == fixture.ids.user
                refute route.polo_id == other_fixture.ids.polo
+               assert {0, nil} = Repo.delete_all(UserContractPoloRoute)
 
                tenant_scope =
                  Scope.new!(fixture.ids.polo,
@@ -81,6 +82,53 @@ defmodule Clubeira.Tenancy.RepoScopeTest do
              end)
 
     assert route.polo_id == fixture.ids.polo
+  end
+
+  test "the projection owner cannot read actor routes without actor scope", %{
+    database_role: database_role
+  } do
+    fixture = RedemptionsFixtures.create!()
+    _other_fixture = RedemptionsFixtures.create!()
+    owner_role = "clubeira_route_owner_#{System.unique_integer([:positive, :monotonic])}"
+
+    Repo.query!("RESET ROLE")
+
+    %{rows: [[original_owner]]} =
+      Repo.query!("""
+      SELECT pg_get_userbyid(relowner)
+      FROM pg_class
+      WHERE oid = 'public.user_contract_polo_routes'::regclass
+      """)
+
+    try do
+      Repo.query!(
+        "CREATE ROLE #{owner_role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS"
+      )
+
+      Repo.query!("GRANT USAGE ON SCHEMA public TO #{owner_role}")
+      Repo.query!("ALTER TABLE user_contract_polo_routes OWNER TO #{owner_role}")
+      Repo.query!("SET LOCAL ROLE #{owner_role}")
+
+      assert Repo.aggregate(UserContractPoloRoute, :count) == 0
+
+      target_query =
+        from(route in UserContractPoloRoute, where: route.user_id == ^fixture.ids.user)
+
+      assert {0, nil} = Repo.delete_all(target_query)
+
+      actor_scope = ActorScope.new!(fixture.ids.user, Ecto.UUID.generate(version: 7))
+
+      assert {:ok, {1, nil}} =
+               Repo.transact_as_actor(actor_scope, fn ->
+                 {:ok, Repo.delete_all(target_query)}
+               end)
+    after
+      Repo.query!("RESET ROLE")
+      Repo.query!("ALTER TABLE user_contract_polo_routes OWNER TO #{original_owner}")
+      Repo.query!("DROP OWNED BY #{owner_role}")
+      Repo.query!("DROP ROLE IF EXISTS #{owner_role}")
+      Repo.query!("SET LOCAL ROLE #{database_role}")
+    end
   end
 
   test "actor scope rejects changing actor while entering a tenant" do

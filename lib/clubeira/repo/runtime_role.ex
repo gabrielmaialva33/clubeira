@@ -8,9 +8,21 @@ defmodule Clubeira.Repo.RuntimeRole do
   """
 
   @role_query """
-  SELECT rolname, rolsuper, rolbypassrls
-  FROM pg_roles
-  WHERE rolname = current_user
+  SELECT
+    role.rolname,
+    role.rolsuper,
+    role.rolbypassrls,
+    has_schema_privilege(current_user, 'public', 'CREATE'),
+    EXISTS (
+      SELECT 1
+      FROM pg_class AS relation
+      JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+      WHERE pg_has_role(role.oid, relation.relowner, 'MEMBER')
+        AND namespace.nspname = 'public'
+        AND relation.relkind IN ('r', 'p')
+    )
+  FROM pg_roles AS role
+  WHERE role.rolname = current_user
   """
 
   @spec validate_connection!(pid()) :: :ok
@@ -27,13 +39,17 @@ defmodule Clubeira.Repo.RuntimeRole do
     validate_result!(result)
   end
 
-  defp validate_result!(%{rows: [[_role, false, false]]}), do: :ok
+  defp validate_result!(%{rows: [[_role, false, false, false, false]]}), do: :ok
 
-  defp validate_result!(%{rows: [[role, superuser?, bypass_rls?]]}) do
+  defp validate_result!(%{
+         rows: [[role, superuser?, bypass_rls?, creates_in_public?, controls_tables?]]
+       }) do
     raise """
     unsafe Clubeira runtime database role #{inspect(role)}: \
-    rolsuper=#{superuser?}, rolbypassrls=#{bypass_rls?}; \
-    use a NOSUPERUSER NOBYPASSRLS login
+    rolsuper=#{superuser?}, rolbypassrls=#{bypass_rls?}, \
+    creates_in_public=#{creates_in_public?}, \
+    owns_or_can_assume_application_table_owner=#{controls_tables?}; \
+    use a NOSUPERUSER NOBYPASSRLS login that cannot create, own, or assume ownership roles
     """
   end
 

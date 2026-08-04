@@ -19,4 +19,63 @@ defmodule Clubeira.Repo.RuntimeRoleTest do
       Repo.query!("SET LOCAL ROLE #{database_role}")
     end
   end
+
+  test "rejects a restricted role that owns an application table", %{
+    database_role: database_role
+  } do
+    owner_role = "clubeira_owner_probe_#{System.unique_integer([:positive, :monotonic])}"
+
+    Repo.query!("RESET ROLE")
+
+    try do
+      Repo.query!(
+        "CREATE ROLE #{owner_role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS"
+      )
+
+      Repo.query!("GRANT USAGE ON SCHEMA public TO #{owner_role}")
+      Repo.query!("CREATE TABLE runtime_role_owner_probe (id integer)")
+      Repo.query!("ALTER TABLE runtime_role_owner_probe OWNER TO #{owner_role}")
+      Repo.query!("SET LOCAL ROLE #{owner_role}")
+
+      assert_raise RuntimeError, ~r/owns_or_can_assume_application_table_owner=true/, fn ->
+        RuntimeRole.validate_repo!(Repo)
+      end
+    after
+      Repo.query!("RESET ROLE")
+      Repo.query!("DROP TABLE IF EXISTS runtime_role_owner_probe")
+      Repo.query!("DROP OWNED BY #{owner_role}")
+      Repo.query!("DROP ROLE IF EXISTS #{owner_role}")
+      Repo.query!("SET LOCAL ROLE #{database_role}")
+    end
+  end
+
+  test "rejects a role that can assume an application table owner", %{
+    database_role: database_role
+  } do
+    owner_role = "clubeira_owner_member_probe_#{System.unique_integer([:positive, :monotonic])}"
+
+    Repo.query!("RESET ROLE")
+
+    try do
+      Repo.query!(
+        "CREATE ROLE #{owner_role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS"
+      )
+
+      Repo.query!("CREATE TABLE runtime_role_owner_member_probe (id integer)")
+      Repo.query!("ALTER TABLE runtime_role_owner_member_probe OWNER TO #{owner_role}")
+      Repo.query!("GRANT #{owner_role} TO #{database_role}")
+      Repo.query!("SET LOCAL ROLE #{database_role}")
+
+      assert_raise RuntimeError, ~r/owns_or_can_assume_application_table_owner=true/, fn ->
+        RuntimeRole.validate_repo!(Repo)
+      end
+    after
+      Repo.query!("RESET ROLE")
+      Repo.query!("REVOKE #{owner_role} FROM #{database_role}")
+      Repo.query!("DROP TABLE IF EXISTS runtime_role_owner_member_probe")
+      Repo.query!("DROP OWNED BY #{owner_role}")
+      Repo.query!("DROP ROLE IF EXISTS #{owner_role}")
+      Repo.query!("SET LOCAL ROLE #{database_role}")
+    end
+  end
 end

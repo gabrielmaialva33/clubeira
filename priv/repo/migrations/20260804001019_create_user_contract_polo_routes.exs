@@ -16,7 +16,20 @@ defmodule Clubeira.Repo.Migrations.CreateUserContractPoloRoutes do
 
     create index(:user_contract_polo_routes, [:polo_id])
 
-    execute("ALTER TABLE access_contracts NO FORCE ROW LEVEL SECURITY")
+    execute("""
+    CREATE POLICY access_contracts_owner_route_backfill
+    ON access_contracts
+    FOR SELECT
+    USING (
+      current_user = pg_get_userbyid(
+        (
+          SELECT relowner
+          FROM pg_class
+          WHERE oid = 'public.access_contracts'::regclass
+        )
+      )
+    )
+    """)
 
     execute("""
     INSERT INTO user_contract_polo_routes (user_id, polo_id, first_contract_at)
@@ -25,7 +38,7 @@ defmodule Clubeira.Repo.Migrations.CreateUserContractPoloRoutes do
     GROUP BY purchaser_user_id, polo_id
     """)
 
-    execute("ALTER TABLE access_contracts FORCE ROW LEVEL SECURITY")
+    execute("DROP POLICY access_contracts_owner_route_backfill ON access_contracts")
 
     execute("ALTER TABLE user_contract_polo_routes ENABLE ROW LEVEL SECURITY")
     execute("ALTER TABLE user_contract_polo_routes FORCE ROW LEVEL SECURITY")
@@ -40,10 +53,10 @@ defmodule Clubeira.Repo.Migrations.CreateUserContractPoloRoutes do
     """)
 
     execute("""
-    CREATE POLICY user_contract_polo_routes_owner_maintenance
+    CREATE POLICY user_contract_polo_routes_owner_insert
     ON user_contract_polo_routes
-    FOR ALL
-    USING (
+    FOR INSERT
+    WITH CHECK (
       current_user = pg_get_userbyid(
         (
           SELECT relowner
@@ -52,7 +65,13 @@ defmodule Clubeira.Repo.Migrations.CreateUserContractPoloRoutes do
         )
       )
     )
-    WITH CHECK (
+    """)
+
+    execute("""
+    CREATE POLICY user_contract_polo_routes_owner_delete
+    ON user_contract_polo_routes
+    FOR DELETE
+    USING (
       current_user = pg_get_userbyid(
         (
           SELECT relowner
