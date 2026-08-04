@@ -10,6 +10,11 @@ defmodule Clubeira.Factory do
   use ExMachina.Ecto, repo: Clubeira.Repo
 
   alias Clubeira.Accounts.User
+  alias Clubeira.Billing.MerchantAccount
+  alias Clubeira.Billing.Payment
+  alias Clubeira.Billing.PaymentIntent
+  alias Clubeira.Billing.PaymentProvider
+  alias Clubeira.Billing.PaymentProviderEvent
   alias Clubeira.Catalog.BenefitOffer
   alias Clubeira.Catalog.BenefitOfferVersion
   alias Clubeira.Catalog.BenefitOfferVersionPlace
@@ -35,6 +40,7 @@ defmodule Clubeira.Factory do
   alias Clubeira.Subscriptions.BenefitPackage
   alias Clubeira.Subscriptions.BenefitPackageItem
   alias Clubeira.Subscriptions.BenefitPackageVersion
+  alias Clubeira.Subscriptions.ContractEvent
   alias Clubeira.Subscriptions.CycleEntitlementSubject
   alias Clubeira.Subscriptions.EntitlementAllocation
   alias Clubeira.Subscriptions.EntitlementScope
@@ -322,6 +328,27 @@ defmodule Clubeira.Factory do
     }
   end
 
+  def payment_provider_factory do
+    number = sequence(:payment_provider, & &1)
+
+    %PaymentProvider{
+      code: "provider-#{number}",
+      name: "Provedor Demo #{number}",
+      status: "active"
+    }
+  end
+
+  def merchant_account_factory do
+    number = sequence(:merchant_account, & &1)
+
+    %MerchantAccount{
+      kind: "consumer",
+      name: "Conta consumidor #{number}",
+      provider_account_reference: "merchant-#{number}",
+      status: "active"
+    }
+  end
+
   def order_factory do
     number = sequence(:order, & &1)
 
@@ -346,11 +373,59 @@ defmodule Clubeira.Factory do
     }
   end
 
+  def payment_intent_factory do
+    number = sequence(:payment_intent, & &1)
+
+    %PaymentIntent{
+      idempotency_key: "payment-intent-#{number}",
+      provider_reference: "intent-#{number}",
+      currency: "BRL",
+      amount: Decimal.new("29.90"),
+      status: "succeeded"
+    }
+  end
+
+  def payment_factory do
+    number = sequence(:payment, & &1)
+    now = timestamp()
+
+    %Payment{
+      provider_reference: "payment-#{number}",
+      currency: "BRL",
+      amount: Decimal.new("29.90"),
+      status: "captured",
+      captured_at: now,
+      inserted_at: now
+    }
+  end
+
+  def payment_provider_event_factory do
+    number = sequence(:payment_provider_event, & &1)
+
+    %PaymentProviderEvent{
+      external_event_id: "event-#{number}",
+      event_type: "payment.captured",
+      payload: %{},
+      payload_sha256: :crypto.hash(:sha256, "event-#{number}"),
+      received_at: timestamp()
+    }
+  end
+
   def access_contract_factory do
     %AccessContract{
       status: "active",
       starts_at: @default_range_start,
       activated_at: @default_range_start
+    }
+  end
+
+  def contract_event_factory do
+    %ContractEvent{
+      sequence: 1,
+      event_type: "activated",
+      payload: %{},
+      occurred_at: timestamp(),
+      inserted_at: timestamp()
     }
   end
 
