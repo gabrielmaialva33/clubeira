@@ -70,6 +70,66 @@ defmodule Clubeira.Billing.PlaceOrderTest do
              end)
   end
 
+  test "rejects a checkout whose package cannot be provisioned" do
+    fixture = BillingFixtures.create!()
+
+    assert {:ok, {1, nil}} =
+             Repo.transact_in_polo(fixture.service_scope, fn repo ->
+               result =
+                 repo.update_all(
+                   from(item in Clubeira.Subscriptions.BenefitPackageItem,
+                     where: item.id == ^hd(fixture.package_items).id
+                   ),
+                   set: [subject_policy: "per_beneficiary"]
+                 )
+
+               {:ok, result}
+             end)
+
+    request = BillingFixtures.checkout_request(fixture)
+
+    assert {:error, :unsupported_subject_policy} =
+             Billing.place_order(fixture.member_scope, request)
+
+    assert {:error, :unsupported_subject_policy} =
+             Billing.place_order(fixture.member_scope, request)
+
+    assert {:ok, %{rows: [[0, "failed"]]}} =
+             Repo.transact_in_polo(fixture.service_scope, fn repo ->
+               {:ok,
+                repo.query!("""
+                SELECT
+                  (SELECT count(*) FROM orders),
+                  status
+                FROM tenant_idempotency_keys
+                WHERE scope = 'billing.place_order'
+                """)}
+             end)
+  end
+
+  test "rejects a package without a currently eligible place" do
+    fixture = BillingFixtures.create!()
+
+    assert {:ok, {1, nil}} =
+             Repo.transact_in_polo(fixture.service_scope, fn repo ->
+               result =
+                 repo.update_all(
+                   from(polo_place in Clubeira.Polos.PoloPlace,
+                     where: polo_place.id == ^fixture.polo_place.id
+                   ),
+                   set: [status: "suspended"]
+                 )
+
+               {:ok, result}
+             end)
+
+    assert {:error, :entitlement_scope_empty} =
+             Billing.place_order(
+               fixture.member_scope,
+               BillingFixtures.checkout_request(fixture)
+             )
+  end
+
   test "requires an authenticated actor" do
     fixture = BillingFixtures.create!()
 

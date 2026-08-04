@@ -13,14 +13,22 @@ defmodule Clubeira.Billing.OrderPlacer do
   alias Clubeira.Repo
   alias Clubeira.Subscriptions.Order
   alias Clubeira.Subscriptions.OrderItem
+  alias Clubeira.Subscriptions.Provisioner
   alias Clubeira.Tenancy.Scope
 
   @idempotency_scope "billing.place_order"
   @replay_reasons %{
     "actor_unavailable" => :actor_unavailable,
     "benefit_package_unavailable" => :benefit_package_unavailable,
+    "entitlement_scope_empty" => :entitlement_scope_empty,
+    "invalid_cycle_interval" => :invalid_cycle_interval,
     "offering_unavailable" => :offering_unavailable,
-    "polo_unavailable" => :polo_unavailable
+    "polo_policy_unavailable" => :polo_policy_unavailable,
+    "polo_unavailable" => :polo_unavailable,
+    "subscription_configuration_invalid" => :subscription_configuration_invalid,
+    "unsupported_activation_policy" => :unsupported_activation_policy,
+    "unsupported_cycle_policy" => :unsupported_cycle_policy,
+    "unsupported_subject_policy" => :unsupported_subject_policy
   }
 
   @spec place(Scope.t(), map()) ::
@@ -63,7 +71,9 @@ defmodule Clubeira.Billing.OrderPlacer do
 
   defp place_new(repo, scope, request, idempotency_id, now) do
     with :ok <- ensure_actor_active(repo, scope.actor_user_id),
-         {:ok, selection} <- Pricing.lock(repo, scope, request, now) do
+         {:ok, selection} <- Pricing.lock(repo, scope, request, now),
+         :ok <-
+           Provisioner.validate_for_checkout(repo, scope, selection.offering_version, now) do
       order = insert_order!(repo, scope, request, selection.price, now)
       _order_item = insert_order_item!(repo, scope, request, order, selection.price, now)
 

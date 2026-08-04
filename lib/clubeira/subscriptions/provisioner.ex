@@ -11,9 +11,13 @@ defmodule Clubeira.Subscriptions.Provisioner do
 
   alias Clubeira.Audit
   alias Clubeira.Billing.Payment
+  alias Clubeira.Catalog.BenefitOffer
+  alias Clubeira.Catalog.BenefitOfferVersion
   alias Clubeira.Catalog.BenefitOfferVersionPlace
+  alias Clubeira.Directory.Place
   alias Clubeira.Events
   alias Clubeira.Polos.Polo
+  alias Clubeira.Polos.PoloPlace
   alias Clubeira.Polos.PoloPolicyVersion
   alias Clubeira.Subscriptions.AccessContract
   alias Clubeira.Subscriptions.BenefitCycle
@@ -44,7 +48,28 @@ defmodule Clubeira.Subscriptions.Provisioner do
   @spec prepare(module(), Scope.t(), OrderItem.t(), DateTime.t()) ::
           {:ok, ProvisioningPlan.t()} | {:error, error_reason()}
   def prepare(repo, %Scope{} = scope, %OrderItem{} = order_item, activated_at) do
-    with {:ok, configuration} <- lock_configuration(repo, scope, order_item, activated_at),
+    with {:ok, offering_version} <- lock_offering_version(repo, scope, order_item) do
+      build_plan(repo, scope, offering_version, activated_at)
+    end
+  end
+
+  @spec validate_for_checkout(module(), Scope.t(), ProductOfferingVersion.t(), DateTime.t()) ::
+          :ok | {:error, error_reason()}
+  def validate_for_checkout(
+        repo,
+        %Scope{} = scope,
+        %ProductOfferingVersion{} = offering_version,
+        activated_at
+      ) do
+    case build_plan(repo, scope, offering_version, activated_at) do
+      {:ok, %ProvisioningPlan{}} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp build_plan(repo, scope, offering_version, activated_at) do
+    with {:ok, configuration} <-
+           lock_configuration(repo, scope, offering_version, activated_at),
          {:ok, benefits_during} <-
            CycleSchedule.bounds(
              repo,
@@ -52,7 +77,8 @@ defmodule Clubeira.Subscriptions.Provisioner do
              configuration.polo,
              activated_at
            ),
-         {:ok, allocation_specs} <- allocation_specs(repo, scope, configuration.items) do
+         {:ok, allocation_specs} <-
+           allocation_specs(repo, scope, configuration.items, activated_at) do
       {:ok,
        %ProvisioningPlan{
          configuration: configuration,
@@ -91,9 +117,8 @@ defmodule Clubeira.Subscriptions.Provisioner do
     )
   end
 
-  defp lock_configuration(repo, scope, order_item, activated_at) do
+  defp lock_configuration(repo, scope, offering_version, activated_at) do
     with {:ok, polo} <- lock_polo(repo, scope.polo_id),
-         {:ok, offering_version} <- lock_offering_version(repo, scope, order_item),
          :ok <- ensure_payment_activation(offering_version),
          {:ok, policy} <- lock_policy(repo, scope.polo_id, activated_at),
          {:ok, assignment, package_version} <-
@@ -211,9 +236,9 @@ defmodule Clubeira.Subscriptions.Provisioner do
     end
   end
 
-  defp allocation_specs(repo, scope, items) do
+  defp allocation_specs(repo, scope, items, activated_at) do
     Enum.reduce_while(items, {:ok, []}, fn item, {:ok, specs} ->
-      case allocation_specs_for_item(repo, scope, item) do
+      case allocation_specs_for_item(repo, scope, item, activated_at) do
         {:ok, item_specs} -> {:cont, {:ok, [item_specs | specs]}}
         {:error, reason} -> {:halt, {:error, reason}}
       end
@@ -224,8 +249,8 @@ defmodule Clubeira.Subscriptions.Provisioner do
     end)
   end
 
-  defp allocation_specs_for_item(repo, scope, %BenefitPackageItem{} = item) do
-    place_ids = eligible_place_ids(repo, scope.polo_id, item)
+  defp allocation_specs_for_item(repo, scope, %BenefitPackageItem{} = item, activated_at) do
+    place_ids = eligible_place_ids(repo, scope.polo_id, item, activated_at)
 
     case {item.consumption_unit, place_ids} do
       {_kind, []} ->
@@ -242,20 +267,64 @@ defmodule Clubeira.Subscriptions.Provisioner do
     end
   end
 
-  defp eligible_place_ids(repo, polo_id, item) do
+  defp eligible_place_ids(repo, polo_id, item, activated_at) do
     EntitlementScopePlace
     |> join(:inner, [scope_place], offer_place in BenefitOfferVersionPlace,
+      as: :offer_place,
       on:
         offer_place.polo_id == scope_place.polo_id and
           offer_place.polo_place_id == scope_place.polo_place_id
     )
+    |> join(:inner, [offer_place: offer_place], offer_version in BenefitOfferVersion,
+      as: :offer_version,
+      on:
+        offer_version.id == offer_place.benefit_offer_version_id and
+          offer_version.polo_id == offer_place.polo_id
+    )
+    |> join(:inner, [offer_version: offer_version], offer in BenefitOffer,
+      as: :offer,
+      on:
+        offer.id == offer_version.benefit_offer_id and
+          offer.polo_id == offer_version.polo_id
+    )
+    |> join(:inner, [scope_place], polo_place in PoloPlace,
+      as: :polo_place,
+      on:
+        polo_place.id == scope_place.polo_place_id and
+          polo_place.polo_id == scope_place.polo_id
+    )
+    |> join(:inner, [polo_place: polo_place], place in Place,
+      as: :place,
+      on: place.id == polo_place.place_id
+    )
     |> where(
-      [scope_place, offer_place],
+      [scope_place, offer_place: offer_place],
       scope_place.polo_id == ^polo_id and
         scope_place.entitlement_scope_id == ^item.entitlement_scope_id and
         offer_place.benefit_offer_version_id == ^item.benefit_offer_version_id
     )
+    |> where([offer: offer], offer.status == "active")
+    |> where([offer_version: offer_version], offer_version.status == "published")
+    |> where(
+      [offer_version: offer_version],
+      fragment(
+        "? @> (? AT TIME ZONE 'UTC')",
+        offer_version.effective_during,
+        type(^activated_at, :utc_datetime_usec)
+      )
+    )
+    |> where([polo_place: polo_place], polo_place.status == "active")
+    |> where(
+      [polo_place: polo_place],
+      fragment(
+        "? @> (? AT TIME ZONE 'UTC')",
+        polo_place.participation_during,
+        type(^activated_at, :utc_datetime_usec)
+      )
+    )
+    |> where([place: place], place.status == "active")
     |> order_by([scope_place], asc: scope_place.polo_place_id)
+    |> lock("FOR SHARE")
     |> select([scope_place], scope_place.polo_place_id)
     |> repo.all()
   end
@@ -284,7 +353,7 @@ defmodule Clubeira.Subscriptions.Provisioner do
         order,
         order_item,
         plan.configuration,
-        payment.captured_at,
+        now,
         now
       )
 
@@ -295,7 +364,7 @@ defmodule Clubeira.Subscriptions.Provisioner do
         contract,
         plan.configuration,
         plan.benefits_during,
-        payment.captured_at,
+        now,
         now
       )
 
