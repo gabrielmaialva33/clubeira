@@ -14,7 +14,8 @@ defmodule Clubeira.Billing.PaymentSettlerTest do
     assert {:ok, contract} = Billing.settle_payment(fixture.service_scope, settlement)
     assert contract.purchaser_user_id == fixture.user.id
     assert contract.status == "active"
-    assert contract.starts_at == fixture.captured_at
+    assert DateTime.after?(contract.starts_at, fixture.captured_at)
+    assert DateTime.after?(contract.starts_at, order.placed_at)
 
     assert {:ok,
             %{
@@ -108,6 +109,26 @@ defmodule Clubeira.Billing.PaymentSettlerTest do
              end)
   end
 
+  test "treats equivalent decimal representations as the same provider delivery" do
+    fixture = BillingFixtures.create!()
+    assert {:ok, order} = place_order(fixture)
+    settlement = BillingFixtures.settled_payment(fixture, order)
+
+    assert {:ok, first} = Billing.settle_payment(fixture.service_scope, settlement)
+
+    assert {:ok, replayed} =
+             Billing.settle_payment(
+               fixture.service_scope,
+               Map.put(
+                 settlement,
+                 :amount,
+                 order.total_amount |> Decimal.normalize() |> Decimal.to_string(:normal)
+               )
+             )
+
+    assert replayed.id == first.id
+  end
+
   test "persists a rejected provider event without marking the order paid" do
     fixture = BillingFixtures.create!()
     assert {:ok, order} = place_order(fixture)
@@ -182,6 +203,117 @@ defmodule Clubeira.Billing.PaymentSettlerTest do
                   WHERE orders.id = $1
                   """,
                   [Ecto.UUID.dump!(order.id), fixture.external_event_id]
+                )}
+             end)
+  end
+
+  test "rejects a provider timestamp outside the accepted clock skew" do
+    fixture = BillingFixtures.create!()
+    assert {:ok, order} = place_order(fixture)
+
+    settlement =
+      BillingFixtures.settled_payment(fixture, order,
+        occurred_at: DateTime.add(order.placed_at, 3_600, :second)
+      )
+
+    assert {:error, :payment_timestamp_out_of_bounds} =
+             Billing.settle_payment(fixture.service_scope, settlement)
+
+    assert {:ok, %{rows: [["awaiting_payment", "payment_timestamp_out_of_bounds", 0, 0]]}} =
+             Repo.transact_in_polo(fixture.service_scope, fn repo ->
+               {:ok,
+                repo.query!(
+                  """
+                  SELECT
+                    orders.status,
+                    events.processing_error,
+                    (SELECT count(*) FROM payment_intents),
+                    (SELECT count(*) FROM payments)
+                  FROM orders
+                  JOIN payment_provider_events AS events
+                    ON events.external_event_id = $2
+                  WHERE orders.id = $1
+                  """,
+                  [Ecto.UUID.dump!(order.id), fixture.external_event_id]
+                )}
+             end)
+  end
+
+  test "a wrong polo route cannot consume the provider event" do
+    fixture = BillingFixtures.create!()
+    other_polo = BillingFixtures.create!()
+    assert {:ok, order} = place_order(fixture)
+    settlement = BillingFixtures.settled_payment(fixture, order)
+
+    assert {:ok, _assignment} =
+             Repo.transact_in_polo(other_polo.service_scope, fn _repo ->
+               {:ok,
+                insert(:polo_merchant_account,
+                  polo: other_polo.polo,
+                  payment_provider: fixture.provider,
+                  merchant_account: fixture.merchant_account
+                )}
+             end)
+
+    assert {:error, :order_not_found} =
+             Billing.settle_payment(other_polo.service_scope, settlement)
+
+    assert {:ok, %{rows: [[0]]}} =
+             Repo.transact_in_polo(other_polo.service_scope, fn repo ->
+               {:ok,
+                repo.query!(
+                  "SELECT count(*) FROM payment_provider_events WHERE external_event_id = $1",
+                  [fixture.external_event_id]
+                )}
+             end)
+
+    assert {:ok, contract} = Billing.settle_payment(fixture.service_scope, settlement)
+    assert contract.purchaser_user_id == fixture.user.id
+  end
+
+  test "records a reused provider reference without partially capturing another order" do
+    fixture = BillingFixtures.create!()
+    assert {:ok, first_order} = place_order(fixture)
+
+    assert {:ok, second_order} =
+             Billing.place_order(
+               fixture.member_scope,
+               BillingFixtures.checkout_request(fixture,
+                 idempotency_key: "checkout-#{Ecto.UUID.generate()}"
+               )
+             )
+
+    first_settlement = BillingFixtures.settled_payment(fixture, first_order)
+    assert {:ok, _contract} = Billing.settle_payment(fixture.service_scope, first_settlement)
+
+    second_settlement =
+      BillingFixtures.settled_payment(fixture, second_order,
+        external_event_id: "evt-#{Ecto.UUID.generate()}"
+      )
+
+    assert {:error, :payment_reference_conflict} =
+             Billing.settle_payment(fixture.service_scope, second_settlement)
+
+    assert {:ok, %{rows: [["awaiting_payment", 1, 1, 1, "payment_reference_conflict"]]}} =
+             Repo.transact_in_polo(fixture.service_scope, fn repo ->
+               {:ok,
+                repo.query!(
+                  """
+                  SELECT
+                    orders.status,
+                    (SELECT count(*) FROM payment_intents),
+                    (SELECT count(*) FROM payments),
+                    (SELECT count(*) FROM access_contracts),
+                    events.processing_error
+                  FROM orders
+                  JOIN payment_provider_events AS events
+                    ON events.external_event_id = $2
+                  WHERE orders.id = $1
+                  """,
+                  [
+                    Ecto.UUID.dump!(second_order.id),
+                    second_settlement.external_event_id
+                  ]
                 )}
              end)
   end

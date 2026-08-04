@@ -9,6 +9,7 @@ defmodule Clubeira.Billing.PaymentSettler do
   alias Clubeira.Billing.PaymentIntent
   alias Clubeira.Billing.PaymentProvider
   alias Clubeira.Billing.PaymentProviderEvent
+  alias Clubeira.Billing.PoloMerchantAccount
   alias Clubeira.Billing.SettledPayment
   alias Clubeira.Events
   alias Clubeira.Idempotency
@@ -21,6 +22,7 @@ defmodule Clubeira.Billing.PaymentSettler do
   alias Clubeira.Tenancy.Scope
 
   @idempotency_scope "billing.settle_payment"
+  @maximum_provider_clock_skew_seconds 300
   @replay_reasons %{
     "benefit_package_unavailable" => :benefit_package_unavailable,
     "entitlement_scope_empty" => :entitlement_scope_empty,
@@ -29,7 +31,12 @@ defmodule Clubeira.Billing.PaymentSettler do
     "order_already_paid" => :order_already_paid,
     "order_not_found" => :order_not_found,
     "order_not_payable" => :order_not_payable,
+    "order_update_failed" => :order_update_failed,
     "payment_amount_mismatch" => :payment_amount_mismatch,
+    "payment_attempt_conflict" => :payment_attempt_conflict,
+    "payment_reference_conflict" => :payment_reference_conflict,
+    "payment_record_invalid" => :payment_record_invalid,
+    "payment_timestamp_out_of_bounds" => :payment_timestamp_out_of_bounds,
     "polo_policy_unavailable" => :polo_policy_unavailable,
     "provider_event_already_received" => :provider_event_already_received,
     "subscription_configuration_invalid" => :subscription_configuration_invalid,
@@ -81,15 +88,25 @@ defmodule Clubeira.Billing.PaymentSettler do
   end
 
   defp settle_new(repo, scope, request, idempotency_id, now) do
-    with :ok <- lock_merchant_account(repo, request),
-         {:ok, provider_event} <- insert_provider_event(repo, scope, request, now),
-         {:ok, order} <- lock_payable_order(repo, scope, request.order_id),
-         :ok <- validate_payment(order, request),
+    with :ok <- lock_merchant_account(repo, scope, request, now),
+         {:ok, order} <- lock_order(repo, scope, request.order_id),
+         {:ok, provider_event} <- insert_provider_event(repo, scope, request, now) do
+      settle_received_event(repo, scope, request, idempotency_id, order, provider_event, now)
+    else
+      {:error, reason} -> reject!(repo, idempotency_id, reason, nil, now)
+    end
+  end
+
+  defp settle_received_event(repo, scope, request, idempotency_id, order, provider_event, now) do
+    with :ok <- ensure_order_payable(order),
+         :ok <- validate_payment(order, request, now),
          {:ok, order_item} <- lock_single_order_item(repo, scope, order),
          {:ok, provisioning_plan} <-
-           Provisioner.prepare(repo, scope, order_item, request.occurred_at),
+           Provisioner.prepare(repo, scope, order_item, now),
          {:ok, intent, payment} <- insert_capture(repo, scope, order, request, now),
          {:ok, paid_order} <- mark_order_paid(repo, order, now) do
+      record_payment!(repo, scope, paid_order, intent, payment, now)
+
       contract =
         Provisioner.materialize!(
           repo,
@@ -101,7 +118,6 @@ defmodule Clubeira.Billing.PaymentSettler do
           now
         )
 
-      record_payment!(repo, scope, paid_order, intent, payment, now)
       mark_provider_event_processed!(repo, provider_event, now)
 
       Idempotency.complete!(
@@ -115,26 +131,33 @@ defmodule Clubeira.Billing.PaymentSettler do
 
       {:accepted, contract}
     else
-      {:error, reason, %PaymentProviderEvent{} = event} ->
-        reject!(repo, idempotency_id, reason, event, now)
-
       {:error, reason} ->
-        event = find_provider_event(repo, scope, request)
-        reject!(repo, idempotency_id, reason, event, now)
+        reject!(repo, idempotency_id, reason, provider_event, now)
     end
   end
 
-  defp lock_merchant_account(repo, request) do
+  defp lock_merchant_account(repo, scope, request, now) do
     query =
-      from account in MerchantAccount,
+      from assignment in PoloMerchantAccount,
+        join: account in MerchantAccount,
+        on: account.id == assignment.merchant_account_id,
         join: provider in PaymentProvider,
         on: provider.id == account.payment_provider_id,
         where:
-          account.id == ^request.merchant_account_id and
+          assignment.polo_id == ^scope.polo_id and
+            assignment.merchant_account_id == ^request.merchant_account_id and
+            assignment.payment_provider_id == ^request.payment_provider_id and
+            account.id == ^request.merchant_account_id and
             account.payment_provider_id == ^request.payment_provider_id,
         where:
           account.kind == "consumer" and account.status == "active" and
             provider.status == "active",
+        where:
+          fragment(
+            "? @> (? AT TIME ZONE 'UTC')",
+            assignment.valid_during,
+            type(^now, :utc_datetime_usec)
+          ),
         lock: "FOR SHARE",
         select: account.id
 
@@ -166,33 +189,45 @@ defmodule Clubeira.Billing.PaymentSettler do
     end
   end
 
-  defp lock_payable_order(repo, scope, order_id) do
+  defp lock_order(repo, scope, order_id) do
     query =
       from order in Order,
         where: order.id == ^order_id and order.polo_id == ^scope.polo_id,
         lock: "FOR UPDATE"
 
     case repo.one(query) do
-      %Order{status: status} = order when status in ["pending", "awaiting_payment"] ->
-        {:ok, order}
-
-      %Order{status: "paid"} ->
-        {:error, :order_already_paid}
-
-      %Order{} ->
-        {:error, :order_not_payable}
-
-      nil ->
-        {:error, :order_not_found}
+      %Order{} = order -> {:ok, order}
+      nil -> {:error, :order_not_found}
     end
   end
 
-  defp validate_payment(order, request) do
-    if order.currency == request.currency and Decimal.equal?(order.total_amount, request.amount) do
-      :ok
-    else
-      {:error, :payment_amount_mismatch}
+  defp ensure_order_payable(%Order{status: status, placed_at: %DateTime{}})
+       when status in ["pending", "awaiting_payment"],
+       do: :ok
+
+  defp ensure_order_payable(%Order{status: "paid"}), do: {:error, :order_already_paid}
+  defp ensure_order_payable(%Order{}), do: {:error, :order_not_payable}
+
+  defp validate_payment(order, request, now) do
+    cond do
+      order.currency != request.currency or
+          not Decimal.equal?(order.total_amount, request.amount) ->
+        {:error, :payment_amount_mismatch}
+
+      timestamp_out_of_bounds?(order, request, now) ->
+        {:error, :payment_timestamp_out_of_bounds}
+
+      true ->
+        :ok
     end
+  end
+
+  defp timestamp_out_of_bounds?(order, request, now) do
+    earliest = DateTime.add(order.placed_at, -@maximum_provider_clock_skew_seconds, :second)
+    latest = DateTime.add(now, @maximum_provider_clock_skew_seconds, :second)
+
+    DateTime.before?(request.occurred_at, earliest) or
+      DateTime.after?(request.occurred_at, latest)
   end
 
   defp lock_single_order_item(repo, scope, order) do
@@ -217,9 +252,24 @@ defmodule Clubeira.Billing.PaymentSettler do
   end
 
   defp insert_capture(repo, scope, order, request, now) do
+    repo.query!("SAVEPOINT clubeira_billing_capture")
+
+    case do_insert_capture(repo, scope, order, request, now) do
+      {:ok, _intent, _payment} = accepted ->
+        repo.query!("RELEASE SAVEPOINT clubeira_billing_capture")
+        accepted
+
+      {:error, _reason} = rejected ->
+        repo.query!("ROLLBACK TO SAVEPOINT clubeira_billing_capture")
+        repo.query!("RELEASE SAVEPOINT clubeira_billing_capture")
+        rejected
+    end
+  end
+
+  defp do_insert_capture(repo, scope, order, request, now) do
     key = idempotency_key(request)
 
-    intent =
+    intent_changeset =
       %PaymentIntent{
         polo_id: scope.polo_id,
         order_id: order.id,
@@ -232,29 +282,74 @@ defmodule Clubeira.Billing.PaymentSettler do
         inserted_at: now,
         updated_at: now
       }
-      |> repo.insert!()
+      |> Ecto.Changeset.change()
+      |> Ecto.Changeset.unique_constraint(:provider_reference,
+        name: :payment_intents_provider_reference_uidx
+      )
+      |> Ecto.Changeset.unique_constraint(:order_id,
+        name: :payment_intents_live_order_uidx
+      )
+      |> Ecto.Changeset.unique_constraint(:idempotency_key,
+        name: :payment_intents_order_idempotency_uidx
+      )
 
-    payment =
-      %Payment{
-        polo_id: scope.polo_id,
-        payment_intent_id: intent.id,
-        merchant_account_id: request.merchant_account_id,
-        provider_reference: request.provider_reference,
-        currency: request.currency,
-        amount: request.amount,
-        status: "captured",
-        captured_at: request.occurred_at,
-        inserted_at: now
-      }
-      |> repo.insert!()
+    with {:ok, intent} <- repo.insert(intent_changeset, mode: :savepoint),
+         {:ok, payment} <- insert_payment(repo, scope, intent, request, now) do
+      {:ok, intent, payment}
+    else
+      {:error, %Ecto.Changeset{} = changeset} -> {:error, capture_error_reason(changeset)}
+    end
+  end
 
-    {:ok, intent, payment}
+  defp insert_payment(repo, scope, intent, request, now) do
+    %Payment{
+      polo_id: scope.polo_id,
+      payment_intent_id: intent.id,
+      merchant_account_id: request.merchant_account_id,
+      provider_reference: request.provider_reference,
+      currency: request.currency,
+      amount: request.amount,
+      status: "captured",
+      captured_at: request.occurred_at,
+      inserted_at: now
+    }
+    |> Ecto.Changeset.change()
+    |> Ecto.Changeset.unique_constraint(:provider_reference,
+      name: :payments_provider_reference_uidx
+    )
+    |> repo.insert(mode: :savepoint)
+  end
+
+  defp capture_error_reason(changeset) do
+    cond do
+      constraint_error?(changeset, [
+        "payment_intents_provider_reference_uidx",
+        "payments_provider_reference_uidx"
+      ]) ->
+        :payment_reference_conflict
+
+      constraint_error?(changeset, [
+        "payment_intents_live_order_uidx",
+        "payment_intents_order_idempotency_uidx"
+      ]) ->
+        :payment_attempt_conflict
+
+      true ->
+        :payment_record_invalid
+    end
+  end
+
+  defp constraint_error?(changeset, names) do
+    Enum.any?(changeset.errors, fn {_field, {_message, options}} ->
+      to_string(options[:constraint_name]) in names
+    end)
   end
 
   defp mark_order_paid(repo, order, now) do
-    order
-    |> Ecto.Changeset.change(status: "paid", updated_at: now)
-    |> repo.update()
+    case repo.update(Ecto.Changeset.change(order, status: "paid", updated_at: now)) do
+      {:ok, %Order{} = paid_order} -> {:ok, paid_order}
+      {:error, %Ecto.Changeset{}} -> {:error, :order_update_failed}
+    end
   end
 
   defp record_payment!(repo, scope, order, intent, payment, now) do
@@ -327,17 +422,6 @@ defmodule Clubeira.Billing.PaymentSettler do
     {:denied, reason}
   end
 
-  defp find_provider_event(repo, scope, request) do
-    repo.one(
-      from event in PaymentProviderEvent,
-        where:
-          event.polo_id == ^scope.polo_id and
-            event.payment_provider_id == ^request.payment_provider_id and
-            event.merchant_account_id == ^request.merchant_account_id and
-            event.external_event_id == ^request.external_event_id
-    )
-  end
-
   defp replay(repo, %Key{
          status: "completed",
          resource_type: "access_contract",
@@ -377,7 +461,7 @@ defmodule Clubeira.Billing.PaymentSettler do
       request.merchant_account_id,
       request.external_event_id,
       request.provider_reference,
-      request.amount,
+      request.amount |> Decimal.normalize() |> Decimal.to_string(:normal),
       request.currency,
       request.occurred_at,
       request.payload
