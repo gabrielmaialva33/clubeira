@@ -43,8 +43,9 @@ Faker fica restrito a texto de apresentação irrelevante para a regra testada.
 ## Roles do banco
 
 O desenvolvimento inicia a aplicação como `clubeira_app`. Cada conexão valida
-que a role é `NOSUPERUSER NOBYPASSRLS`. Migrations e seeds são executadas com
-`clubeira_migrator` pelos aliases abaixo:
+que a role é `NOSUPERUSER NOBYPASSRLS`, não cria objetos no schema `public` e
+não é dona nem membro de roles donas de tabelas da aplicação. Migrations e
+seeds são executadas com `clubeira_migrator` pelos aliases abaixo:
 
 ```sh
 mix db.migrate
@@ -147,6 +148,26 @@ end)
 Tokens bearer crus nunca entram em fixtures, logs ou banco. Testes criam a
 senha via `Clubeira.Accounts.set_password/2`, autenticam pela API e verificam
 revogação/expiração em vez de fabricar um token persistido.
+
+## Controles de autenticação em produção
+
+Os defaults são conservadores e todos os valores abaixo são validados no boot:
+
+| Variável | Default | Finalidade |
+| --- | ---: | --- |
+| `ARGON2_T_COST` | `3` | iterações do Argon2id |
+| `ARGON2_M_COST` | `16` | expoente de memória do Argon2id |
+| `ARGON2_PARALLELISM` | `4` | lanes por derivação |
+| `ARGON2_MAX_CONCURRENCY` | `8` | verificações simultâneas por instância |
+| `LOGIN_RATE_GLOBAL_PER_SECOND` | `40` | admissões por instância e segundo |
+| `LOGIN_RATE_IP_PER_MINUTE` | `20` | admissões por peer IPv4 `/32` ou IPv6 `/64` e minuto |
+| `LOGIN_RATE_IDENTITY_PER_15_MINUTES` | `10` | admissões por identidade e 15 minutos |
+| `SESSION_RETENTION_DAYS` | `30` | retenção após expiração ou revogação |
+
+Os buckets em ETS e o gate de senha são locais à instância. Em múltiplas
+réplicas, configure também o rate limit no load balancer/API gateway e calibre
+Argon2 com a CPU e memória reais antes do deploy. `429` inclui `Retry-After`.
+Não derive IP de `x-forwarded-for` sem uma cadeia de proxies confiável.
 
 ## Operação local
 

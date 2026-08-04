@@ -62,6 +62,12 @@ projeção serve para localizar células/polos e não replica status do contrato
 ciclo, plano ou saldo. Depois de descobrir cada polo, a aplicação precisa
 entrar em sua RLS e reconsultar a fonte de verdade.
 
+A role dona pode inserir linhas derivadas e removê-las para manutenção ou
+apagamento, mas não recebe leitura global. Uma remoção filtrada combina essa
+role com o `ActorScope` do titular, pois PostgreSQL também exige visibilidade
+`SELECT` das colunas usadas no `WHERE`. Owner sem ator e ator sem owner continuam
+incapazes de apagar a projeção.
+
 Três mecanismos trabalham juntos:
 
 1. **Integridade relacional:** FKs compostas incluem `polo_id`, impedindo que
@@ -111,11 +117,37 @@ context abre primeiro `Clubeira.Tenancy.ActorScope`; cada resultado é reaberto
 com `Clubeira.Tenancy.Scope` usando o mesmo ator e `request_id`. Trocar ator,
 request ou polo dentro de um escopo existente falha fechado.
 
+O endpoint de login é protegido antes do Argon2 por buckets global, de IP e de
+identidade normalizada. Os buckets específicos são debitados antes do global,
+evitando que um único peer consuma o orçamento compartilhado depois de já ter
+sido bloqueado. As chaves guardam somente fingerprints SHA-256; IPv4 usa o
+endereço e IPv6 é agrupado por `/64`. Hammer ancora cada janela no primeiro hit
+da chave e usa ETS, portanto limita cada instância BEAM; um rate limit no ingress
+deve compor a defesa para garantir o teto agregado do cluster. `conn.remote_ip`
+é a origem de rede considerada pela aplicação, então o proxy confiável deve
+preservar o IP correto sem permitir que o cliente forje esse valor.
+
+Um `PasswordGate` monitorado limita verificações Argon2 simultâneas e rejeita
+excesso sem criar fila ilimitada. Custo, paralelismo, concorrência e limites de
+login são configuração de runtime para permitir calibração por ambiente. O
+header de resposta `x-request-id` é sempre um UUIDv7 gerado internamente e
+percorre scope e auditoria; o header homônimo recebido do cliente não é aceito
+como identidade forense. Criação/revogação de sessão e troca de senha geram
+`system_audit_events` append-only sem persistir IP. Login negado emite apenas
+telemetria sem e-mail, fingerprint de identidade ou IP, evitando transformar
+tráfego não autenticado em crescimento ilimitado da auditoria imutável.
+
+Sessões expiradas ou revogadas são apagadas por um job idempotente depois da
+janela de retenção. Cada nó pode executar a limpeza sem coordenação exclusiva.
+O padrão é manter 30 dias após expiração/revogação e pode ser reduzido conforme
+a política LGPD; tokens crus nunca são persistidos.
+
 As bordas iniciais são:
 
 - `POST /api/v1/auth/sessions` — cria uma sessão opaca;
 - `DELETE /api/v1/auth/session` — revoga a sessão corrente;
-- `GET /api/v1/me/subscriptions` — agrega contratos comprados em vários polos;
+- `GET /api/v1/me/subscriptions` — pagina polos do ator e agrega os contratos
+  comprados em cada um;
 - `GET /api/v1/polos/:slug/me/vouchers` — lê o ciclo e as alocações do polo.
 
 A carteira inclui alocações esgotadas para que a interface represente o uso no
@@ -124,6 +156,12 @@ Blackout, janela, dispositivo e concorrência nunca são autorizados pelo read
 model. O primeiro corte atende contratos individuais com sujeito compartilhado
 pelo contrato; vínculo de dependentes será uma fatia explícita antes de expor
 alocações `per_beneficiary`.
+
+A paginação de assinaturas é keyset sobre `first_contract_at + polo_id` e usa
+cursor opaco. `limit` representa polos, não quantidade final de contratos: um
+polo da página pode devolver mais de uma assinatura. O máximo por chamada é
+100 polos; a fonte tenant continua sendo consultada dentro de uma transação RLS
+separada para cada polo.
 
 ## Assinatura, ciclo e direito de uso
 

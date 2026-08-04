@@ -49,7 +49,9 @@ curl -sS http://localhost:4000/api/v1/polos/sobral/me/vouchers \
 ```
 
 O primeiro comando devolve `data.access_token`; atribua-o a `TOKEN` apenas na
-sessão do shell. `DELETE /api/v1/auth/session` revoga a sessão atual.
+sessão do shell. `DELETE /api/v1/auth/session` revoga a sessão atual. A listagem
+de assinaturas também usa cursor: `?limit=20&after=...`, com limite máximo de
+`100` polos e metadados em `meta.page`.
 
 ## Banco e multi-tenancy
 
@@ -71,9 +73,18 @@ de polo.
 
 Autenticação é global: `user_password_credentials` separa o segredo da
 identidade e usa Argon2id; `user_sessions` persiste somente SHA-256 do bearer
-opaco. Para a tela cross-polo, `user_contract_polo_routes` revela ao ator apenas
-os IDs dos polos onde ele já contratou. Isso é um índice de roteamento, não uma
-autorização: contrato, ciclo e saldo são relidos dentro da RLS de cada polo.
+opaco. O login tem limites local por instância para tráfego global, IP e
+identidade, além de um teto fail-fast para verificações Argon2 concorrentes. Um
+limitador no ingress continua obrigatório para impor o teto do cluster. Sessões
+expiradas ou revogadas são removidas após a retenção configurada, 30 dias por
+padrão.
+
+Cada requisição recebe um UUIDv7 interno em `x-request-id`, também usado para
+correlacionar eventos globais de autenticação. Valores enviados pelo cliente
+nesse header não viram identificadores da trilha forense. Para a tela cross-polo,
+`user_contract_polo_routes` revela ao ator apenas os IDs dos polos onde ele já
+contratou. Isso é um índice de roteamento, não uma autorização: contrato, ciclo
+e saldo são relidos dentro da RLS de cada polo.
 
 O endereço público de cada tenant fica na relação global 1:1 `polo_routes`.
 Ela resolve apenas `slug -> polo_id`; depois disso, até a leitura pública do
