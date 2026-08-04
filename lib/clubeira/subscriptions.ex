@@ -16,6 +16,7 @@ defmodule Clubeira.Subscriptions do
   alias Clubeira.Polos
   alias Clubeira.Polos.Polo
   alias Clubeira.Polos.PoloPlace
+  alias Clubeira.Polos.PoloPolicyVersion
   alias Clubeira.Polos.PoloRoute
   alias Clubeira.Repo
   alias Clubeira.Subscriptions.AccessContract
@@ -29,12 +30,28 @@ defmodule Clubeira.Subscriptions do
   alias Clubeira.Tenancy.ActorScope
   alias Clubeira.Tenancy.Scope, as: TenantScope
 
+  @default_route_page_limit 20
+  @maximum_route_page_limit 100
+
   @type list_error :: :polo_not_found | term()
+  @type page :: %{limit: pos_integer(), has_more: boolean(), next_cursor: String.t() | nil}
 
   @spec list_for_account(AccountScope.t()) :: {:ok, [map()]} | {:error, term()}
   def list_for_account(%AccountScope{} = account_scope) do
     with {:ok, routes} <- discover_actor_routes(account_scope) do
       list_routes(routes, account_scope)
+    end
+  end
+
+  @spec list_for_account(AccountScope.t(), map()) ::
+          {:ok, %{subscriptions: [map()], page: page()}}
+          | {:error, :invalid_pagination | term()}
+  def list_for_account(%AccountScope{} = account_scope, params) when is_map(params) do
+    with {:ok, pagination} <- parse_route_pagination(params),
+         {:ok, %{routes: routes, page: page}} <-
+           discover_actor_route_page(account_scope, pagination),
+         {:ok, subscriptions} <- list_routes(routes, account_scope) do
+      {:ok, %{subscriptions: subscriptions, page: page}}
     end
   end
 
@@ -59,16 +76,64 @@ defmodule Clubeira.Subscriptions do
     end)
   end
 
+  defp discover_actor_route_page(account_scope, pagination) do
+    actor_scope = ActorScope.new!(account_scope.user.id, account_scope.request_id)
+
+    Repo.transact_as_actor(actor_scope, fn repo ->
+      {:ok, list_actor_route_page(repo, account_scope.user.id, pagination)}
+    end)
+  end
+
   defp list_actor_routes(repo, user_id) do
+    user_id
+    |> actor_routes_query()
+    |> repo.all()
+  end
+
+  defp list_actor_route_page(repo, user_id, pagination) do
+    query_limit = pagination.limit + 1
+
+    rows =
+      user_id
+      |> actor_routes_query()
+      |> after_actor_route(pagination.after)
+      |> limit(^query_limit)
+      |> repo.all()
+
+    {routes, overflow} = Enum.split(rows, pagination.limit)
+    has_more = overflow != []
+
+    %{
+      routes: routes,
+      page: %{
+        limit: pagination.limit,
+        has_more: has_more,
+        next_cursor: next_route_cursor(routes, has_more)
+      }
+    }
+  end
+
+  defp actor_routes_query(user_id) do
     UserContractPoloRoute
     |> join(:inner, [route], polo_route in PoloRoute, on: polo_route.polo_id == route.polo_id)
     |> where([route], route.user_id == ^user_id)
     |> order_by([route], asc: route.first_contract_at, asc: route.polo_id)
     |> select([route, polo_route], %{
       polo_id: route.polo_id,
-      slug: polo_route.slug
+      slug: polo_route.slug,
+      first_contract_at: route.first_contract_at
     })
-    |> repo.all()
+  end
+
+  defp after_actor_route(query, nil), do: query
+
+  defp after_actor_route(query, %{first_contract_at: first_contract_at, polo_id: polo_id}) do
+    where(
+      query,
+      [route],
+      route.first_contract_at > ^first_contract_at or
+        (route.first_contract_at == ^first_contract_at and route.polo_id > ^polo_id)
+    )
   end
 
   defp list_routes(routes, account_scope) do
@@ -134,7 +199,7 @@ defmodule Clubeira.Subscriptions do
         cycle.access_contract_id == contract.id and
           cycle.polo_id == contract.polo_id and
           cycle.status == "active" and
-          fragment("? @> statement_timestamp()", cycle.benefits_during)
+          fragment("? @> now()", cycle.benefits_during)
     )
     |> where([contract], contract.purchaser_user_id == ^user_id)
     |> order_by([contract], desc: contract.inserted_at, desc: contract.id)
@@ -272,7 +337,7 @@ defmodule Clubeira.Subscriptions do
     |> where([polo_place: polo_place], polo_place.status == "active")
     |> where(
       [polo_place: polo_place],
-      fragment("? @> statement_timestamp()", polo_place.participation_during)
+      fragment("? @> now()", polo_place.participation_during)
     )
     |> where([place: place], place.status == "active")
     |> order_by([allocation: allocation, place: place, polo_place: polo_place],
@@ -320,6 +385,12 @@ defmodule Clubeira.Subscriptions do
           cycle.polo_id == allocation.polo_id and
           cycle.access_contract_id == subject.access_contract_id
     )
+    |> join(:inner, [allocation: allocation, cycle: cycle], policy in PoloPolicyVersion,
+      as: :policy,
+      on:
+        policy.id == cycle.polo_policy_version_id and
+          policy.polo_id == allocation.polo_id
+    )
     |> join(:inner, [allocation: allocation], item in BenefitPackageItem,
       as: :item,
       on:
@@ -348,11 +419,25 @@ defmodule Clubeira.Subscriptions do
 
   defp filter_current_wallet(query) do
     query
-    |> where([contract: contract], contract.status in ["active", "past_due"])
+    |> where(
+      [contract: contract, cycle: cycle, policy: policy],
+      contract.status == "active" or
+        (contract.status == "past_due" and
+           policy.delinquency_mode == "grace_period" and
+           cycle.delinquency_grace_until >= fragment("now()"))
+    )
+    |> where(
+      [contract: contract],
+      is_nil(contract.starts_at) or contract.starts_at <= fragment("now()")
+    )
+    |> where(
+      [contract: contract],
+      is_nil(contract.ends_at) or contract.ends_at > fragment("now()")
+    )
     |> where([cycle: cycle], cycle.status == "active")
     |> where(
       [cycle: cycle],
-      fragment("? @> statement_timestamp()", cycle.benefits_during)
+      fragment("? @> now()", cycle.benefits_during)
     )
     |> where(
       [allocation: allocation, cycle: cycle, item: item],
@@ -364,7 +449,7 @@ defmodule Clubeira.Subscriptions do
     |> where([offer_version: offer_version], offer_version.status == "published")
     |> where(
       [offer_version: offer_version],
-      fragment("? @> statement_timestamp()", offer_version.effective_during)
+      fragment("? @> now()", offer_version.effective_during)
     )
   end
 
@@ -394,5 +479,50 @@ defmodule Clubeira.Subscriptions do
       actor_user_id: account_scope.user.id,
       request_id: account_scope.request_id
     )
+  end
+
+  defp parse_route_pagination(params) do
+    with {:ok, limit} <- parse_route_limit(Map.get(params, "limit")),
+         {:ok, after_route} <- parse_route_cursor(Map.get(params, "after")) do
+      {:ok, %{limit: limit, after: after_route}}
+    else
+      :error -> {:error, :invalid_pagination}
+    end
+  end
+
+  defp parse_route_limit(nil), do: {:ok, @default_route_page_limit}
+
+  defp parse_route_limit(limit) when is_binary(limit) do
+    case Integer.parse(limit) do
+      {parsed, ""} when parsed in 1..@maximum_route_page_limit -> {:ok, parsed}
+      _invalid -> :error
+    end
+  end
+
+  defp parse_route_limit(_limit), do: :error
+
+  defp parse_route_cursor(nil), do: {:ok, nil}
+
+  defp parse_route_cursor(cursor) when is_binary(cursor) do
+    with {:ok, <<unix_microsecond::signed-64, polo_id_binary::binary-size(16)>>} <-
+           Base.url_decode64(cursor, padding: false),
+         {:ok, first_contract_at} <- DateTime.from_unix(unix_microsecond, :microsecond),
+         {:ok, polo_id} <- Ecto.UUID.load(polo_id_binary) do
+      {:ok, %{first_contract_at: first_contract_at, polo_id: polo_id}}
+    else
+      _invalid -> :error
+    end
+  end
+
+  defp parse_route_cursor(_cursor), do: :error
+
+  defp next_route_cursor(_routes, false), do: nil
+
+  defp next_route_cursor(routes, true) do
+    %{first_contract_at: first_contract_at, polo_id: polo_id} = List.last(routes)
+    unix_microsecond = DateTime.to_unix(first_contract_at, :microsecond)
+
+    <<unix_microsecond::signed-64, Ecto.UUID.dump!(polo_id)::binary>>
+    |> Base.url_encode64(padding: false)
   end
 end
