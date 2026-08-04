@@ -129,4 +129,31 @@ defmodule Clubeira.Tenancy.RlsContractTest do
                AND class.relname = 'outbox_messages'
              """)
   end
+
+  test "merchant account links are tenant-readable and owner-writable" do
+    assert %{rows: rows} =
+             Repo.query!("""
+             SELECT policy.polname, policy.polcmd
+             FROM pg_policy AS policy
+             WHERE policy.polrelid = 'public.polo_merchant_accounts'::regclass
+             ORDER BY policy.polname
+             """)
+
+    assert rows == [
+             ["polo_merchant_accounts_owner_delete", "d"],
+             ["polo_merchant_accounts_owner_insert", "a"],
+             ["polo_merchant_accounts_owner_update", "w"],
+             ["polo_merchant_accounts_read", "r"]
+           ]
+
+    %{rows: [[read_expression]]} =
+      Repo.query!("""
+      SELECT pg_get_expr(policy.polqual, policy.polrelid)
+      FROM pg_policy AS policy
+      WHERE policy.polrelid = 'public.polo_merchant_accounts'::regclass
+        AND policy.polname = 'polo_merchant_accounts_read'
+      """)
+
+    assert read_expression =~ "app.current_polo_id"
+  end
 end

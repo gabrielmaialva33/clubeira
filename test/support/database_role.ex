@@ -17,4 +17,16 @@ defmodule Clubeira.TestDatabaseRole do
 
     role
   end
+
+  @spec as_owner((-> result)) :: result when result: var
+  def as_owner(operation) when is_function(operation, 0) do
+    %{rows: [[restricted_role]]} = Repo.query!("SELECT current_user")
+    Repo.query!("RESET ROLE")
+
+    try do
+      operation.()
+    after
+      Repo.query!("SET LOCAL ROLE #{restricted_role}")
+    end
+  end
 end

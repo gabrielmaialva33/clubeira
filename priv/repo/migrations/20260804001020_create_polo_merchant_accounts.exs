@@ -69,13 +69,72 @@ defmodule Clubeira.Repo.Migrations.CreatePoloMerchantAccounts do
     execute("ALTER TABLE polo_merchant_accounts FORCE ROW LEVEL SECURITY")
 
     execute("""
-    CREATE POLICY polo_isolation ON polo_merchant_accounts
-    FOR ALL
+    CREATE POLICY polo_merchant_accounts_read ON polo_merchant_accounts
+    FOR SELECT
     USING (
       polo_id = NULLIF(current_setting('app.current_polo_id', true), '')::uuid
+      OR current_user = pg_get_userbyid(
+        (
+          SELECT relowner
+          FROM pg_class
+          WHERE oid = 'public.polo_merchant_accounts'::regclass
+        )
+      )
+    )
+    """)
+
+    execute("""
+    CREATE POLICY polo_merchant_accounts_owner_insert ON polo_merchant_accounts
+    FOR INSERT
+    WITH CHECK (
+      current_user = pg_get_userbyid(
+        (
+          SELECT relowner
+          FROM pg_class
+          WHERE oid = 'public.polo_merchant_accounts'::regclass
+        )
+      )
+    )
+    """)
+
+    # PostgreSQL evaluates the UPDATE USING policy for SELECT ... FOR SHARE.
+    # Tenant rows must therefore be visible to row locks, while WITH CHECK
+    # still makes every runtime UPDATE fail closed.
+    execute("""
+    CREATE POLICY polo_merchant_accounts_owner_update ON polo_merchant_accounts
+    FOR UPDATE
+    USING (
+      polo_id = NULLIF(current_setting('app.current_polo_id', true), '')::uuid
+      OR current_user = pg_get_userbyid(
+          (
+            SELECT relowner
+            FROM pg_class
+            WHERE oid = 'public.polo_merchant_accounts'::regclass
+          )
+      )
     )
     WITH CHECK (
-      polo_id = NULLIF(current_setting('app.current_polo_id', true), '')::uuid
+      current_user = pg_get_userbyid(
+        (
+          SELECT relowner
+          FROM pg_class
+          WHERE oid = 'public.polo_merchant_accounts'::regclass
+        )
+      )
+    )
+    """)
+
+    execute("""
+    CREATE POLICY polo_merchant_accounts_owner_delete ON polo_merchant_accounts
+    FOR DELETE
+    USING (
+      current_user = pg_get_userbyid(
+        (
+          SELECT relowner
+          FROM pg_class
+          WHERE oid = 'public.polo_merchant_accounts'::regclass
+        )
+      )
     )
     """)
   end
@@ -91,7 +150,11 @@ defmodule Clubeira.Repo.Migrations.CreatePoloMerchantAccounts do
     DROP CONSTRAINT payment_intents_polo_merchant_account_fkey
     """)
 
-    execute("DROP POLICY polo_isolation ON polo_merchant_accounts")
+    execute("DROP POLICY IF EXISTS polo_merchant_accounts_owner_delete ON polo_merchant_accounts")
+    execute("DROP POLICY IF EXISTS polo_merchant_accounts_owner_update ON polo_merchant_accounts")
+    execute("DROP POLICY IF EXISTS polo_merchant_accounts_owner_insert ON polo_merchant_accounts")
+    execute("DROP POLICY IF EXISTS polo_merchant_accounts_read ON polo_merchant_accounts")
+    execute("DROP POLICY IF EXISTS polo_isolation ON polo_merchant_accounts")
     execute("ALTER TABLE polo_merchant_accounts NO FORCE ROW LEVEL SECURITY")
     execute("ALTER TABLE polo_merchant_accounts DISABLE ROW LEVEL SECURITY")
     drop table(:polo_merchant_accounts)

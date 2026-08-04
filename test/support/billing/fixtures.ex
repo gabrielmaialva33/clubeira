@@ -33,11 +33,13 @@ defmodule Clubeira.BillingFixtures do
         merchant_account = Factory.insert(:merchant_account, payment_provider: provider)
 
         polo_merchant_account =
-          Factory.insert(:polo_merchant_account,
-            polo: polo,
-            payment_provider: provider,
-            merchant_account: merchant_account
-          )
+          Clubeira.TestDatabaseRole.as_owner(fn ->
+            Factory.insert(:polo_merchant_account,
+              polo: polo,
+              payment_provider: provider,
+              merchant_account: merchant_account
+            )
+          end)
 
         {:ok,
          %{
