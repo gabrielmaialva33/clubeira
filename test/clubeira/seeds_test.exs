@@ -1,6 +1,9 @@
 defmodule Clubeira.SeedsTest do
   use Clubeira.DataCase, async: false
 
+  alias Clubeira.Accounts
+  alias Clubeira.Accounts.PasswordCredential
+  alias Clubeira.Accounts.User
   alias Clubeira.Catalog.BenefitOffer
   alias Clubeira.Catalog.BenefitOfferVersionPlace
   alias Clubeira.Catalog.Edition
@@ -15,6 +18,7 @@ defmodule Clubeira.SeedsTest do
   alias Clubeira.Repo
   alias Clubeira.Seeds
   alias Clubeira.Seeds.Demo.Ids
+  alias Clubeira.Subscriptions
 
   test "demo seed is idempotent and isolated by polo under a non-bypass RLS role" do
     assert Seeds.run!() == Seeds.run!()
@@ -24,6 +28,8 @@ defmodule Clubeira.SeedsTest do
     assert Repo.aggregate(Brand, :count) == 2
     assert Repo.aggregate(Place, :count) == 3
     assert Repo.aggregate(PoloRoute, :count) == 2
+    assert Repo.aggregate(User, :count) == 1
+    assert Repo.aggregate(PasswordCredential, :count) == 1
 
     assert_polo_counts(Ids.fetch!(:polo_sobral),
       polo_places: 2,
@@ -45,6 +51,8 @@ defmodule Clubeira.SeedsTest do
     assert operator_count(Ids.fetch!(:polo_sobral), franchise_id) == 1
     assert operator_count(Ids.fetch!(:polo_londrina), franchise_id) == 1
     assert operator_count(Ids.fetch!(:polo_londrina), local_sobral_id) == 0
+
+    assert_member_api_scenario()
   end
 
   test "canonical identifiers are unique UUIDv7 values" do
@@ -92,5 +100,19 @@ defmodule Clubeira.SeedsTest do
 
       count
     end)
+  end
+
+  defp assert_member_api_scenario do
+    password = System.get_env("CLUBEIRA_DEMO_PASSWORD", "clubeira-demo-local")
+
+    assert {:ok, session} = Accounts.login("membro.demo@clubeira.local", password)
+    assert {:ok, scope} = Accounts.fetch_scope_by_api_token(session.token)
+    assert {:ok, subscriptions} = Subscriptions.list_for_account(scope)
+    assert length(subscriptions) == 2
+
+    assert {:ok, %{vouchers: sobral_vouchers}} = Subscriptions.list_wallet(scope, "sobral")
+    assert {:ok, %{vouchers: londrina_vouchers}} = Subscriptions.list_wallet(scope, "londrina")
+    assert length(sobral_vouchers) == 2
+    assert length(londrina_vouchers) == 1
   end
 end

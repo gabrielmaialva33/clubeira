@@ -12,4 +12,6 @@ Clubeira #{summary.profile} seed ready:
   #{summary.organizations} organizations, #{summary.brands} brands
   #{summary.places} places, #{summary.editions} editions
   #{summary.benefit_offers} benefit offers
+  #{summary.subscriptions} subscriptions, #{summary.vouchers} voucher allocations
+  demo member: #{summary.member_email}
 """)

@@ -8,6 +8,7 @@ defmodule Clubeira.Seeds.Demo do
 
   alias Clubeira.Seeds.Demo.Directory
   alias Clubeira.Seeds.Demo.Ids
+  alias Clubeira.Seeds.Demo.Member
   alias Clubeira.Seeds.Demo.Polo
 
   @spec run!() :: map()
@@ -75,6 +76,8 @@ defmodule Clubeira.Seeds.Demo do
       ]
     )
 
+    member = Member.run!()
+
     %{
       profile: :demo,
       cities: 2,
@@ -83,7 +86,10 @@ defmodule Clubeira.Seeds.Demo do
       places: 3,
       polos: 2,
       editions: 2,
-      benefit_offers: 3
+      benefit_offers: 3,
+      member_email: member.email,
+      subscriptions: member.subscriptions,
+      vouchers: member.vouchers
     }
   end
 

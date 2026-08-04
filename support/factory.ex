@@ -9,6 +9,7 @@ defmodule Clubeira.Factory do
 
   use ExMachina.Ecto, repo: Clubeira.Repo
 
+  alias Clubeira.Accounts.User
   alias Clubeira.Catalog.BenefitOffer
   alias Clubeira.Catalog.BenefitOfferVersion
   alias Clubeira.Catalog.BenefitOfferVersionPlace
@@ -27,10 +28,31 @@ defmodule Clubeira.Factory do
   alias Clubeira.Polos.PoloPlace
   alias Clubeira.Polos.PoloPolicyVersion
   alias Clubeira.Polos.PoloRoute
+  alias Clubeira.Subscriptions.AccessContract
+  alias Clubeira.Subscriptions.AccessProduct
+  alias Clubeira.Subscriptions.AccessProductVersion
+  alias Clubeira.Subscriptions.BenefitCycle
+  alias Clubeira.Subscriptions.BenefitPackage
+  alias Clubeira.Subscriptions.BenefitPackageItem
+  alias Clubeira.Subscriptions.BenefitPackageVersion
+  alias Clubeira.Subscriptions.CycleEntitlementSubject
+  alias Clubeira.Subscriptions.EntitlementAllocation
+  alias Clubeira.Subscriptions.EntitlementScope
+  alias Clubeira.Subscriptions.EntitlementScopePlace
+  alias Clubeira.Subscriptions.OfferingPrice
+  alias Clubeira.Subscriptions.Order
+  alias Clubeira.Subscriptions.OrderItem
+  alias Clubeira.Subscriptions.ProductOffering
+  alias Clubeira.Subscriptions.ProductOfferingPackageAssignment
+  alias Clubeira.Subscriptions.ProductOfferingVersion
   alias Faker.Person.PtBr
 
   @default_range_start ~U[2026-01-01 00:00:00Z]
   @default_range_end ~U[2027-01-01 00:00:00Z]
+
+  def user_factory do
+    %User{email: unique_email(), status: "active"}
+  end
 
   def city_factory do
     number = sequence(:city, & &1)
@@ -190,6 +212,168 @@ defmodule Clubeira.Factory do
 
   def benefit_offer_version_place_factory do
     %BenefitOfferVersionPlace{inserted_at: timestamp()}
+  end
+
+  def access_product_factory do
+    number = sequence(:access_product, & &1)
+
+    %AccessProduct{
+      code: "clube-#{number}",
+      name: "Clube Demo #{number}",
+      status: "active"
+    }
+  end
+
+  def access_product_version_factory do
+    %AccessProductVersion{
+      version: 1,
+      name: "Plano publicado",
+      description: "Assinatura demo",
+      status: "published",
+      published_at: @default_range_start,
+      inserted_at: timestamp()
+    }
+  end
+
+  def product_offering_factory do
+    %ProductOffering{
+      code: unique_slug("oferta"),
+      scope_kind: "evergreen",
+      sales_channel: "direct",
+      status: "active"
+    }
+  end
+
+  def product_offering_version_factory do
+    %ProductOfferingVersion{
+      version: 1,
+      name: "Assinatura mensal",
+      description: "Renovação mensal com um uso por benefício e ciclo",
+      effective_during: tstz_range(@default_range_start),
+      activation_policy: "payment_confirmation",
+      cycle_policy: "calendar",
+      cycle_interval_unit: "month",
+      cycle_interval_count: 1,
+      renewal_policy: "automatic",
+      minimum_beneficiaries: 1,
+      maximum_beneficiaries: 1,
+      status: "published",
+      published_at: @default_range_start,
+      inserted_at: timestamp()
+    }
+  end
+
+  def offering_price_factory do
+    %OfferingPrice{
+      price_key: "default",
+      currency: "BRL",
+      amount: Decimal.new("29.90"),
+      billing_model: "subscription",
+      billing_interval_unit: "month",
+      billing_interval_count: 1,
+      installments: 1,
+      valid_during: tstz_range(@default_range_start),
+      inserted_at: timestamp()
+    }
+  end
+
+  def benefit_package_factory do
+    %BenefitPackage{code: unique_slug("pacote"), name: "Pacote Demo", status: "active"}
+  end
+
+  def benefit_package_version_factory do
+    %BenefitPackageVersion{
+      version: 1,
+      name: "Pacote publicado",
+      status: "published",
+      published_at: @default_range_start,
+      inserted_at: timestamp()
+    }
+  end
+
+  def entitlement_scope_factory do
+    %EntitlementScope{
+      key: unique_slug("escopo"),
+      name: "Parceiros participantes",
+      scope_kind: "place",
+      inserted_at: timestamp()
+    }
+  end
+
+  def entitlement_scope_place_factory do
+    %EntitlementScopePlace{inserted_at: timestamp()}
+  end
+
+  def benefit_package_item_factory do
+    %BenefitPackageItem{
+      allowance_per_cycle: 1,
+      consumption_unit: "per_place",
+      subject_policy: "shared_contract",
+      stacking_policy: "exclusive",
+      priority: 100,
+      inserted_at: timestamp()
+    }
+  end
+
+  def product_offering_package_assignment_factory do
+    %ProductOfferingPackageAssignment{
+      valid_during: tstz_range(@default_range_start),
+      inserted_at: timestamp()
+    }
+  end
+
+  def order_factory do
+    number = sequence(:order, & &1)
+
+    %Order{
+      order_number: "DEMO-#{number}",
+      idempotency_key: "demo-order-#{number}",
+      currency: "BRL",
+      subtotal_amount: Decimal.new("29.90"),
+      discount_amount: Decimal.new("0.00"),
+      total_amount: Decimal.new("29.90"),
+      status: "paid",
+      placed_at: @default_range_start
+    }
+  end
+
+  def order_item_factory do
+    %OrderItem{
+      quantity: 1,
+      unit_amount: Decimal.new("29.90"),
+      total_amount: Decimal.new("29.90"),
+      inserted_at: timestamp()
+    }
+  end
+
+  def access_contract_factory do
+    %AccessContract{
+      status: "active",
+      starts_at: @default_range_start,
+      activated_at: @default_range_start
+    }
+  end
+
+  def benefit_cycle_factory do
+    %BenefitCycle{
+      sequence: 1,
+      benefits_during: tstz_range(@default_range_start, @default_range_end),
+      status: "active",
+      activated_at: @default_range_start,
+      inserted_at: timestamp()
+    }
+  end
+
+  def cycle_entitlement_subject_factory do
+    %CycleEntitlementSubject{subject_kind: "contract", inserted_at: timestamp()}
+  end
+
+  def entitlement_allocation_factory do
+    %EntitlementAllocation{
+      allocation_kind: "per_place",
+      issued_units: 1,
+      available_units: 1
+    }
   end
 
   @spec unique_email() :: String.t()

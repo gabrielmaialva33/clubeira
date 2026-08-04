@@ -46,7 +46,11 @@ defmodule Clubeira.RedemptionsFixtures do
 
   @spec create!(keyword()) :: map()
   def create!(options \\ []) do
-    ids = Map.new(@id_names, &{&1, uuid7()})
+    ids =
+      @id_names
+      |> Map.new(&{&1, uuid7()})
+      |> maybe_override_user(options)
+
     now = DateTime.utc_now(:microsecond)
     starts_at = DateTime.add(now, -3_600)
     ends_at = DateTime.add(now, 86_400)
@@ -109,12 +113,14 @@ defmodule Clubeira.RedemptionsFixtures do
   end
 
   defp insert_global_rows!(ids, now, suffix, options) do
-    insert!("users", %{
-      id: ids.user,
-      email: "member-#{suffix}@example.test",
-      status: "active",
-      authenticated_at: now
-    })
+    if Keyword.get(options, :insert_user, true) do
+      insert!("users", %{
+        id: ids.user,
+        email: Keyword.get(options, :user_email, "member-#{suffix}@example.test"),
+        status: "active",
+        authenticated_at: now
+      })
+    end
 
     insert!("cities", %{
       id: ids.city,
@@ -611,6 +617,13 @@ defmodule Clubeira.RedemptionsFixtures do
   end
 
   defp dump_parameter(value), do: value
+
+  defp maybe_override_user(ids, options) do
+    case Keyword.fetch(options, :user_id) do
+      {:ok, user_id} -> Map.put(ids, :user, Ecto.UUID.cast!(user_id))
+      :error -> ids
+    end
+  end
 
   defp uuid7, do: Ecto.UUID.generate(version: 7, precision: :monotonic)
 end
