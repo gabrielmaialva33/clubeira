@@ -54,17 +54,21 @@ defmodule ClubeiraWeb.RedemptionConfirmationController do
   defp validation_credential(conn) do
     case get_req_header(conn, "authorization") do
       [authorization] when byte_size(authorization) <= 256 ->
-        case String.split(String.trim(authorization), ~r/\s+/, parts: 2) do
-          [scheme, credential] when credential != "" ->
-            if String.downcase(scheme) == "validation",
-              do: {:ok, credential},
-              else: {:error, :credential_missing}
-
-          _invalid ->
-            {:error, :credential_missing}
-        end
+        parse_validation_authorization(authorization)
 
       _missing_or_ambiguous ->
+        {:error, :credential_missing}
+    end
+  end
+
+  defp parse_validation_authorization(authorization) do
+    case String.split(String.trim(authorization), ~r/\s+/, parts: 2) do
+      [scheme, credential] when credential != "" ->
+        if String.downcase(scheme) == "validation",
+          do: {:ok, credential},
+          else: {:error, :credential_missing}
+
+      _invalid ->
         {:error, :credential_missing}
     end
   end
