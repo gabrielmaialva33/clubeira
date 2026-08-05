@@ -12,6 +12,10 @@ defmodule ClubeiraWeb.ErrorJSON do
   #   %{errors: %{detail: "Internal Server Error"}}
   # end
 
+  def render(template, %{code: code}) when is_binary(code) do
+    %{errors: %{code: code, detail: Phoenix.Controller.status_message_from_template(template)}}
+  end
+
   # By default, Phoenix returns the status message from
   # the template name. For example, "404.json" becomes
   # "Not Found".

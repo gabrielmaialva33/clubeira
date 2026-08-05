@@ -100,6 +100,47 @@ defmodule Clubeira.Directory.PartnerOnboardingConcurrencyTest do
 
     assert Enum.count(results, &match?({:ok, _result}, &1)) == 1
     assert Enum.count(results, &match?({:error, :cnpj_already_registered}, &1)) == 1
+    assert rejection_count(fixture) == 1
+
+    assert count_deltas(before, counts(fixture)) == %{
+             addresses: 1,
+             audits: 1,
+             domain_events: 1,
+             idempotency_keys: 2,
+             identifiers: 1,
+             operators: 1,
+             organizations: 1,
+             outbox_messages: 1,
+             places: 1,
+             polo_places: 1
+           }
+  end
+
+  test "concurrent distinct CNPJs for one place slug commit one partner and one stable conflict",
+       %{repo: repo} do
+    fixture = RedemptionsFixtures.create!()
+    scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    before = counts(fixture)
+
+    results =
+      run_concurrently(repo, [
+        fn ->
+          Directory.onboard_partner(
+            scope,
+            onboarding_request("shared-slug", Brazil.cnpj(73_002), "partner-slug-first")
+          )
+        end,
+        fn ->
+          Directory.onboard_partner(
+            scope,
+            onboarding_request("shared-slug", Brazil.cnpj(73_003), "partner-slug-second")
+          )
+        end
+      ])
+
+    assert Enum.count(results, &match?({:ok, _result}, &1)) == 1
+    assert Enum.count(results, &match?({:error, :place_slug_taken}, &1)) == 1
+    assert rejection_count(fixture) == 1
 
     assert count_deltas(before, counts(fixture)) == %{
              addresses: 1,
@@ -174,6 +215,17 @@ defmodule Clubeira.Directory.PartnerOnboardingConcurrencyTest do
 
   defp count_deltas(before, after_counts) do
     Map.new(before, fn {key, count} -> {key, Map.fetch!(after_counts, key) - count} end)
+  end
+
+  defp rejection_count(fixture) do
+    %{rows: [[count]]} =
+      RedemptionsFixtures.scoped_query!(fixture, """
+      SELECT count(*)
+      FROM tenant_audit_events
+      WHERE action = 'partner.onboarding_rejected'
+      """)
+
+    count
   end
 
   defp run_concurrently(repo, operations) do

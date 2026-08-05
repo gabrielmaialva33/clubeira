@@ -36,7 +36,7 @@ defmodule ClubeiraWeb.BackofficePartnerController do
              :idempotency_conflict,
              :request_in_progress
            ] ->
-        render_error(conn, :conflict)
+        render_conflict(conn, reason)
 
       {:error, :invalid_idempotency_key} ->
         render_error(conn, :unprocessable_entity)
@@ -87,5 +87,26 @@ defmodule ClubeiraWeb.BackofficePartnerController do
     conn
     |> put_status(status)
     |> json(ErrorJSON.render("#{Status.code(status)}.json", %{}))
+  end
+
+  defp render_conflict(conn, :request_in_progress) do
+    conn
+    |> put_resp_header("retry-after", "1")
+    |> render_error(:conflict, "request_in_progress")
+  end
+
+  defp render_conflict(conn, :idempotency_conflict) do
+    render_error(conn, :conflict, "idempotency_conflict")
+  end
+
+  defp render_conflict(conn, reason)
+       when reason in [:cnpj_already_registered, :place_slug_taken] do
+    render_error(conn, :conflict, "partner_conflict")
+  end
+
+  defp render_error(conn, status, code) do
+    conn
+    |> put_status(status)
+    |> json(ErrorJSON.render("#{Status.code(status)}.json", %{code: code}))
   end
 end

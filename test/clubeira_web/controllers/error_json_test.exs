@@ -9,4 +9,10 @@ defmodule ClubeiraWeb.ErrorJSONTest do
     assert ClubeiraWeb.ErrorJSON.render("500.json", %{}) ==
              %{errors: %{detail: "Internal Server Error"}}
   end
+
+  test "includes a stable machine-readable code when the boundary provides one" do
+    assert ClubeiraWeb.ErrorJSON.render("409.json", %{code: "idempotency_conflict"}) == %{
+             errors: %{code: "idempotency_conflict", detail: "Conflict"}
+           }
+  end
 end

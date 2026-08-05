@@ -13,6 +13,7 @@ defmodule ClubeiraWeb.BackofficePartnerControllerTest do
   alias Clubeira.Events.DomainEvent
   alias Clubeira.Events.OutboxMessage
   alias Clubeira.Factory.Brazil
+  alias Clubeira.Idempotency.Key
   alias Clubeira.Repo
   alias Clubeira.ReviewsFixtures
 
@@ -216,10 +217,35 @@ defmodule ClubeiraWeb.BackofficePartnerControllerTest do
              |> put_req_header("authorization", "Bearer #{token}")
              |> put_req_header("idempotency-key", "partner-onboarding-duplicate")
              |> post(path, duplicate_request)
-             |> json_response(409) == %{"errors" => %{"detail" => "Conflict"}}
+             |> json_response(409) == %{
+               "errors" => %{"code" => "partner_conflict", "detail" => "Conflict"}
+             }
     end
 
     assert global_partner_counts() == counts_before
+
+    assert {:ok, %{audit_count: 1, response_status: 409}} =
+             Repo.transact_in_polo(admin_scope, fn repo ->
+               audit_count =
+                 repo.aggregate(
+                   from(event in TenantEvent,
+                     where: event.action == "partner.onboarding_rejected"
+                   ),
+                   :count
+                 )
+
+               response_status =
+                 repo.one!(
+                   from(key in Key,
+                     where:
+                       key.scope == "directory.onboard_partner" and
+                         key.idempotency_key == "partner-onboarding-duplicate",
+                     select: key.response_status
+                   )
+                 )
+
+               {:ok, %{audit_count: audit_count, response_status: response_status}}
+             end)
   end
 
   test "a review moderator cannot onboard partners", %{conn: conn} do
@@ -278,7 +304,9 @@ defmodule ClubeiraWeb.BackofficePartnerControllerTest do
              |> put_req_header("authorization", "Bearer #{token}")
              |> put_req_header("idempotency-key", "partner-slug-conflict")
              |> post(path, conflicting)
-             |> json_response(409) == %{"errors" => %{"detail" => "Conflict"}}
+             |> json_response(409) == %{
+               "errors" => %{"code" => "partner_conflict", "detail" => "Conflict"}
+             }
     end
 
     assert global_partner_counts() == counts_before
@@ -303,7 +331,9 @@ defmodule ClubeiraWeb.BackofficePartnerControllerTest do
            |> put_req_header("authorization", "Bearer #{token}")
            |> put_req_header("idempotency-key", "partner-request-conflict")
            |> post(path, changed)
-           |> json_response(409) == %{"errors" => %{"detail" => "Conflict"}}
+           |> json_response(409) == %{
+             "errors" => %{"code" => "idempotency_conflict", "detail" => "Conflict"}
+           }
   end
 
   test "invalid CNPJ and address data are rejected before any partner row is written", %{
