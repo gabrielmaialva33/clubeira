@@ -17,4 +17,8 @@ defmodule Clubeira.Directory.CnpjTest do
     assert Cnpj.normalize("12.ABC.345/01DE-34") == {:error, :invalid_cnpj}
     assert Cnpj.normalize("12.ABÇ.345/01DE-35") == {:error, :invalid_cnpj}
   end
+
+  test "rejects the reserved all-zero CNPJ" do
+    assert Cnpj.normalize("00.000.000/0000-00") == {:error, :invalid_cnpj}
+  end
 end

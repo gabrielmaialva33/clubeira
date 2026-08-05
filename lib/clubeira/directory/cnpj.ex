@@ -10,6 +10,7 @@ defmodule Clubeira.Directory.Cnpj do
   @second_weights [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
   @mask_characters ~r/[.\-\/\s]/u
   @normalized_pattern ~r/^[A-Z0-9]{12}[0-9]{2}$/
+  @reserved_zero_value "00000000000000"
 
   @spec normalize(term()) :: {:ok, String.t()} | {:error, :invalid_cnpj}
   def normalize(value) when is_binary(value) do
@@ -29,7 +30,8 @@ defmodule Clubeira.Directory.Cnpj do
   def normalize(_value), do: {:error, :invalid_cnpj}
 
   defp valid_normalized?(normalized) do
-    Regex.match?(@normalized_pattern, normalized) and check_digits_match?(normalized)
+    normalized != @reserved_zero_value and Regex.match?(@normalized_pattern, normalized) and
+      check_digits_match?(normalized)
   end
 
   defp check_digits_match?(normalized) do
