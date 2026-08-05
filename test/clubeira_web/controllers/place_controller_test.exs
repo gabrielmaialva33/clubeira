@@ -110,7 +110,7 @@ defmodule ClubeiraWeb.PlaceControllerTest do
   end
 
   test "the public directory hides inactive places and suspended participations", %{conn: conn} do
-    inactive_place = RedemptionsFixtures.create!(place_status: "inactive")
+    inactive_place = RedemptionsFixtures.create!(place_status: "retired")
     suspended_participation = RedemptionsFixtures.create!(polo_place_status: "suspended")
 
     for fixture <- [inactive_place, suspended_participation] do
@@ -188,6 +188,7 @@ defmodule ClubeiraWeb.PlaceControllerTest do
            } = first_page
 
     assert returned_first_place_id == first_place_id
+
     assert MapSet.new(Enum.map(brands, & &1["id"])) ==
              MapSet.new([primary_brand.id, co_brand.id])
 
