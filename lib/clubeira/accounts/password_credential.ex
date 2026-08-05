@@ -32,21 +32,25 @@ defmodule Clubeira.Accounts.PasswordCredential do
           updated_at: DateTime.t()
         }
 
-  @spec changeset(User.t(), String.t()) :: Ecto.Changeset.t()
-  def changeset(%User{} = user, password) do
-    now = DateTime.utc_now(:microsecond)
+  @doc false
+  @spec validate_password(term()) :: {:ok, String.t()} | {:error, Ecto.Changeset.t()}
+  def validate_password(password) do
+    changeset =
+      %__MODULE__{}
+      |> cast(%{password: password}, [:password])
+      |> validate_required([:password])
+      |> validate_length(:password, min: 15, max: 128)
 
-    %__MODULE__{}
-    |> change(user_id: user.id, password_changed_at: now)
-    |> cast(%{password: password}, [:password])
-    |> validate_required([:password])
-    |> validate_length(:password, min: 15, max: 128)
-    |> hash_password()
+    if changeset.valid? do
+      {:ok, get_change(changeset, :password)}
+    else
+      {:error, changeset}
+    end
   end
 
   @doc false
-  @spec registration_changeset(User.t(), String.t(), DateTime.t()) :: Ecto.Changeset.t()
-  def registration_changeset(%User{} = user, password_hash, %DateTime{} = changed_at)
+  @spec hashed_changeset(User.t(), String.t(), DateTime.t()) :: Ecto.Changeset.t()
+  def hashed_changeset(%User{} = user, password_hash, %DateTime{} = changed_at)
       when is_binary(password_hash) do
     change(%__MODULE__{},
       user_id: user.id,
@@ -55,10 +59,10 @@ defmodule Clubeira.Accounts.PasswordCredential do
     )
   end
 
-  defp hash_password(%Ecto.Changeset{valid?: true} = changeset) do
-    password = get_change(changeset, :password)
-    put_change(changeset, :password_hash, Argon2.hash_pwd_salt(password))
+  @doc false
+  @spec registration_changeset(User.t(), String.t(), DateTime.t()) :: Ecto.Changeset.t()
+  def registration_changeset(%User{} = user, password_hash, %DateTime{} = changed_at)
+      when is_binary(password_hash) do
+    hashed_changeset(user, password_hash, changed_at)
   end
-
-  defp hash_password(changeset), do: changeset
 end

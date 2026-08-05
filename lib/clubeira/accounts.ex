@@ -54,7 +54,7 @@ defmodule Clubeira.Accounts do
              registration.legal_document_version_ids,
              "pt-BR"
            ),
-         {:ok, password_hash} <- hash_registration_password(registration.password) do
+         {:ok, password_hash} <- hash_password(registration.password) do
       persist_registration(registration, password_hash, context)
     end
   end
@@ -94,21 +94,28 @@ defmodule Clubeira.Accounts do
   @spec request_password_reset(String.t(), RequestContext.t()) :: :ok | {:error, term()}
   defdelegate request_password_reset(email, context), to: PasswordRecovery, as: :request
 
+  @doc """
+  Resets a password through a valid single-use recovery credential.
+  """
+  @spec reset_password(String.t(), term(), RequestContext.t()) ::
+          :ok | {:error, PasswordRecovery.reset_error()}
+  defdelegate reset_password(token, password, context), to: PasswordRecovery, as: :reset
+
   @spec set_password(User.t(), String.t()) ::
-          {:ok, PasswordCredential.t()} | {:error, Ecto.Changeset.t()}
+          {:ok, PasswordCredential.t()} | {:error, Ecto.Changeset.t() | :rate_limited}
   def set_password(%User{} = user, password) do
     set_password(user, password, RequestContext.new!())
   end
 
   @spec set_password(User.t(), String.t(), RequestContext.t()) ::
-          {:ok, PasswordCredential.t()} | {:error, Ecto.Changeset.t()}
+          {:ok, PasswordCredential.t()} | {:error, Ecto.Changeset.t() | :rate_limited}
   def set_password(%User{} = user, password, %RequestContext{} = context) do
-    changeset = PasswordCredential.changeset(user, password)
+    with {:ok, validated_password} <- PasswordCredential.validate_password(password),
+         {:ok, password_hash} <- hash_password(validated_password) do
+      changeset =
+        PasswordCredential.hashed_changeset(user, password_hash, DateTime.utc_now(:microsecond))
 
-    if changeset.valid? do
       Repo.transact(fn repo -> persist_password(repo, changeset, user, context) end)
-    else
-      {:error, changeset}
     end
   end
 
@@ -358,7 +365,7 @@ defmodule Clubeira.Accounts do
     }
   end
 
-  defp hash_registration_password(password) do
+  defp hash_password(password) do
     case PasswordGate.run(fn -> Argon2.hash_pwd_salt(password) end) do
       {:error, :capacity_exhausted} -> {:error, :rate_limited}
       password_hash when is_binary(password_hash) -> {:ok, password_hash}
