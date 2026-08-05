@@ -34,45 +34,45 @@ defmodule Clubeira.Seeds.Demo.Member do
 
     sobral =
       seed_subscription!(user, billing,
-      key: :sobral,
-      polo_id: id(:polo_sobral),
-      scope_places: [
-        id(:polo_place_franchise_sobral),
-        id(:polo_place_local_sobral)
-      ],
-      items: [
-        %{
-          key: :franchise,
-          id: id(:package_item_franchise_sobral),
-          offer_version_id: id(:benefit_offer_version_franchise_sobral),
-          allocation_kind: "per_place",
-          polo_place_id: id(:polo_place_franchise_sobral)
-        },
-        %{
-          key: :local,
-          id: id(:package_item_local_sobral),
-          offer_version_id: id(:benefit_offer_version_local_sobral),
-          allocation_kind: "shared_scope",
-          polo_place_id: nil
-        }
-      ]
-    )
+        key: :sobral,
+        polo_id: id(:polo_sobral),
+        scope_places: [
+          id(:polo_place_franchise_sobral),
+          id(:polo_place_local_sobral)
+        ],
+        items: [
+          %{
+            key: :franchise,
+            id: id(:package_item_franchise_sobral),
+            offer_version_id: id(:benefit_offer_version_franchise_sobral),
+            allocation_kind: "per_place",
+            polo_place_id: id(:polo_place_franchise_sobral)
+          },
+          %{
+            key: :local,
+            id: id(:package_item_local_sobral),
+            offer_version_id: id(:benefit_offer_version_local_sobral),
+            allocation_kind: "shared_scope",
+            polo_place_id: nil
+          }
+        ]
+      )
 
     londrina =
       seed_subscription!(user, billing,
-      key: :londrina,
-      polo_id: id(:polo_londrina),
-      scope_places: [id(:polo_place_franchise_londrina)],
-      items: [
-        %{
-          key: :franchise,
-          id: id(:package_item_franchise_londrina),
-          offer_version_id: id(:benefit_offer_version_franchise_londrina),
-          allocation_kind: "per_place",
-          polo_place_id: id(:polo_place_franchise_londrina)
-        }
-      ]
-    )
+        key: :londrina,
+        polo_id: id(:polo_londrina),
+        scope_places: [id(:polo_place_franchise_londrina)],
+        items: [
+          %{
+            key: :franchise,
+            id: id(:package_item_franchise_londrina),
+            offer_version_id: id(:benefit_offer_version_franchise_londrina),
+            allocation_kind: "per_place",
+            polo_place_id: id(:polo_place_franchise_londrina)
+          }
+        ]
+      )
 
     %{
       email: user.email,
@@ -226,34 +226,27 @@ defmodule Clubeira.Seeds.Demo.Member do
 
     seed_scope_places!(polo, scope, Keyword.fetch!(options, :scope_places))
 
-    items =
-      Enum.map(Keyword.fetch!(options, :items), fn item ->
-        offer_version = Repo.get!(BenefitOfferVersion, item.offer_version_id)
+    Enum.each(Keyword.fetch!(options, :items), fn item ->
+      offer_version = Repo.get!(BenefitOfferVersion, item.offer_version_id)
 
-        Writer.insert_once!(:benefit_package_item, %{
-          id: item.id,
-          polo: polo,
-          benefit_package_version_id: package_version.id,
-          benefit_offer_version: offer_version,
-          entitlement_scope_id: scope.id,
-          consumption_unit: item.allocation_kind
-        })
-      end)
-
-    assignment =
-      Writer.insert_once!(:product_offering_package_assignment, %{
-        id: id(keyed(:package_assignment, key)),
+      Writer.insert_once!(:benefit_package_item, %{
+        id: item.id,
         polo: polo,
-        product_offering_version: offering_version,
-        benefit_package_version: package_version
+        benefit_package_version_id: package_version.id,
+        benefit_offer_version: offer_version,
+        entitlement_scope_id: scope.id,
+        consumption_unit: item.allocation_kind
       })
+    end)
 
-    %{
-      package_version: package_version,
-      scope: scope,
-      items: Map.new(items, &{&1.id, &1}),
-      assignment: assignment
-    }
+    Writer.insert_once!(:product_offering_package_assignment, %{
+      id: id(keyed(:package_assignment, key)),
+      polo: polo,
+      product_offering_version: offering_version,
+      benefit_package_version: package_version
+    })
+
+    :ok
   end
 
   defp seed_scope_places!(polo, scope, polo_place_ids) do
@@ -343,5 +336,4 @@ defmodule Clubeira.Seeds.Demo.Member do
         false
     end
   end
-
 end

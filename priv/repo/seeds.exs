@@ -14,5 +14,6 @@ Clubeira #{summary.profile} seed ready:
   #{summary.benefit_offers} benefit offers
   #{summary.subscriptions} subscriptions, #{summary.vouchers} voucher allocations
   demo member: #{summary.member_email}
+  demo moderator: #{summary.moderator_email}
   Mercado Pago webhook account: #{summary.merchant_account_id}
 """)

@@ -5,6 +5,7 @@ defmodule Clubeira.SeedsTest do
   alias Clubeira.Accounts.PasswordCredential
   alias Clubeira.Accounts.RequestContext
   alias Clubeira.Accounts.User
+  alias Clubeira.Audit.TenantEvent
   alias Clubeira.Billing.MerchantAccount
   alias Clubeira.Billing.Payment
   alias Clubeira.Billing.PaymentIntent
@@ -20,6 +21,8 @@ defmodule Clubeira.SeedsTest do
   alias Clubeira.Directory.City
   alias Clubeira.Directory.Organization
   alias Clubeira.Directory.Place
+  alias Clubeira.Events.DomainEvent
+  alias Clubeira.Events.OutboxMessage
   alias Clubeira.Legal.Acceptance
   alias Clubeira.Legal.Document
   alias Clubeira.Legal.DocumentVersion
@@ -138,6 +141,9 @@ defmodule Clubeira.SeedsTest do
       assert Repo.aggregate(PaymentIntent, :count) == 1
       assert Repo.aggregate(Payment, :count) == 1
       assert Repo.aggregate(PaymentProviderEvent, :count) == 1
+      assert Repo.aggregate(DomainEvent, :count) == 4
+      assert Repo.aggregate(OutboxMessage, :count) == 4
+      assert Repo.aggregate(TenantEvent, :count) == 3
       assert Repo.aggregate(AccessContract, :count) == 1
       assert Repo.aggregate(EntitlementAllocation, :count) == expected[:vouchers]
     end)
