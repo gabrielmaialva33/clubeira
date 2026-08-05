@@ -19,8 +19,8 @@ PostgreSQL, domínio normalizado e isolamento por Row-Level Security (RLS).
   transacionais, idempotentes e neutros em relação ao provedor;
 - contas de recebimento globais vinculadas explicitamente a cada polo, com
   vigência e integridade referencial entre tenant e conta;
-- resgate online atômico, com elegibilidade, proteção contra replay, ledger,
-  auditoria, eventos de domínio e outbox;
+- resgate online atômico e histórico paginado do membro, com elegibilidade,
+  proteção contra replay, ledger, auditoria, eventos de domínio e outbox;
 - submissão autenticada e idempotente de avaliações verificadas por resgate,
   com revisão inicial imutável e moderação pendente;
 - migrations, seeds, factories, RLS forçado e testes de concorrência contra
@@ -93,6 +93,9 @@ curl -sS -X POST http://localhost:4000/api/v1/polos/sobral/orders \
 curl -sS http://localhost:4000/api/v1/polos/sobral/me/orders \
   -H "authorization: Bearer $TOKEN"
 
+curl -sS http://localhost:4000/api/v1/polos/sobral/me/redemptions \
+  -H "authorization: Bearer $TOKEN"
+
 curl -sS -X POST http://localhost:4000/api/v1/polos/sobral/places/<place_uuid>/reviews \
   -H "authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' \
@@ -118,7 +121,9 @@ coordenadas quando cadastradas. Após um resgate confirmado, o membro pode
 enviar uma avaliação de `1` a `5` estrelas com texto não vazio. A API prova no
 banco que o resgate pertence ao ator, polo e lugar da rota, cria a avaliação
 como `pending` e exige `Idempotency-Key`; título é opcional e mídia fica para
-uma fatia posterior.
+uma fatia posterior. O histórico autenticado de resgates retorna o `id` usado
+como `source_redemption_id`, a identidade do lugar e a versão histórica do
+benefício; quando o lugar já foi avaliado, inclui também o aggregate de review.
 
 ## Banco e multi-tenancy
 
@@ -211,6 +216,8 @@ alterar a configuração versionada.
 - `POST /api/v1/polos/:polo_slug/places/:place_id/reviews` cria uma avaliação
   verificada para o membro autenticado; o resgate informado é somente evidência
   e sua autoria, polo e lugar são revalidados sob RLS;
+- `GET /api/v1/polos/:polo_slug/me/redemptions` pagina somente os resgates
+  bem-sucedidos do membro no polo e expõe o vínculo com sua avaliação do lugar;
 - `Clubeira.Billing.settle_payment/2` é uma porta interna e só aceita uma
   captura cuja autenticidade já foi verificada pelo futuro adaptador do PSP;
 - `Clubeira.Redemptions.confirm/2` recebe uma confirmação já autenticada; token,

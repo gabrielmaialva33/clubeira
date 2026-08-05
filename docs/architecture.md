@@ -176,6 +176,8 @@ As bordas iniciais são:
   tenant;
 - `GET /api/v1/polos/:slug/me/orders` — pagina os pedidos do ator naquele polo,
   incluindo os itens e preços históricos;
+- `GET /api/v1/polos/:slug/me/redemptions` — pagina os resgates confirmados do
+  ator, incluindo lugar, versão do benefício e eventual avaliação;
 - `POST /api/v1/polos/:slug/places/:place_id/reviews` — cria uma avaliação
   verificada e pendente a partir de um resgate do próprio ator naquele lugar;
 - `GET /api/v1/me/subscriptions` — pagina polos do ator e agrega os contratos
@@ -201,6 +203,15 @@ da leitura dos itens, evitando que o limite corte parte de um pedido. Tanto os
 pedidos quanto seus itens são relidos no mesmo escopo RLS e filtrados pelo ator;
 nenhum `user_id` recebido do cliente participa da autorização.
 
+O histórico de resgates usa keyset decrescente sobre
+`redemption_attempts.requested_at + id`. Esse é também o índice composto por
+`polo_id + requesting_user_id`, de modo que RLS, filtro explícito do ator e
+cursor compartilham a mesma ordem física. Somente tentativas que possuem um
+`redemption` imutável entram na resposta; tentativas negadas não viram histórico
+de consumo. O read model associa o lugar global, a versão imutável do benefício
+e a eventual avaliação global do mesmo ator/lugar sem aceitar IDs de usuário do
+cliente.
+
 ## Avaliações verificadas
 
 `POST /api/v1/polos/:slug/places/:place_id/reviews` recebe conteúdo do membro e
@@ -221,6 +232,11 @@ permanecem somente no histórico UGC e não são copiados para audit/outbox.
 
 Publicação, rejeição, edição, mídia, resposta do parceiro e denúncia pertencem
 às bordas de moderação seguintes. Submissão não publica conteúdo implicitamente.
+
+`GET /api/v1/polos/:slug/me/redemptions` fornece ao cliente o
+`source_redemption_id` e o `place_id` necessários para essa submissão. Quando o
+ator já avaliou o lugar, a mesma resposta inclui ID, status e verificação do
+review, evitando oferecer uma segunda criação que o banco recusaria.
 
 ## Assinatura, ciclo e direito de uso
 
