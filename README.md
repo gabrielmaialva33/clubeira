@@ -265,11 +265,15 @@ email, exige todas as versões de termos vigentes publicadas por
 `GET /api/v1/legal/registration`, e cria usuário ativo, aceite imutável, hash
 Argon2id, sessão e auditoria na mesma transação.
 `user_password_credentials` separa o segredo da identidade e `user_sessions`
-persiste somente SHA-256 do bearer opaco. Cadastro e login têm limites locais
-por instância para tráfego global, IP e identidade, além de um teto fail-fast
-para operações Argon2 concorrentes. Um limitador no ingress continua
-obrigatório para impor o teto do cluster. Sessões expiradas ou revogadas são
-removidas após a retenção configurada, 30 dias por padrão.
+persiste somente SHA-256 do bearer opaco. Recuperação de senha também usa 32
+bytes aleatórios e grava apenas o digest em `user_password_reset_tokens`; o
+token expira, é de uso único e uma nova solicitação revoga a anterior. O
+consumo troca a credencial, revoga todas as sessões, consome o token e audita a
+operação na mesma transação. Cadastro, login e as duas bordas de recuperação
+têm limites locais por instância para tráfego global, IP e identidade, além de
+um teto fail-fast para operações Argon2 concorrentes. Um limitador no ingress
+continua obrigatório para impor o teto do cluster. Credenciais temporárias e
+sessões terminais são removidas após a retenção configurada, 30 dias por padrão.
 
 Cada requisição recebe um UUIDv7 interno em `x-request-id`, também usado para
 correlacionar eventos globais de autenticação. Valores enviados pelo cliente
@@ -317,6 +321,8 @@ docker compose stop
 | `GET` | `/api/v1/legal/registration` | 🌐 |
 | `POST` | `/api/v1/auth/registrations` | 🌐 |
 | `POST` | `/api/v1/auth/sessions` | 🌐 |
+| `POST` | `/api/v1/auth/password-reset-requests` | 🌐 |
+| `POST` | `/api/v1/auth/password-resets` | 🌐 |
 | `DELETE` | `/api/v1/auth/session` | 🔑 |
 | `GET` | `/api/v1/polos/:slug/catalog` | 🌐 |
 | `GET` | `/api/v1/polos/:slug/checkout-options` | 🌐 |
@@ -351,6 +357,15 @@ curl -sS -X POST http://localhost:4000/api/v1/auth/registrations \
 curl -sS http://localhost:4000/api/v1/auth/sessions \
   -H 'content-type: application/json' \
   -d '{"email":"membro.demo@clubeira.local","password":"clubeira-demo-local"}'
+
+curl -i -sS -X POST http://localhost:4000/api/v1/auth/password-reset-requests \
+  -H 'content-type: application/json' \
+  -d '{"email":"membro.demo@clubeira.local"}'
+
+# Copie o token entregue em http://localhost:4000/dev/mailbox
+curl -i -sS -X POST http://localhost:4000/api/v1/auth/password-resets \
+  -H 'content-type: application/json' \
+  -d '{"token":"<reset_token>","password":"uma-nova-senha-com-15-chars"}'
 
 curl -sS http://localhost:4000/api/v1/me/subscriptions \
   -H "authorization: Bearer $TOKEN"
@@ -526,7 +541,8 @@ alterar a configuração versionada.
 | Resgate online autenticado | ✅ |
 | Avaliações verificadas + moderação | ✅ |
 | Outbox com HMAC, retry e dead-letter | ✅ |
-| Verificação de e-mail e recuperação de senha | ⏳ |
+| Recuperação de senha por e-mail | ✅ |
+| Verificação de e-mail | ⏳ |
 | Cartão, reembolso e chargeback | ⏳ |
 | Renovação automática | ⏳ |
 | QR estático, placard e modo offline | ⏳ |
@@ -536,9 +552,12 @@ alterar a configuração versionada.
 <summary><strong>📋 Limites atuais, na íntegra</strong></summary>
 
 - `POST /api/v1/auth/registrations` cria atomicamente a conta e uma sessão
-  utilizável no checkout depois do aceite legal exato; verificação de email,
-  recuperação de senha e blocklist local de senhas comprometidas ainda são
-  bordas próprias;
+  utilizável no checkout depois do aceite legal exato; verificação de email e
+  blocklist local de senhas comprometidas ainda são bordas próprias;
+- `POST /api/v1/auth/password-reset-requests` responde sempre `202` para não
+  revelar contas, entrega por e-mail um token opaco de 30 minutos e revoga a
+  solicitação anterior; `POST /api/v1/auth/password-resets` consome o token uma
+  única vez e invalida todas as sessões do usuário;
 - `POST /api/v1/polos/:polo_slug/orders` expõe o checkout autenticado e delega
   para `Clubeira.Billing.place_order/2`;
 - `POST /api/v1/polos/:polo_slug/orders/:order_id/payment-intents` inicia Pix

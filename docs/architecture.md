@@ -138,6 +138,22 @@ um vazamento de banco equivalente a roubo imediato dos bearers ativos. Até a
 confirmação de email existir, o cadastro ativa a identidade imediatamente e
 essa limitação permanece explícita na API.
 
+`user_password_reset_tokens` também é global e guarda somente o SHA-256 de 32
+bytes aleatórios. Existe no máximo uma credencial aberta por usuário; uma nova
+solicitação revoga a anterior sob lock. A borda responde `202` para email
+existente, desconhecido, desativado ou input inócuo, sem criar auditoria para
+identidades inexistentes. O email é entregue depois do commit; falha de entrega
+revoga a credencial, emite telemetria sem contato ou token e mantém a resposta
+indistinguível. Em produção, Swoosh usa Resend via Req; desenvolvimento usa a
+caixa local.
+
+O consumo valida primeiro a credencial opaca para não gastar Argon2 com tokens
+aleatórios. Depois do hash limitado pelo `PasswordGate`, a transação relê e
+trava usuário e token nessa ordem, confirma expiração pelo relógio do
+PostgreSQL, troca a credencial, marca o token consumido, revoga todas as sessões
+e grava a auditoria global. Corridas e replay produzem um único vencedor; senha
+inválida não queima o token.
+
 `ClubeiraWeb.Plugs.ApiAuth` aceita exatamente um header `Authorization: Bearer`,
 valida sessão e usuário ativos e constrói `Clubeira.Accounts.Scope`. O cliente
 não envia `user_id`, `actor_user_id` nem roles. Para descoberta cross-polo, o
@@ -145,9 +161,10 @@ context abre primeiro `Clubeira.Tenancy.ActorScope`; cada resultado é reaberto
 com `Clubeira.Tenancy.Scope` usando o mesmo ator e `request_id`. Trocar ator,
 request ou polo dentro de um escopo existente falha fechado.
 
-Os endpoints de cadastro e login são protegidos antes do Argon2 por buckets
-independentes para cada ação, nas dimensões global, IP e identidade
-normalizada. Os buckets específicos são debitados antes do global,
+Os endpoints de cadastro, login, solicitação e consumo de recuperação são
+protegidos antes do Argon2 por buckets independentes para cada ação, nas
+dimensões global, IP e identidade normalizada ou fingerprint do token. Os
+buckets específicos são debitados antes do global,
 evitando que um único peer consuma o orçamento compartilhado depois de já ter
 sido bloqueado. As chaves guardam somente fingerprints SHA-256; IPv4 usa o
 endereço e IPv6 é agrupado por `/64`. Hammer ancora cada janela no primeiro hit
@@ -166,15 +183,20 @@ como identidade forense. Criação/revogação de sessão e troca de senha geram
 telemetria sem e-mail, fingerprint de identidade ou IP, evitando transformar
 tráfego não autenticado em crescimento ilimitado da auditoria imutável.
 
-Sessões expiradas ou revogadas são apagadas por um job idempotente depois da
-janela de retenção. Cada nó pode executar a limpeza sem coordenação exclusiva.
-O padrão é manter 30 dias após expiração/revogação e pode ser reduzido conforme
-a política LGPD; tokens crus nunca são persistidos.
+Sessões expiradas ou revogadas e credenciais de recuperação terminais são
+apagadas por um job idempotente depois da janela de retenção. Cada nó pode
+executar a limpeza sem coordenação exclusiva. O padrão é manter 30 dias após
+expiração, consumo ou revogação e pode ser reduzido conforme a política LGPD;
+tokens crus nunca são persistidos.
 
 As bordas iniciais são:
 
 - `POST /api/v1/auth/registrations` — cria conta e primeira sessão atomicamente;
 - `POST /api/v1/auth/sessions` — cria uma sessão opaca;
+- `POST /api/v1/auth/password-reset-requests` — solicita recuperação sem
+  revelar se a conta existe;
+- `POST /api/v1/auth/password-resets` — troca a senha com token de uso único e
+  revoga todas as sessões;
 - `DELETE /api/v1/auth/session` — revoga a sessão corrente;
 - `GET /api/v1/polos/:slug/checkout-options` — lista as combinações comerciais
   públicas atualmente provisionáveis para o polo;
