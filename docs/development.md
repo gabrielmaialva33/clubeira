@@ -270,13 +270,31 @@ Os defaults são conservadores e todos os valores abaixo são validados no boot:
 | `REGISTRATION_RATE_GLOBAL_PER_SECOND` | `10` | cadastros admitidos por instância e segundo |
 | `REGISTRATION_RATE_IP_PER_MINUTE` | `5` | cadastros por peer e minuto |
 | `REGISTRATION_RATE_IDENTITY_PER_15_MINUTES` | `3` | cadastros por identidade e 15 minutos |
+| `PASSWORD_RESET_RATE_GLOBAL_PER_SECOND` | `20` | solicitações de recuperação por instância e segundo |
+| `PASSWORD_RESET_RATE_IP_PER_MINUTE` | `10` | solicitações por peer e minuto |
+| `PASSWORD_RESET_RATE_IDENTITY_PER_15_MINUTES` | `3` | solicitações por identidade e 15 minutos |
+| `PASSWORD_RESET_CONFIRM_RATE_GLOBAL_PER_SECOND` | `40` | consumos de token por instância e segundo |
+| `PASSWORD_RESET_CONFIRM_RATE_IP_PER_MINUTE` | `20` | consumos por peer e minuto |
+| `PASSWORD_RESET_CONFIRM_RATE_TOKEN_PER_15_MINUTES` | `10` | tentativas por fingerprint de token e 15 minutos |
+| `PASSWORD_RESET_TOKEN_TTL_MINUTES` | `30` | validade do token, entre 5 e 120 minutos |
+| `PASSWORD_RESET_URL` | obrigatória | URL HTTPS da tela que recebe `?token=...` |
+| `MAILER_PROVIDER` | `resend` obrigatório | adapter de produção aceito no boot |
+| `MAILER_FROM_EMAIL` | obrigatória | remetente verificado usado pelo Clubeira |
+| `RESEND_API_KEY` | obrigatória | credencial do provider, nunca persistida |
 | `REDEMPTION_GRANT_MAX_AGE_SECONDS` | `120` | validade do grant assinado, entre 30 e 600 segundos |
-| `SESSION_RETENTION_DAYS` | `30` | retenção após expiração ou revogação |
+| `SESSION_RETENTION_DAYS` | `30` | retenção de sessões e tokens de recuperação terminais |
 
 Os buckets em ETS e o gate de senha são locais à instância. Em múltiplas
 réplicas, configure também o rate limit no load balancer/API gateway e calibre
 Argon2 com a CPU e memória reais antes do deploy. `429` inclui `Retry-After`.
 Não derive IP de `x-forwarded-for` sem uma cadeia de proxies confiável.
+
+Em desenvolvimento, solicitações de recuperação aparecem em
+`http://localhost:4000/dev/mailbox`. Em produção, configure
+`MAILER_PROVIDER=resend`, um remetente já verificado e a chave via secret
+manager; ausência ou valor inválido impede o boot. A resposta pública continua
+`202` mesmo se a entrega falhar, enquanto a credencial é revogada e a falha
+vira telemetria sem email ou token.
 
 ## Operação local
 
