@@ -31,11 +31,6 @@ defmodule Clubeira.Repo.Migrations.CreateOutboxMessages do
              name: :outbox_messages_pending_idx
            )
 
-    create index(:outbox_messages, [:locked_at, :id],
-             where: "status = 'publishing'",
-             name: :outbox_messages_publishing_idx
-           )
-
     create constraint(:outbox_messages, :outbox_messages_status_check,
              check: "status IN ('pending', 'publishing', 'published', 'dead_letter')"
            )

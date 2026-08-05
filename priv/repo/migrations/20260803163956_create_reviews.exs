@@ -25,15 +25,6 @@ defmodule Clubeira.Repo.Migrations.CreateReviews do
 
     create index(:reviews, [:place_id, :status, :published_at])
 
-    create index(:reviews, [:status, :inserted_at, :id],
-             name: :reviews_moderation_queue_idx
-           )
-
-    create index(:reviews, [:place_id, :published_at, :id],
-             where: "status = 'published'",
-             name: :reviews_public_feed_idx
-           )
-
     create constraint(:reviews, :reviews_verification_check,
              check:
                "(verification_kind = 'verified' AND source_redemption_id IS NOT NULL) OR (verification_kind = 'open' AND source_redemption_id IS NULL)"
