@@ -1,0 +1,104 @@
+name: ✨ Feature or slice proposal
+description: Propose a new capability, endpoint, or vertical slice
+title: "feat: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Clubeira grows in vertical slices that keep business invariants, audit,
+        events, and outbox inside the same transaction. A proposal is easier to
+        accept when it names the invariant it must preserve.
+
+        Read [`docs/architecture.md`](https://github.com/gabrielmaialva33/clubeira/blob/main/docs/architecture.md)
+        first — several boundaries are deliberately still open.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: I searched existing issues and this is not a duplicate
+          required: true
+        - label: I read the architecture doc and the current limits in the README
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - accounts / authentication
+        - legal documents and acceptances
+        - catalog / checkout-options
+        - directory / places
+        - billing / orders
+        - payments / PSP adapters
+        - subscriptions / contracts / cycles
+        - devices / redemption grants
+        - redemptions / validation points
+        - reviews / moderation
+        - tenancy / RLS
+        - outbox / domain events / audit
+        - database / migrations / seeds
+        - web layer / plugs / routing
+        - tooling / CI / docs
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What operational or product problem exists today? Describe the situation, not the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed slice
+      description: >
+        What is the smallest end-to-end change that solves it? Name the
+        endpoints, contexts, and schema changes involved.
+    validations:
+      required: true
+
+  - type: textarea
+    id: invariants
+    attributes:
+      label: Invariants and boundaries
+      description: |
+        Which guarantees must hold after this change? Be explicit about:
+        - tenant isolation (`polo_id`, composite FKs, RLS);
+        - the transactional boundary and what commits atomically;
+        - idempotency and replay behavior;
+        - what must never reach audit, domain events, or the outbox.
+    validations:
+      required: true
+
+  - type: textarea
+    id: database
+    attributes:
+      label: Database impact
+      description: >
+        New tables, columns, constraints, indexes, or triggers. State whether
+        existing published versions or historical rows are reinterpreted — they
+        must not be.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Including doing nothing, or keeping this as a separate edge for later.
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Are you willing to implement this?
+      options:
+        - Yes, I want to open the PR
+        - Yes, with guidance on the boundary
+        - No, proposing only
+    validations:
+      required: true

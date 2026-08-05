@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🔐 Report a security vulnerability
+    url: https://github.com/gabrielmaialva33/clubeira/security/advisories/new
+    about: Never report a vulnerability in a public issue. Open a private advisory instead — see SECURITY.md.
+  - name: 💬 Ask a question or discuss an idea
+    url: https://github.com/gabrielmaialva33/clubeira/discussions
+    about: Open-ended questions, architecture debates, and early-stage ideas belong in Discussions.
+  - name: 📚 Read the architecture and development docs
+    url: https://github.com/gabrielmaialva33/clubeira/blob/main/docs/architecture.md
+    about: Domain boundaries, multi-tenancy model, and transactional contracts are documented here.

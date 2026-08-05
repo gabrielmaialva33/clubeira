@@ -1,0 +1,128 @@
+name: 🐛 Bug report
+description: Report reproducible incorrect behavior
+title: "bug: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Before filing:
+
+        - **Do not report security vulnerabilities here.** Follow [SECURITY.md](https://github.com/gabrielmaialva33/clubeira/blob/main/SECURITY.md).
+        - Search existing issues first.
+        - Never paste real credentials, bearer tokens, CPF, or personal data. Redact them.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: This is not a security vulnerability
+          required: true
+        - label: I searched existing issues and this is not a duplicate
+          required: true
+        - label: I can reproduce this on `main`
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - accounts / authentication
+        - legal documents and acceptances
+        - catalog / checkout-options
+        - directory / places
+        - billing / orders
+        - payments / Mercado Pago Pix
+        - subscriptions / contracts / cycles
+        - devices / redemption grants
+        - redemptions / validation points
+        - reviews / moderation
+        - tenancy / RLS
+        - outbox / domain events / audit
+        - database / migrations / seeds
+        - web layer / plugs / routing
+        - tooling / CI / docs
+        - not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What is wrong, in one or two sentences.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Exact commands, requests, or test invocation. Redact secrets.
+      placeholder: |
+        1. mix setup
+        2. curl -sS -X POST http://localhost:4000/api/v1/polos/sobral/orders \
+             -H "authorization: Bearer <redacted>" \
+             -H 'idempotency-key: checkout-001' \
+             -d '{"product_offering_version_id":"...","offering_price_id":"..."}'
+        3. Repeat the same request
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened, and which invariant or documented contract it comes from.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead. Include HTTP status, response body, stacktrace, or failing test output.
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: commit
+    attributes:
+      label: Commit or branch
+      description: Output of `git rev-parse --short HEAD`.
+      placeholder: dcdf804
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Output of `elixir --version` plus OS and how PostgreSQL is running.
+      placeholder: |
+        Elixir 1.20.2 (compiled with Erlang/OTP 29)
+        OS: Arch Linux
+        PostgreSQL: docker compose (postgres:18.4), port 55432
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: tenancy
+    attributes:
+      label: Tenant impact
+      description: >
+        Does this affect isolation between polos, authorization, payment state,
+        or entitlement balance? Say so explicitly, even if the answer is no.
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Logs, `x-request-id`, related issues, or a failing test you already wrote.
