@@ -31,10 +31,10 @@ defmodule ClubeiraWeb.PaymentWebhookController do
         send_resp(conn, :ok, "")
 
       {:error, :invalid_webhook} ->
-        render_error(conn, :bad_request)
+        reject_webhook(conn, merchant_account_id, :invalid_webhook, :bad_request)
 
       {:error, :webhook_unauthorized} ->
-        render_error(conn, :unauthorized)
+        reject_webhook(conn, merchant_account_id, :webhook_unauthorized, :unauthorized)
 
       {:error, reason} when reason in @service_errors ->
         render_error(conn, :service_unavailable)
@@ -52,6 +52,20 @@ defmodule ClubeiraWeb.PaymentWebhookController do
       [value] -> value
       _missing_or_ambiguous -> nil
     end
+  end
+
+  defp reject_webhook(conn, merchant_account_id, reason, status) do
+    :telemetry.execute(
+      [:clubeira, :billing, :webhook_rejected],
+      %{count: 1},
+      %{
+        merchant_account_id: merchant_account_id,
+        provider: "mercado_pago",
+        reason: reason
+      }
+    )
+
+    render_error(conn, status)
   end
 
   defp render_error(conn, status) do

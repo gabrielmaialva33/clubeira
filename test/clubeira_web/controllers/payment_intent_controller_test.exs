@@ -670,6 +670,7 @@ defmodule ClubeiraWeb.PaymentIntentControllerTest do
   test "an invalid webhook signature is rejected before fetching provider data", %{conn: conn} do
     fixture = BillingFixtures.create!()
     configure_mercado_pago!(fixture)
+    attach_webhook_rejection_handler!()
 
     assert {:ok, order} =
              Billing.place_order(
@@ -713,6 +714,11 @@ defmodule ClubeiraWeb.PaymentIntentControllerTest do
              }
            )
            |> json_response(401) == %{"errors" => %{"detail" => "Unauthorized"}}
+
+    assert_receive {:webhook_rejected, %{count: 1}, metadata}
+    assert metadata.provider == "mercado_pago"
+    assert metadata.merchant_account_id == fixture.merchant_account.id
+    assert metadata.reason == :webhook_unauthorized
   end
 
   test "a webhook whose signed query and body identify different orders is rejected before fetch",
@@ -763,6 +769,23 @@ defmodule ClubeiraWeb.PaymentIntentControllerTest do
         Application.delete_env(:clubeira, MercadoPago)
       end
     end)
+  end
+
+  defp attach_webhook_rejection_handler! do
+    handler_id = "payment-webhook-rejected-#{System.unique_integer([:positive])}"
+    test_process = self()
+
+    :ok =
+      :telemetry.attach(
+        handler_id,
+        [:clubeira, :billing, :webhook_rejected],
+        fn _event, measurements, metadata, _config ->
+          send(test_process, {:webhook_rejected, measurements, metadata})
+        end,
+        nil
+      )
+
+    on_exit(fn -> :telemetry.detach(handler_id) end)
   end
 
   defp authenticate!(fixture) do

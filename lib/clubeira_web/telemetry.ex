@@ -74,6 +74,7 @@ defmodule ClubeiraWeb.Telemetry do
         description:
           "The time the connection spent waiting before being checked out for the query"
       ),
+      counter("clubeira.billing.webhook_rejected.count", tags: [:provider, :reason]),
 
       # VM Metrics
       summary("vm.memory.total", unit: {:byte, :kilobyte}),
