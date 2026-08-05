@@ -200,7 +200,7 @@ defmodule Clubeira.RedemptionsFixtures do
       max_authorized_devices: 3,
       delinquency_mode: "grace_period",
       delinquency_grace_days: 3,
-      review_policy: "verified_only",
+      review_policy: Keyword.get(options, :review_policy, "verified_only"),
       published_at: starts_at
     })
 

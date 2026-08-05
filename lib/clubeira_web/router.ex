@@ -62,6 +62,7 @@ defmodule ClubeiraWeb.Router do
     delete "/auth/session", AuthSessionController, :delete
     get "/me/subscriptions", SubscriptionController, :index
     post "/polos/:polo_slug/orders", CheckoutController, :create
+    post "/polos/:polo_slug/places/:place_id/reviews", ReviewController, :create
     get "/polos/:polo_slug/me/orders", OrderController, :index
     get "/polos/:polo_slug/me/vouchers", WalletController, :index
   end
