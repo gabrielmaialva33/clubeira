@@ -21,18 +21,20 @@ defmodule Clubeira.Outbox.WorkerTest do
     message_id = emit_message!(fixture)
 
     worker =
-      start_supervised!({Worker,
-       name: nil,
-       initial_delay_ms: 60_000,
-       interval_ms: 60_000,
-       adapter: CaptureAdapter,
-       adapter_options: [test_pid: self()],
-       worker_id: "worker-test",
-       batch_size: 10,
-       lock_timeout_ms: 1_000,
-       max_attempts: 3,
-       retry_base_ms: 100,
-       retry_max_ms: 1_000})
+      start_supervised!(
+        {Worker,
+         name: nil,
+         initial_delay_ms: 60_000,
+         interval_ms: 60_000,
+         adapter: CaptureAdapter,
+         adapter_options: [test_pid: self()],
+         worker_id: "worker-test",
+         batch_size: 10,
+         lock_timeout_ms: 1_000,
+         max_attempts: 3,
+         retry_base_ms: 100,
+         retry_max_ms: 1_000}
+      )
 
     send(worker, :publish_outbox)
 

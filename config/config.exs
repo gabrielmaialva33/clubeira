@@ -26,6 +26,18 @@ config :clubeira, Clubeira.Accounts.SessionJanitor,
   interval_ms: 3_600_000,
   retention_seconds: 30 * 24 * 60 * 60
 
+config :clubeira, Clubeira.Outbox.Worker,
+  enabled: false,
+  initial_delay_ms: 1_000,
+  interval_ms: 1_000,
+  adapter: Clubeira.Outbox.Adapters.Http,
+  adapter_options: [],
+  batch_size: 50,
+  lock_timeout_ms: 60_000,
+  max_attempts: 10,
+  retry_base_ms: 1_000,
+  retry_max_ms: 3_600_000
+
 config :clubeira, ClubeiraWeb.Plugs.CredentialRateLimit,
   limiter: Clubeira.Security.LoginRateLimiter,
   limits: [

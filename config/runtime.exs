@@ -63,6 +63,21 @@ if config_env() == :prod do
     end
   end
 
+  boolean! = fn name, default ->
+    case System.get_env(name, to_string(default)) |> String.downcase() do
+      value when value in ["true", "1"] -> true
+      value when value in ["false", "0"] -> false
+      value -> raise "#{name} must be true, false, 1, or 0, got: #{inspect(value)}"
+    end
+  end
+
+  required_env! = fn name ->
+    case System.fetch_env(name) do
+      {:ok, value} when value != "" -> value
+      _missing -> raise "environment variable #{name} is required"
+    end
+  end
+
   config :argon2_elixir,
     t_cost: integer_in_range!.("ARGON2_T_COST", 3, 2..10),
     m_cost: integer_in_range!.("ARGON2_M_COST", 16, 16..20),
@@ -72,8 +87,7 @@ if config_env() == :prod do
     max_concurrency: integer_in_range!.("ARGON2_MAX_CONCURRENCY", 8, 1..64)
 
   config :clubeira, Clubeira.Redemptions.Grant,
-    max_age_seconds:
-      integer_in_range!.("REDEMPTION_GRANT_MAX_AGE_SECONDS", 120, 30..600)
+    max_age_seconds: integer_in_range!.("REDEMPTION_GRANT_MAX_AGE_SECONDS", 120, 30..600)
 
   config :clubeira, ClubeiraWeb.Plugs.CredentialRateLimit,
     limiter: Clubeira.Security.LoginRateLimiter,
@@ -115,6 +129,49 @@ if config_env() == :prod do
     initial_delay_ms: 60_000,
     interval_ms: 3_600_000,
     retention_seconds: retention_days * 24 * 60 * 60
+
+  if boolean!.("OUTBOX_PUBLISHER_ENABLED", false) do
+    url = required_env!.("OUTBOX_WEBHOOK_URL")
+    secret = required_env!.("OUTBOX_WEBHOOK_SECRET")
+
+    unless match?(
+             {:ok, %URI{scheme: "https", host: host, userinfo: nil, fragment: nil}}
+             when is_binary(host) and host != "",
+             URI.new(url)
+           ) do
+      raise "OUTBOX_WEBHOOK_URL must be an absolute HTTPS URL without credentials or a fragment"
+    end
+
+    if byte_size(secret) < 32 do
+      raise "OUTBOX_WEBHOOK_SECRET must contain at least 32 bytes"
+    end
+
+    retry_base_ms =
+      integer_in_range!.("OUTBOX_RETRY_BASE_MS", 1_000, 100..600_000)
+
+    retry_max_ms =
+      integer_in_range!.("OUTBOX_RETRY_MAX_MS", 3_600_000, 1_000..86_400_000)
+
+    if retry_max_ms < retry_base_ms do
+      raise "OUTBOX_RETRY_MAX_MS must be greater than or equal to OUTBOX_RETRY_BASE_MS"
+    end
+
+    config :clubeira, Clubeira.Outbox.Worker,
+      enabled: true,
+      initial_delay_ms: integer_in_range!.("OUTBOX_INITIAL_DELAY_MS", 1_000, 100..60_000),
+      interval_ms: integer_in_range!.("OUTBOX_INTERVAL_MS", 1_000, 100..60_000),
+      adapter: Clubeira.Outbox.Adapters.Http,
+      adapter_options: [
+        url: url,
+        secret: secret,
+        receive_timeout: integer_in_range!.("OUTBOX_HTTP_TIMEOUT_MS", 10_000, 100..120_000)
+      ],
+      batch_size: integer_in_range!.("OUTBOX_BATCH_SIZE", 50, 1..1_000),
+      lock_timeout_ms: integer_in_range!.("OUTBOX_LOCK_TIMEOUT_MS", 60_000, 1_000..600_000),
+      max_attempts: integer_in_range!.("OUTBOX_MAX_ATTEMPTS", 10, 1..100),
+      retry_base_ms: retry_base_ms,
+      retry_max_ms: retry_max_ms
+  end
 
   database_role_mode = System.get_env("CLUBEIRA_DATABASE_ROLE_MODE", "runtime")
 

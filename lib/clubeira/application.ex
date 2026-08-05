@@ -16,6 +16,7 @@ defmodule Clubeira.Application do
          Application.fetch_env!(:clubeira, Clubeira.Security.PasswordGate)}
       ] ++
         session_janitor_children() ++
+        outbox_worker_children() ++
         [
           {DNSCluster, query: Application.get_env(:clubeira, :dns_cluster_query) || :ignore},
           {Phoenix.PubSub, name: Clubeira.PubSub},
@@ -41,6 +42,16 @@ defmodule Clubeira.Application do
 
     if Keyword.get(options, :enabled, false) do
       [{Clubeira.Accounts.SessionJanitor, Keyword.delete(options, :enabled)}]
+    else
+      []
+    end
+  end
+
+  defp outbox_worker_children do
+    options = Application.fetch_env!(:clubeira, Clubeira.Outbox.Worker)
+
+    if Keyword.get(options, :enabled, false) do
+      [{Clubeira.Outbox.Worker, Keyword.delete(options, :enabled)}]
     else
       []
     end
