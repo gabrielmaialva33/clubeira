@@ -2,11 +2,13 @@ defmodule ClubeiraWeb.PasswordResetControllerTest do
   use ClubeiraWeb.ConnCase, async: false
 
   import Ecto.Query
+  import ExUnit.CaptureLog
   import Swoosh.TestAssertions
 
   alias Clubeira.Accounts.PasswordResetToken
   alias Clubeira.Audit.SystemEvent
   alias Clubeira.Factory
+  alias Clubeira.Mailer
   alias Clubeira.Repo
 
   @old_password "uma-senha-antiga-bem-forte"
@@ -283,6 +285,47 @@ defmodule ClubeiraWeb.PasswordResetControllerTest do
              "password" => @new_password
            })
            |> response(:no_content) == ""
+  end
+
+  test "delivery failure keeps the public response generic and revokes the token", %{conn: conn} do
+    previous_mailer_config = Application.fetch_env!(:clubeira, Mailer)
+    Application.put_env(:clubeira, Mailer, adapter: Clubeira.FailingMailerAdapter)
+
+    on_exit(fn -> Application.put_env(:clubeira, Mailer, previous_mailer_config) end)
+
+    handler_id = {__MODULE__, make_ref()}
+    test_process = self()
+
+    :ok =
+      :telemetry.attach(
+        handler_id,
+        [:clubeira, :accounts, :password_reset_delivery_failed],
+        fn event, measurements, metadata, _config ->
+          send(test_process, {:delivery_failed, event, measurements, metadata})
+        end,
+        nil
+      )
+
+    on_exit(fn -> :telemetry.detach(handler_id) end)
+
+    user = Factory.insert(:user, email: "delivery-failure@example.test")
+
+    {response_conn, log} =
+      with_log(fn ->
+        post(conn, ~p"/api/v1/auth/password-reset-requests", %{"email" => user.email})
+      end)
+
+    assert response(response_conn, :accepted) == ""
+    assert log =~ "password reset email delivery failed token_id="
+    refute_email_sent()
+
+    reset = Repo.get_by!(PasswordResetToken, user_id: user.id)
+    assert %DateTime{} = reset.revoked_at
+
+    assert_receive {:delivery_failed, [:clubeira, :accounts, :password_reset_delivery_failed],
+                    %{count: 1}, %{password_reset_token_id: reset_id}}
+
+    assert reset_id == reset.id
   end
 
   defp receive_reset_token do

@@ -1,6 +1,6 @@
 defmodule Clubeira.Accounts.SessionJanitor do
   @moduledoc """
-  Periodically enforces retention for expired and revoked authentication sessions.
+  Periodically enforces retention for terminal authentication credentials.
 
   Cleanup is idempotent, so multiple application nodes may run it safely.
   """
@@ -55,7 +55,7 @@ defmodule Clubeira.Accounts.SessionJanitor do
   rescue
     error ->
       Logger.error(
-        "could not purge stale sessions: #{Exception.format(:error, error, __STACKTRACE__)}"
+        "could not purge stale authentication data: #{Exception.format(:error, error, __STACKTRACE__)}"
       )
   end
 

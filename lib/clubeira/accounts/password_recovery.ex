@@ -114,25 +114,35 @@ defmodule Clubeira.Accounts.PasswordRecovery do
   defp deliver(reset, recipient, token) do
     email = PasswordResetEmail.build(recipient, token, config!())
 
-    case Mailer.deliver(email) do
+    delivery_result =
+      try do
+        Mailer.deliver(email)
+      rescue
+        _error -> {:error, :delivery_exception}
+      end
+
+    case delivery_result do
       {:ok, _metadata} -> :ok
       {:error, _reason} -> handle_delivery_failure(reset)
     end
-  rescue
-    _error -> handle_delivery_failure(reset)
   end
 
   defp handle_delivery_failure(reset) do
-    now = DateTime.utc_now(:microsecond)
+    {:ok, :ok} =
+      Repo.transact(fn repo ->
+        now = database_now(repo)
 
-    Repo.update_all(
-      from(candidate in PasswordResetToken,
-        where:
-          candidate.id == ^reset.id and is_nil(candidate.consumed_at) and
-            is_nil(candidate.revoked_at)
-      ),
-      set: [revoked_at: now]
-    )
+        repo.update_all(
+          from(candidate in PasswordResetToken,
+            where:
+              candidate.id == ^reset.id and is_nil(candidate.consumed_at) and
+                is_nil(candidate.revoked_at)
+          ),
+          set: [revoked_at: now]
+        )
+
+        {:ok, :ok}
+      end)
 
     :telemetry.execute(
       [:clubeira, :accounts, :password_reset_delivery_failed],

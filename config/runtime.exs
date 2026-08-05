@@ -161,34 +161,38 @@ if config_env() == :prod do
       ]
     ]
 
-  password_reset_url = required_env!.("PASSWORD_RESET_URL")
-  mailer_from_email = required_env!.("MAILER_FROM_EMAIL")
+  database_role_mode = System.get_env("CLUBEIRA_DATABASE_ROLE_MODE", "runtime")
 
-  unless match?(
-           {:ok, %URI{scheme: "https", host: host, userinfo: nil, fragment: nil}}
-           when is_binary(host) and host != "",
-           URI.new(password_reset_url)
-         ) do
-    raise "PASSWORD_RESET_URL must be an absolute HTTPS URL without credentials or a fragment"
-  end
+  if database_role_mode == "runtime" do
+    password_reset_url = required_env!.("PASSWORD_RESET_URL")
+    mailer_from_email = required_env!.("MAILER_FROM_EMAIL")
 
-  unless Regex.match?(~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/u, mailer_from_email) do
-    raise "MAILER_FROM_EMAIL must be an email address"
-  end
+    unless match?(
+             {:ok, %URI{scheme: "https", host: host, userinfo: nil, fragment: nil}}
+             when is_binary(host) and host != "",
+             URI.new(password_reset_url)
+           ) do
+      raise "PASSWORD_RESET_URL must be an absolute HTTPS URL without credentials or a fragment"
+    end
 
-  config :clubeira, Clubeira.Accounts.PasswordRecovery,
-    token_ttl_seconds: integer_in_range!.("PASSWORD_RESET_TOKEN_TTL_MINUTES", 30, 5..120) * 60,
-    reset_url: password_reset_url,
-    from: {"Clubeira", mailer_from_email}
+    unless Regex.match?(~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/u, mailer_from_email) do
+      raise "MAILER_FROM_EMAIL must be an email address"
+    end
 
-  case required_env!.("MAILER_PROVIDER") do
-    "resend" ->
-      config :clubeira, Clubeira.Mailer,
-        adapter: Swoosh.Adapters.Resend,
-        api_key: required_env!.("RESEND_API_KEY")
+    config :clubeira, Clubeira.Accounts.PasswordRecovery,
+      token_ttl_seconds: integer_in_range!.("PASSWORD_RESET_TOKEN_TTL_MINUTES", 30, 5..120) * 60,
+      reset_url: password_reset_url,
+      from: {"Clubeira", mailer_from_email}
 
-    provider ->
-      raise "MAILER_PROVIDER must be resend, got: #{inspect(provider)}"
+    case required_env!.("MAILER_PROVIDER") do
+      "resend" ->
+        config :clubeira, Clubeira.Mailer,
+          adapter: Swoosh.Adapters.Resend,
+          api_key: required_env!.("RESEND_API_KEY")
+
+      provider ->
+        raise "MAILER_PROVIDER must be resend, got: #{inspect(provider)}"
+    end
   end
 
   retention_days = integer_in_range!.("SESSION_RETENTION_DAYS", 30, 1..365)
@@ -241,8 +245,6 @@ if config_env() == :prod do
       retry_base_ms: retry_base_ms,
       retry_max_ms: retry_max_ms
   end
-
-  database_role_mode = System.get_env("CLUBEIRA_DATABASE_ROLE_MODE", "runtime")
 
   {database_url, database_role_options} =
     case database_role_mode do
@@ -342,5 +344,4 @@ if config_env() == :prod do
   #       force_ssl: [hsts: true]
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
-
 end
