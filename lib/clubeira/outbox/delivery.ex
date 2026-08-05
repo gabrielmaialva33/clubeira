@@ -29,50 +29,52 @@ defmodule Clubeira.Outbox.Delivery do
     Repo.transact_in_polo(scope, fn repo ->
       now = transaction_time(repo)
       stale_before = DateTime.add(now, -config.lock_timeout_ms, :millisecond)
-
-      messages =
-        repo.all(
-          from message in OutboxMessage,
-            where:
-              (message.status == "pending" and message.available_at <= ^now) or
-                (message.status == "publishing" and message.locked_at < ^stale_before),
-            order_by: [asc: message.available_at, asc: message.id],
-            limit: ^config.batch_size,
-            lock: "FOR UPDATE SKIP LOCKED"
-        )
-
-      ids = Enum.map(messages, & &1.id)
-
-      if ids != [] do
-        {count, _messages} =
-          repo.update_all(
-            from(message in OutboxMessage, where: message.id in ^ids),
-            set: [
-              status: "publishing",
-              locked_at: now,
-              locked_by: config.worker_id,
-              last_error: nil,
-              updated_at: now
-            ],
-            inc: [attempt_count: 1]
-          )
-
-        if count != length(ids), do: raise("outbox claim count changed under row lock")
-      end
-
-      claimed =
-        if ids == [] do
-          []
-        else
-          repo.all(
-            from message in OutboxMessage,
-              where: message.id in ^ids,
-              order_by: [asc: message.available_at, asc: message.id]
-          )
-        end
-
-      {:ok, claimed}
+      ids = claimable_ids(repo, now, stale_before, config.batch_size)
+      claim_messages!(repo, ids, now, config.worker_id)
+      {:ok, load_claimed(repo, ids)}
     end)
+  end
+
+  defp claimable_ids(repo, now, stale_before, batch_size) do
+    OutboxMessage
+    |> where(
+      [message],
+      (message.status == "pending" and message.available_at <= ^now) or
+        (message.status == "publishing" and message.locked_at < ^stale_before)
+    )
+    |> order_by([message], asc: message.available_at, asc: message.id)
+    |> limit(^batch_size)
+    |> lock("FOR UPDATE SKIP LOCKED")
+    |> select([message], message.id)
+    |> repo.all()
+  end
+
+  defp claim_messages!(_repo, [], _now, _worker_id), do: :ok
+
+  defp claim_messages!(repo, ids, now, worker_id) do
+    {count, _messages} =
+      repo.update_all(
+        from(message in OutboxMessage, where: message.id in ^ids),
+        set: [
+          status: "publishing",
+          locked_at: now,
+          locked_by: worker_id,
+          last_error: nil,
+          updated_at: now
+        ],
+        inc: [attempt_count: 1]
+      )
+
+    if count != length(ids), do: raise("outbox claim count changed under row lock")
+  end
+
+  defp load_claimed(_repo, []), do: []
+
+  defp load_claimed(repo, ids) do
+    OutboxMessage
+    |> where([message], message.id in ^ids)
+    |> order_by([message], asc: message.available_at, asc: message.id)
+    |> repo.all()
   end
 
   defp deliver(scope, message, config) do
@@ -85,7 +87,11 @@ defmodule Clubeira.Outbox.Delivery do
   end
 
   defp safely_publish(adapter, message, options) do
-    adapter.publish(message, options)
+    case adapter.publish(message, options) do
+      :ok -> :ok
+      {:error, _reason} = error -> error
+      _invalid -> {:error, :invalid_adapter_response}
+    end
   rescue
     error -> {:error, {:adapter_exception, error.__struct__}}
   catch

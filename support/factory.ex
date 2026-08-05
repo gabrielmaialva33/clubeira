@@ -34,8 +34,11 @@ defmodule Clubeira.Factory do
   alias Clubeira.Legal.Document
   alias Clubeira.Legal.DocumentVersion
   alias Clubeira.Polos.Polo
+  alias Clubeira.Polos.PoloMembership
+  alias Clubeira.Polos.PoloMembershipRole
   alias Clubeira.Polos.PoloPlace
   alias Clubeira.Polos.PoloPolicyVersion
+  alias Clubeira.Polos.PoloRole
   alias Clubeira.Polos.PoloRoute
   alias Clubeira.Redemptions.ValidationCredential
   alias Clubeira.Redemptions.ValidationPoint
@@ -190,6 +193,27 @@ defmodule Clubeira.Factory do
 
   def polo_route_factory do
     %PoloRoute{slug: unique_slug("polo")}
+  end
+
+  def polo_role_factory do
+    number = sequence(:polo_role, & &1)
+
+    %PoloRole{
+      key: "role-#{number}",
+      name: "Papel #{number}",
+      status: "active"
+    }
+  end
+
+  def polo_membership_factory do
+    %PoloMembership{
+      valid_during: tstz_range(@default_range_start),
+      status: "active"
+    }
+  end
+
+  def polo_membership_role_factory do
+    %PoloMembershipRole{inserted_at: timestamp()}
   end
 
   def polo_policy_version_factory do

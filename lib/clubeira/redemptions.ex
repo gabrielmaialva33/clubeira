@@ -14,14 +14,14 @@ defmodule Clubeira.Redemptions do
 
   alias Clubeira.Idempotency
   alias Clubeira.Idempotency.Key
-  alias Clubeira.Redemptions.ConfirmedRequest
   alias Clubeira.Redemptions.AuthenticatedConfirmation
+  alias Clubeira.Redemptions.ConfirmedRequest
   alias Clubeira.Redemptions.Eligibility
+  alias Clubeira.Redemptions.GrantIssuer
   alias Clubeira.Redemptions.Recorder
   alias Clubeira.Redemptions.Redemption
   alias Clubeira.Redemptions.RedemptionAttempt
   alias Clubeira.Redemptions.RedemptionReader
-  alias Clubeira.Redemptions.GrantIssuer
   alias Clubeira.Repo
   alias Clubeira.Tenancy.Scope
 

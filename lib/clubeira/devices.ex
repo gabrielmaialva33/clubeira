@@ -64,33 +64,46 @@ defmodule Clubeira.Devices do
 
       with {:ok, {contract, policy}} <- lock_contract(repo, scope, request, now),
            {:ok, device} <- find_or_create_device(repo, request, now),
-           :ok <- authorize_user_device(repo, scope, device, now),
-           {:ok, enrollment} <-
-             authorize_contract_device(repo, scope, contract, policy, device, now) do
-        {:ok, enrollment}
+           :ok <- authorize_user_device(repo, scope, device, now) do
+        authorize_contract_device(repo, scope, contract, policy, device, now)
       end
     end)
   end
 
   defp lock_contract(repo, scope, request, now) do
     query =
-      from contract in AccessContract,
-        join: policy in PoloPolicyVersion,
-        on: policy.id == contract.polo_policy_version_id and policy.polo_id == contract.polo_id,
-        where:
-          contract.id == ^request.access_contract_id and
-            contract.polo_id == ^scope.polo_id and
-            contract.purchaser_user_id == ^scope.actor_user_id and
-            contract.status in ["active", "past_due"] and
-            (is_nil(contract.starts_at) or contract.starts_at <= ^now) and
-            (is_nil(contract.ends_at) or contract.ends_at > ^now),
-        lock: "FOR UPDATE",
-        select: {contract, policy}
+      AccessContract
+      |> join(:inner, [contract], policy in PoloPolicyVersion,
+        on: policy.id == contract.polo_policy_version_id and policy.polo_id == contract.polo_id
+      )
+      |> filter_contract_identity(scope, request)
+      |> filter_current_contract(now)
+      |> lock("FOR UPDATE")
+      |> select([contract, policy], {contract, policy})
 
     case repo.one(query) do
       {%AccessContract{}, %PoloPolicyVersion{}} = result -> {:ok, result}
       nil -> {:error, :contract_not_found}
     end
+  end
+
+  defp filter_contract_identity(query, scope, request) do
+    where(
+      query,
+      [contract],
+      contract.id == ^request.access_contract_id and contract.polo_id == ^scope.polo_id and
+        contract.purchaser_user_id == ^scope.actor_user_id and
+        contract.status in ["active", "past_due"]
+    )
+  end
+
+  defp filter_current_contract(query, now) do
+    where(
+      query,
+      [contract],
+      (is_nil(contract.starts_at) or contract.starts_at <= ^now) and
+        (is_nil(contract.ends_at) or contract.ends_at > ^now)
+    )
   end
 
   defp find_or_create_device(repo, request, now) do

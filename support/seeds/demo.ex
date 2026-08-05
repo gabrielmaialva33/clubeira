@@ -11,6 +11,7 @@ defmodule Clubeira.Seeds.Demo do
   alias Clubeira.Seeds.Demo.Ids
   alias Clubeira.Seeds.Demo.Legal
   alias Clubeira.Seeds.Demo.Member
+  alias Clubeira.Seeds.Demo.Moderator
   alias Clubeira.Seeds.Demo.Polo
 
   @spec run!() :: map()
@@ -89,6 +90,7 @@ defmodule Clubeira.Seeds.Demo do
 
     billing = Billing.run!()
     member = Member.run!()
+    moderator = Moderator.run!()
 
     %{
       profile: :demo,
@@ -104,6 +106,7 @@ defmodule Clubeira.Seeds.Demo do
       legal_document_version_id: legal.version.id,
       validation_point_id: id(:validation_point_sobral),
       member_email: member.email,
+      moderator_email: moderator.email,
       payment_provider: billing.provider.code,
       subscriptions: member.subscriptions,
       vouchers: member.vouchers

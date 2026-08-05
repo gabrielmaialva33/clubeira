@@ -24,39 +24,47 @@ defmodule Clubeira.Reviews.ModerateTest do
     assert result.action.actor_user_id == moderator_scope.actor_user_id
 
     assert %{rows: [[1, 1, 1, 1, 1, "published", reason]]} =
-             scoped_query!(fixture, """
-             SELECT
-               (SELECT count(*) FROM moderation_actions WHERE review_id = $1),
-               (SELECT count(*) FROM tenant_audit_events
-                  WHERE action = 'review.published' AND resource_id = $1),
-               (SELECT count(*) FROM domain_events
-                  WHERE event_type = 'review.published' AND aggregate_id = $1),
-               (SELECT count(*) FROM outbox_messages
-                  WHERE topic = 'reviews.published'),
-               (SELECT count(*) FROM tenant_idempotency_keys
-                  WHERE scope = 'reviews.moderate'),
-               (SELECT status FROM reviews WHERE id = $1),
-               (SELECT reason FROM moderation_actions WHERE review_id = $1)
-             """, [fixture.submission.review.id])
+             scoped_query!(
+               fixture,
+               """
+               SELECT
+                 (SELECT count(*) FROM moderation_actions WHERE review_id = $1),
+                 (SELECT count(*) FROM tenant_audit_events
+                    WHERE action = 'review.published' AND resource_id = $1),
+                 (SELECT count(*) FROM domain_events
+                    WHERE event_type = 'review.published' AND aggregate_id = $1),
+                 (SELECT count(*) FROM outbox_messages
+                    WHERE topic = 'reviews.published'),
+                 (SELECT count(*) FROM tenant_idempotency_keys
+                    WHERE scope = 'reviews.moderate'),
+                 (SELECT status FROM reviews WHERE id = $1),
+                 (SELECT reason FROM moderation_actions WHERE review_id = $1)
+               """,
+               [fixture.submission.review.id]
+             )
 
     assert reason == request.reason
 
     assert %{rows: [[false, false, false]]} =
-             scoped_query!(fixture, """
-             SELECT
-               EXISTS (
-                 SELECT 1 FROM tenant_audit_events
-                 WHERE action = 'review.published' AND metadata::text LIKE $2
-               ),
-               EXISTS (
-                 SELECT 1 FROM domain_events
-                 WHERE event_type = 'review.published' AND payload::text LIKE $2
-               ),
-               EXISTS (
-                 SELECT 1 FROM outbox_messages
-                 WHERE topic = 'reviews.published' AND payload::text LIKE $2
-               )
-             """, [fixture.submission.review.id, "%#{request.reason}%"])
+             scoped_query!(
+               fixture,
+               """
+               SELECT
+                 EXISTS (
+                   SELECT 1 FROM tenant_audit_events
+                   WHERE action = 'review.published' AND metadata::text LIKE $1
+                 ),
+                 EXISTS (
+                   SELECT 1 FROM domain_events
+                   WHERE event_type = 'review.published' AND payload::text LIKE $1
+                 ),
+                 EXISTS (
+                   SELECT 1 FROM outbox_messages
+                   WHERE topic = 'reviews.published' AND payload::text LIKE $1
+                 )
+               """,
+               ["%#{request.reason}%"]
+             )
 
     assert {:ok, replayed} = Reviews.moderate(moderator_scope, request)
     assert replayed.action.id == result.action.id
@@ -80,13 +88,17 @@ defmodule Clubeira.Reviews.ModerateTest do
     assert %DateTime{} = result.review.rejected_at
 
     assert %{rows: [["reject", "review.rejected", "reviews.rejected"]]} =
-             scoped_query!(fixture, """
-             SELECT action.action, event.event_type, message.topic
-             FROM moderation_actions AS action
-             JOIN domain_events AS event ON event.aggregate_id = action.review_id
-             JOIN outbox_messages AS message ON message.domain_event_id = event.id
-             WHERE action.id = $1 AND event.aggregate_version = 2
-             """, [result.action.id])
+             scoped_query!(
+               fixture,
+               """
+               SELECT action.action, event.event_type, message.topic
+               FROM moderation_actions AS action
+               JOIN domain_events AS event ON event.aggregate_id = action.review_id
+               JOIN outbox_messages AS message ON message.domain_event_id = event.id
+               WHERE action.id = $1 AND event.aggregate_version = 2
+               """,
+               [result.action.id]
+             )
   end
 
   test "derives moderator authority from an active polo membership" do
@@ -131,11 +143,15 @@ defmodule Clubeira.Reviews.ModerateTest do
              })
 
     assert %{rows: [[1, "published"]]} =
-             scoped_query!(fixture, """
-             SELECT
-               (SELECT count(*) FROM moderation_actions WHERE review_id = $1),
-               (SELECT status FROM reviews WHERE id = $1)
-             """, [fixture.submission.review.id])
+             scoped_query!(
+               fixture,
+               """
+               SELECT
+                 (SELECT count(*) FROM moderation_actions WHERE review_id = $1),
+                 (SELECT status FROM reviews WHERE id = $1)
+               """,
+               [fixture.submission.review.id]
+             )
   end
 
   defp scoped_query!(fixture, sql, parameters \\ []) do

@@ -18,6 +18,24 @@ defmodule ClubeiraWeb.ReviewController do
     source_redemption_unavailable
   )a
 
+  def index(conn, %{"polo_slug" => polo_slug, "place_id" => place_id} = params) do
+    with {:ok, route} <- Polos.resolve_route(polo_slug),
+         {:ok, page} <-
+           Reviews.list_public(
+             Scope.new!(route.polo_id, request_id: conn.assigns.request_id),
+             place_id,
+             params
+           ) do
+      render(conn, :index, reviews: page.reviews, page: page.page)
+    else
+      {:error, reason} when reason in [:polo_not_found, :place_not_found] ->
+        render_error(conn, :not_found)
+
+      {:error, :invalid_pagination} ->
+        render_error(conn, :unprocessable_entity)
+    end
+  end
+
   def create(conn, %{"polo_slug" => polo_slug, "place_id" => place_id} = params) do
     with {:ok, idempotency_key} <- fetch_idempotency_key(conn),
          {:ok, route} <- Polos.resolve_route(polo_slug),

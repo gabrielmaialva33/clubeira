@@ -2,8 +2,8 @@ defmodule Clubeira.SeedsTest do
   use Clubeira.DataCase, async: false
 
   alias Clubeira.Accounts
-  alias Clubeira.Accounts.RequestContext
   alias Clubeira.Accounts.PasswordCredential
+  alias Clubeira.Accounts.RequestContext
   alias Clubeira.Accounts.User
   alias Clubeira.Billing.MerchantAccount
   alias Clubeira.Billing.PaymentProvider
@@ -27,10 +27,12 @@ defmodule Clubeira.SeedsTest do
   alias Clubeira.Redemptions.ValidationPoint
   alias Clubeira.Redemptions
   alias Clubeira.Repo
+  alias Clubeira.Reviews
   alias Clubeira.Seeds
   alias Clubeira.Seeds.Demo.Ids
   alias Clubeira.Subscriptions
   alias Clubeira.Tenancy.ActorScope
+  alias Clubeira.Tenancy.Scope
 
   @demo_validation_secret "M-bCcLGupP8XuBxzemHd-4JumJf6trsiQpinEl30xwg"
 
@@ -47,8 +49,8 @@ defmodule Clubeira.SeedsTest do
     assert Repo.aggregate(Brand, :count) == 2
     assert Repo.aggregate(Place, :count) == 3
     assert Repo.aggregate(PoloRoute, :count) == 2
-    assert Repo.aggregate(User, :count) == 1
-    assert Repo.aggregate(PasswordCredential, :count) == 1
+    assert Repo.aggregate(User, :count) == 2
+    assert Repo.aggregate(PasswordCredential, :count) == 2
     assert Repo.aggregate(PaymentProvider, :count) == 1
     assert Repo.aggregate(MerchantAccount, :count) == 1
     assert Repo.aggregate(Document, :count) == 1
@@ -90,6 +92,7 @@ defmodule Clubeira.SeedsTest do
     assert operator_count(Ids.fetch!(:polo_londrina), local_sobral_id) == 0
 
     assert_member_api_scenario()
+    assert_moderator_scenario(first_result)
   end
 
   test "canonical identifiers are unique UUIDv7 values" do
@@ -185,5 +188,22 @@ defmodule Clubeira.SeedsTest do
              )
 
     assert redemption.entitlement_allocation_id == Ids.fetch!(:allocation_franchise_sobral)
+  end
+
+  defp assert_moderator_scenario(seed_result) do
+    password =
+      System.get_env("CLUBEIRA_DEMO_MODERATOR_PASSWORD", "clubeira-moderador-local")
+
+    assert seed_result.moderator_email == "moderador.demo@clubeira.local"
+    assert {:ok, session} = Accounts.login(seed_result.moderator_email, password)
+
+    scope =
+      Scope.new!(Ids.fetch!(:polo_sobral),
+        actor_user_id: session.user.id,
+        request_id: Ecto.UUID.generate(version: 7)
+      )
+
+    assert {:ok, %{reviews: [], page: %{has_more: false}}} =
+             Reviews.list_for_moderation(scope, %{})
   end
 end
