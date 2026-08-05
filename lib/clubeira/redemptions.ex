@@ -1,12 +1,13 @@
 defmodule Clubeira.Redemptions do
   @moduledoc """
-  Atomic online redemption boundary.
+  Atomic online redemption boundary and member history.
 
-  `confirm/2` consumes a previously issued entitlement and commits the attempt,
-  redemption, ledger mutation, audit event, domain event, idempotency response,
-  and outbox message together. It does not issue or authenticate QR tokens; that
-  protocol belongs to a separate boundary that must call this one only after a
-  confirmation proof has been authenticated.
+  `list_for_member/2` reads only successful redemptions belonging to the scoped
+  actor and polo. `confirm/2` consumes a previously issued entitlement and
+  commits the attempt, redemption, ledger mutation, audit event, domain event,
+  idempotency response, and outbox message together. It does not issue or
+  authenticate QR tokens; that protocol belongs to a separate boundary that
+  must call this one only after a confirmation proof has been authenticated.
   """
 
   import Ecto.Query
@@ -18,6 +19,7 @@ defmodule Clubeira.Redemptions do
   alias Clubeira.Redemptions.Recorder
   alias Clubeira.Redemptions.Redemption
   alias Clubeira.Redemptions.RedemptionAttempt
+  alias Clubeira.Redemptions.RedemptionReader
   alias Clubeira.Repo
   alias Clubeira.Tenancy.Scope
 
@@ -48,6 +50,10 @@ defmodule Clubeira.Redemptions do
           | :entitlement_not_found
           | :nonce_replayed
           | Eligibility.reason()
+
+  @spec list_for_member(Scope.t(), map()) ::
+          {:ok, %{redemptions: [map()], page: map()}} | {:error, term()}
+  defdelegate list_for_member(scope, params), to: RedemptionReader, as: :list
 
   @spec confirm(Scope.t(), map()) ::
           {:ok, Redemption.t()} | {:error, error_reason() | Ecto.Changeset.t()}
