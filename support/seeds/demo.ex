@@ -89,7 +89,7 @@ defmodule Clubeira.Seeds.Demo do
     )
 
     billing = Billing.run!()
-    member = Member.run!()
+    member = Member.run!(billing)
     moderator = Moderator.run!()
 
     %{
@@ -106,6 +106,7 @@ defmodule Clubeira.Seeds.Demo do
       legal_document_version_id: legal.version.id,
       validation_point_id: id(:validation_point_sobral),
       member_email: member.email,
+      member: member,
       moderator_email: moderator.email,
       payment_provider: billing.provider.code,
       subscriptions: member.subscriptions,

@@ -6,7 +6,10 @@ defmodule Clubeira.SeedsTest do
   alias Clubeira.Accounts.RequestContext
   alias Clubeira.Accounts.User
   alias Clubeira.Billing.MerchantAccount
+  alias Clubeira.Billing.Payment
+  alias Clubeira.Billing.PaymentIntent
   alias Clubeira.Billing.PaymentProvider
+  alias Clubeira.Billing.PaymentProviderEvent
   alias Clubeira.Billing.PoloMerchantAccount
   alias Clubeira.Catalog.BenefitOffer
   alias Clubeira.Catalog.BenefitOfferVersionPlace
@@ -31,6 +34,10 @@ defmodule Clubeira.SeedsTest do
   alias Clubeira.Seeds
   alias Clubeira.Seeds.Demo.Ids
   alias Clubeira.Subscriptions
+  alias Clubeira.Subscriptions.AccessContract
+  alias Clubeira.Subscriptions.EntitlementAllocation
+  alias Clubeira.Subscriptions.Order
+  alias Clubeira.Subscriptions.OrderItem
   alias Clubeira.Tenancy.ActorScope
   alias Clubeira.Tenancy.Scope
 
@@ -73,7 +80,8 @@ defmodule Clubeira.SeedsTest do
       edition_places: 2,
       benefit_offers: 2,
       offer_places: 2,
-      validation_points: 1
+      validation_points: 1,
+      vouchers: 2
     )
 
     assert_polo_counts(Ids.fetch!(:polo_londrina),
@@ -81,7 +89,8 @@ defmodule Clubeira.SeedsTest do
       edition_places: 1,
       benefit_offers: 1,
       offer_places: 1,
-      validation_points: 0
+      validation_points: 0,
+      vouchers: 1
     )
 
     franchise_id = Ids.fetch!(:organization_franchise)
@@ -91,8 +100,8 @@ defmodule Clubeira.SeedsTest do
     assert operator_count(Ids.fetch!(:polo_londrina), franchise_id) == 1
     assert operator_count(Ids.fetch!(:polo_londrina), local_sobral_id) == 0
 
-    assert_member_api_scenario()
-    assert_moderator_scenario(first_result)
+    review = assert_member_api_scenario(first_result)
+    assert_moderator_scenario(first_result, review)
   end
 
   test "canonical identifiers are unique UUIDv7 values" do
@@ -123,8 +132,14 @@ defmodule Clubeira.SeedsTest do
       assert Repo.aggregate(PoloMerchantAccount, :count) == 1
       assert Repo.aggregate(ValidationPoint, :count) == expected[:validation_points]
       assert Repo.aggregate(ValidationCredential, :count) == expected[:validation_points]
-
       assert Repo.aggregate(BenefitOfferVersionPlace, :count) == expected[:offer_places]
+      assert Repo.aggregate(Order, :count) == 1
+      assert Repo.aggregate(OrderItem, :count) == 1
+      assert Repo.aggregate(PaymentIntent, :count) == 1
+      assert Repo.aggregate(Payment, :count) == 1
+      assert Repo.aggregate(PaymentProviderEvent, :count) == 1
+      assert Repo.aggregate(AccessContract, :count) == 1
+      assert Repo.aggregate(EntitlementAllocation, :count) == expected[:vouchers]
     end)
   end
 
@@ -145,7 +160,7 @@ defmodule Clubeira.SeedsTest do
     end)
   end
 
-  defp assert_member_api_scenario do
+  defp assert_member_api_scenario(seed_result) do
     password = System.get_env("CLUBEIRA_DEMO_PASSWORD", "clubeira-demo-local")
 
     assert {:ok, session} = Accounts.login("membro.demo@clubeira.local", password)
@@ -162,14 +177,15 @@ defmodule Clubeira.SeedsTest do
 
     assert {:ok, _enrollment} =
              Devices.enroll_redemption_device(scope, "sobral", %{
-               access_contract_id: Ids.fetch!(:access_contract_sobral),
+               access_contract_id: seed_result.member.polos.sobral.contract_id,
                installation_token: installation_token,
                platform: "web"
              })
 
     assert {:ok, grant} =
              Redemptions.issue_grant(scope, "sobral", %{
-               entitlement_allocation_id: Ids.fetch!(:allocation_franchise_sobral),
+               entitlement_allocation_id:
+                 seed_result.member.polos.sobral.allocations.franchise,
                installation_token: installation_token
              })
 
@@ -187,10 +203,29 @@ defmodule Clubeira.SeedsTest do
                RequestContext.new!()
              )
 
-    assert redemption.entitlement_allocation_id == Ids.fetch!(:allocation_franchise_sobral)
+    assert redemption.entitlement_allocation_id ==
+             seed_result.member.polos.sobral.allocations.franchise
+
+    review_scope =
+      Scope.new!(Ids.fetch!(:polo_sobral),
+        actor_user_id: session.user.id,
+        request_id: Ecto.UUID.generate(version: 7)
+      )
+
+    assert {:ok, submission} =
+             Reviews.submit_verified(review_scope, %{
+               place_id: Ids.fetch!(:place_franchise_sobral),
+               source_redemption_id: redemption.id,
+               rating: 5,
+               title: "Café e atendimento excelentes",
+               body: "O benefício demo foi entregue como anunciado.",
+               idempotency_key: "demo-seed-review"
+             })
+
+    submission.review
   end
 
-  defp assert_moderator_scenario(seed_result) do
+  defp assert_moderator_scenario(seed_result, pending_review) do
     password =
       System.get_env("CLUBEIRA_DEMO_MODERATOR_PASSWORD", "clubeira-moderador-local")
 
@@ -203,7 +238,27 @@ defmodule Clubeira.SeedsTest do
         request_id: Ecto.UUID.generate(version: 7)
       )
 
-    assert {:ok, %{reviews: [], page: %{has_more: false}}} =
+    assert {:ok, %{reviews: [queued_review], page: %{has_more: false}}} =
              Reviews.list_for_moderation(scope, %{})
+
+    assert queued_review.review.id == pending_review.id
+
+    assert {:ok, moderation} =
+             Reviews.moderate(scope, %{
+               review_id: pending_review.id,
+               action: "publish",
+               reason: "Conteúdo verificado no cenário demo.",
+               idempotency_key: "demo-seed-moderation"
+             })
+
+    assert moderation.review.status == "published"
+
+    public_scope =
+      Scope.new!(Ids.fetch!(:polo_sobral), request_id: Ecto.UUID.generate(version: 7))
+
+    assert {:ok, %{reviews: [published_review]}} =
+             Reviews.list_public(public_scope, Ids.fetch!(:place_franchise_sobral), %{})
+
+    assert published_review.review.id == pending_review.id
   end
 end

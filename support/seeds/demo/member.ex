@@ -1,18 +1,22 @@
 defmodule Clubeira.Seeds.Demo.Member do
   @moduledoc false
 
+  import Ecto.Query
+
   alias Clubeira.Accounts
   alias Clubeira.Accounts.PasswordCredential
+  alias Clubeira.Billing
   alias Clubeira.Catalog.BenefitOfferVersion
-  alias Clubeira.Factory
   alias Clubeira.Polos.Polo
   alias Clubeira.Polos.PoloPlace
-  alias Clubeira.Polos.PoloPolicyVersion
   alias Clubeira.Repo
   alias Clubeira.Seeds
   alias Clubeira.Seeds.Demo.Ids
   alias Clubeira.Seeds.Writer
+  alias Clubeira.Subscriptions.CycleEntitlementSubject
+  alias Clubeira.Subscriptions.EntitlementAllocation
   alias Clubeira.Tenancy.ActorScope
+  alias Clubeira.Tenancy.Scope
 
   @default_member_email "membro.demo@clubeira.local"
   @default_password "clubeira-demo-local"
@@ -23,54 +27,59 @@ defmodule Clubeira.Seeds.Demo.Member do
     polo_id access_product_version_id edition_id code scope_kind sales_channel status updated_at
   )a
 
-  @spec run!() :: map()
-  def run! do
+  @spec run!(map()) :: map()
+  def run!(billing) do
     user = seed_user!()
     seed_legal_acceptance!(user)
 
-    seed_subscription!(user,
+    sobral =
+      seed_subscription!(user, billing,
       key: :sobral,
       polo_id: id(:polo_sobral),
-      policy_id: id(:policy_sobral),
       scope_places: [
         id(:polo_place_franchise_sobral),
         id(:polo_place_local_sobral)
       ],
       items: [
         %{
+          key: :franchise,
           id: id(:package_item_franchise_sobral),
           offer_version_id: id(:benefit_offer_version_franchise_sobral),
-          allocation_id: id(:allocation_franchise_sobral),
           allocation_kind: "per_place",
           polo_place_id: id(:polo_place_franchise_sobral)
         },
         %{
+          key: :local,
           id: id(:package_item_local_sobral),
           offer_version_id: id(:benefit_offer_version_local_sobral),
-          allocation_id: id(:allocation_local_sobral),
           allocation_kind: "shared_scope",
           polo_place_id: nil
         }
       ]
     )
 
-    seed_subscription!(user,
+    londrina =
+      seed_subscription!(user, billing,
       key: :londrina,
       polo_id: id(:polo_londrina),
-      policy_id: id(:policy_londrina),
       scope_places: [id(:polo_place_franchise_londrina)],
       items: [
         %{
+          key: :franchise,
           id: id(:package_item_franchise_londrina),
           offer_version_id: id(:benefit_offer_version_franchise_londrina),
-          allocation_id: id(:allocation_franchise_londrina),
           allocation_kind: "per_place",
           polo_place_id: id(:polo_place_franchise_londrina)
         }
       ]
     )
 
-    %{email: user.email, subscriptions: 2, vouchers: 3}
+    %{
+      email: user.email,
+      subscriptions: 2,
+      vouchers: 3,
+      polos: %{sobral: sobral, londrina: londrina}
+    }
   end
 
   defp seed_legal_acceptance!(user) do
@@ -117,17 +126,14 @@ defmodule Clubeira.Seeds.Demo.Member do
     user
   end
 
-  defp seed_subscription!(user, options) do
+  defp seed_subscription!(user, billing, options) do
     polo_id = Keyword.fetch!(options, :polo_id)
 
     Seeds.with_polo!(polo_id, fn ->
       polo = Repo.get!(Polo, polo_id)
-      policy = Repo.get!(PoloPolicyVersion, Keyword.fetch!(options, :policy_id))
       commercial = seed_commercial_definition!(polo, options)
-      entitlement = seed_entitlement_definition!(polo, commercial.offering_version, options)
-      contract = seed_contract!(polo, policy, user, commercial, entitlement, options)
-
-      seed_allocations!(polo, contract, entitlement, Keyword.fetch!(options, :items))
+      seed_entitlement_definition!(polo, commercial.offering_version, options)
+      seed_paid_subscription!(polo, user, billing, commercial, options)
     end)
   end
 
@@ -260,82 +266,68 @@ defmodule Clubeira.Seeds.Demo.Member do
     end)
   end
 
-  defp seed_contract!(polo, policy, user, commercial, entitlement, options) do
+  defp seed_paid_subscription!(polo, user, billing, commercial, options) do
     key = Keyword.fetch!(options, :key)
+    checkout_scope = member_scope(polo.id, user.id)
 
-    order =
-      Writer.insert_once!(:order, %{
-        id: id(keyed(:order, key)),
-        polo: polo,
-        purchaser_user: user,
-        order_number: "DEMO-#{String.upcase(to_string(key))}",
-        idempotency_key: "demo-subscription-#{key}"
+    {:ok, order} =
+      Billing.place_order(checkout_scope, %{
+        product_offering_version_id: commercial.offering_version.id,
+        offering_price_id: commercial.price.id,
+        idempotency_key: "demo-checkout-#{key}-001"
       })
 
-    order_item =
-      Writer.insert_once!(:order_item, %{
-        id: id(keyed(:order_item, key)),
-        polo: polo,
-        order: order,
-        product_offering_version: commercial.offering_version,
-        offering_price: commercial.price
+    {:ok, contract} =
+      Billing.settle_payment(service_scope(polo.id), %{
+        order_id: order.id,
+        payment_provider_id: billing.provider.id,
+        merchant_account_id: billing.account.id,
+        external_event_id: "demo-payment-captured-#{key}-001",
+        provider_reference: "DEMO-PAYMENT-#{String.upcase(to_string(key))}-001",
+        amount: order.total_amount,
+        currency: order.currency,
+        occurred_at: order.placed_at,
+        payload: %{"scenario" => "paid_subscription", "source" => "demo_seed"}
       })
 
-    contract =
-      Writer.insert_once!(:access_contract, %{
-        id: id(keyed(:access_contract, key)),
-        polo: polo,
-        purchaser_user: user,
-        order_item: order_item,
-        product_offering_version: commercial.offering_version,
-        polo_policy_version: policy
-      })
-
-    {cycle_start, cycle_end} = current_cycle_bounds()
-
-    cycle =
-      Writer.upsert!(
-        :benefit_cycle,
-        %{
-          id: id(keyed(:benefit_cycle, key)),
-          polo: polo,
-          access_contract: contract,
-          benefit_package_version: entitlement.package_version,
-          offering_package_assignment: entitlement.assignment,
-          polo_policy_version: policy,
-          benefits_during: Factory.tstz_range(cycle_start, cycle_end),
-          status: "active",
-          activated_at: cycle_start
-        },
-        [:benefits_during, :status, :activated_at]
-      )
-
-    subject =
-      Writer.insert_once!(:cycle_entitlement_subject, %{
-        id: id(keyed(:entitlement_subject, key)),
-        polo: polo,
-        access_contract: contract,
-        benefit_cycle: cycle
-      })
-
-    %{contract: contract, cycle: cycle, subject: subject}
+    %{
+      allocations: allocation_ids(contract, Keyword.fetch!(options, :items)),
+      contract_id: contract.id,
+      order_id: order.id
+    }
   end
 
-  defp seed_allocations!(polo, contract, entitlement, items) do
-    Enum.each(items, fn item ->
-      polo_place =
-        if item.polo_place_id, do: Repo.get!(PoloPlace, item.polo_place_id)
+  defp allocation_ids(contract, items) do
+    allocations_by_item =
+      EntitlementAllocation
+      |> join(:inner, [allocation], subject in CycleEntitlementSubject,
+        on:
+          subject.id == allocation.cycle_entitlement_subject_id and
+            subject.polo_id == allocation.polo_id
+      )
+      |> where(
+        [allocation, subject],
+        allocation.polo_id == ^contract.polo_id and
+          subject.access_contract_id == ^contract.id
+      )
+      |> select([allocation], {allocation.benefit_package_item_id, allocation.id})
+      |> Repo.all()
+      |> Map.new()
 
-      Writer.insert_once!(:entitlement_allocation, %{
-        id: item.allocation_id,
-        polo: polo,
-        cycle_entitlement_subject: contract.subject,
-        benefit_package_item_id: Map.fetch!(entitlement.items, item.id).id,
-        entitlement_scope_id: entitlement.scope.id,
-        polo_place: polo_place,
-        allocation_kind: item.allocation_kind
-      })
+    Map.new(items, fn item ->
+      {Map.fetch!(item, :key), Map.fetch!(allocations_by_item, Map.fetch!(item, :id))}
     end)
+  end
+
+  defp member_scope(polo_id, user_id) do
+    Scope.new!(polo_id,
+      actor_user_id: user_id,
+      request_id: Ecto.UUID.generate(version: 7, precision: :monotonic)
+    )
+  end
+
+  defp service_scope(polo_id) do
+    Scope.new!(polo_id, request_id: Ecto.UUID.generate(version: 7, precision: :monotonic))
   end
 
   defp keyed(prefix, key), do: String.to_existing_atom("#{prefix}_#{key}")
@@ -352,20 +344,4 @@ defmodule Clubeira.Seeds.Demo.Member do
     end
   end
 
-  defp current_cycle_bounds do
-    today = Date.utc_today()
-    starts_on = Date.new!(today.year, today.month, 1)
-
-    ends_on =
-      if today.month == 12 do
-        Date.new!(today.year + 1, 1, 1)
-      else
-        Date.new!(today.year, today.month + 1, 1)
-      end
-
-    {
-      DateTime.new!(starts_on, ~T[00:00:00], "Etc/UTC"),
-      DateTime.new!(ends_on, ~T[00:00:00], "Etc/UTC")
-    }
-  end
 end
