@@ -470,10 +470,6 @@ defmodule Clubeira.Subscriptions do
     end
   end
 
-  defp fetch_polo(repo, %PoloRoute{} = route) do
-    fetch_polo(repo, %{polo_id: route.polo_id, slug: route.slug})
-  end
-
   defp tenant_scope(account_scope, polo_id) do
     TenantScope.new!(polo_id,
       actor_user_id: account_scope.user.id,
