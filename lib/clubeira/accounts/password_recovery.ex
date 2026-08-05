@@ -145,16 +145,20 @@ defmodule Clubeira.Accounts.PasswordRecovery do
   end
 
   defp consume(user, token_hash, password_hash, context) do
-    case Repo.transact(fn repo ->
-           with %User{} = locked_user <- lock_active_user_by_id(repo, user.id),
-                %PasswordResetToken{} = reset <- lock_reset(repo, locked_user.id, token_hash) do
-             persist_reset(repo, locked_user, reset, password_hash, context)
-           else
-             nil -> {:error, :invalid_password_reset}
-           end
-         end) do
+    transaction = fn repo -> consume_locked(repo, user, token_hash, password_hash, context) end
+
+    case Repo.transact(transaction) do
       {:ok, :ok} -> :ok
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp consume_locked(repo, user, token_hash, password_hash, context) do
+    with %User{} = locked_user <- lock_active_user_by_id(repo, user.id),
+         %PasswordResetToken{} = reset <- lock_reset(repo, locked_user.id, token_hash) do
+      persist_reset(repo, locked_user, reset, password_hash, context)
+    else
+      nil -> {:error, :invalid_password_reset}
     end
   end
 

@@ -162,6 +162,7 @@ if config_env() == :prod do
     ]
 
   password_reset_url = required_env!.("PASSWORD_RESET_URL")
+  mailer_from_email = required_env!.("MAILER_FROM_EMAIL")
 
   unless match?(
            {:ok, %URI{scheme: "https", host: host, userinfo: nil, fragment: nil}}
@@ -171,10 +172,24 @@ if config_env() == :prod do
     raise "PASSWORD_RESET_URL must be an absolute HTTPS URL without credentials or a fragment"
   end
 
+  unless Regex.match?(~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/u, mailer_from_email) do
+    raise "MAILER_FROM_EMAIL must be an email address"
+  end
+
   config :clubeira, Clubeira.Accounts.PasswordRecovery,
     token_ttl_seconds: integer_in_range!.("PASSWORD_RESET_TOKEN_TTL_MINUTES", 30, 5..120) * 60,
     reset_url: password_reset_url,
-    from: {"Clubeira", required_env!.("PASSWORD_RESET_FROM_EMAIL")}
+    from: {"Clubeira", mailer_from_email}
+
+  case required_env!.("MAILER_PROVIDER") do
+    "resend" ->
+      config :clubeira, Clubeira.Mailer,
+        adapter: Swoosh.Adapters.Resend,
+        api_key: required_env!.("RESEND_API_KEY")
+
+    provider ->
+      raise "MAILER_PROVIDER must be resend, got: #{inspect(provider)}"
+  end
 
   retention_days = integer_in_range!.("SESSION_RETENTION_DAYS", 30, 1..365)
 
@@ -328,21 +343,4 @@ if config_env() == :prod do
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
 
-  # ## Configuring the mailer
-  #
-  # In production you need to configure the mailer to use a different adapter.
-  # Here is an example configuration for Mailgun:
-  #
-  #     config :clubeira, Clubeira.Mailer,
-  #       adapter: Swoosh.Adapters.Mailgun,
-  #       api_key: System.get_env("MAILGUN_API_KEY"),
-  #       domain: System.get_env("MAILGUN_DOMAIN")
-  #
-  # Most non-SMTP adapters require an API client. Swoosh supports Req, Hackney,
-  # and Finch out-of-the-box. This configuration is typically done at
-  # compile-time in your config/prod.exs:
-  #
-  #     config :swoosh, :api_client, Swoosh.ApiClient.Req
-  #
-  # See https://swoosh.hexdocs.pm/Swoosh.html#module-installation for details.
 end
