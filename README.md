@@ -10,8 +10,9 @@ PostgreSQL, domínio normalizado e isolamento por Row-Level Security (RLS).
 
 ## O que já funciona
 
-- diretório e catálogo públicos, cadastro atômico, autenticação por sessão
-  bearer revogável, descoberta de assinaturas multi-polo e carteira de vouchers;
+- diretório e catálogo públicos, cadastro atômico com aceite da versão legal
+  vigente, autenticação por sessão bearer revogável, descoberta de assinaturas
+  multi-polo e carteira de vouchers;
 - descoberta pública paginada das opções comerciais e preços aceitos pelo
   checkout do polo;
 - planos, contratos, ciclos e alocações de benefício independentes por polo;
@@ -20,7 +21,8 @@ PostgreSQL, domínio normalizado e isolamento por Row-Level Security (RLS).
   no provedor antes de liquidar;
 - contas de recebimento globais vinculadas explicitamente a cada polo, com
   vigência e integridade referencial entre tenant e conta;
-- resgate online atômico e histórico paginado do membro, com elegibilidade,
+- enrollment de instalação sem persistir o segredo, grant de resgate assinado e
+  curto, autenticação do ponto de validação e resgate online atômico, com
   proteção contra replay, ledger, auditoria, eventos de domínio e outbox;
 - submissão autenticada e idempotente de avaliações verificadas por resgate,
   com revisão inicial imutável e moderação pendente;
@@ -42,8 +44,9 @@ A liquidação persiste esse resultado de forma atômica e aceita reprocessament
 seguro. A primeira borda real de PSP usa a Orders API do Mercado Pago para Pix;
 payload bruto termina no adaptador e o core recebe somente uma captura
 normalizada depois da assinatura e do estado remoto serem verificados. Cartão,
-reembolso, chargeback e o protocolo de QR para resgate continuam fatias
-separadas.
+reembolso e chargeback continuam fatias separadas. A API online de resgate já
+entrega o grant que um cliente pode renderizar como QR; placard estático,
+operação offline e o componente visual de leitura continuam bordas próprias.
 
 ## Subir o projeto
 
@@ -69,12 +72,22 @@ cenário determinístico com os polos Sobral e Londrina.
 
 As seeds criam `membro.demo@clubeira.local` com a senha local
 `clubeira-demo-local`. Defina `CLUBEIRA_DEMO_PASSWORD` antes de `mix setup` para
-trocar esse valor. Para testar o sandbox Pix, defina também
+trocar esse valor. Sobral também recebe um ponto de validação cuja chave local
+de demonstração é `M-bCcLGupP8XuBxzemHd-4JumJf6trsiQpinEl30xwg`; substitua-a
+por 32 bytes aleatórios em base64url sem padding via
+`CLUBEIRA_DEMO_VALIDATION_SECRET` em qualquer ambiente compartilhado. Para
+testar o sandbox Pix, defina também
 `CLUBEIRA_DEMO_EMAIL` com o e-mail do usuário de teste do Mercado Pago antes de
 rodar as seeds. O mesmo membro possui contratos independentes em Sobral e
 Londrina.
 
 ```sh
+curl -sS 'http://localhost:4000/api/v1/legal/registration?locale=pt-BR'
+
+curl -sS -X POST http://localhost:4000/api/v1/auth/registrations \
+  -H 'content-type: application/json' \
+  -d '{"email":"novo@example.test","password":"uma-senha-com-15-chars","legal_document_version_ids":["<legal_version_uuid>"]}'
+
 curl -sS http://localhost:4000/api/v1/auth/sessions \
   -H 'content-type: application/json' \
   -d '{"email":"membro.demo@clubeira.local","password":"clubeira-demo-local"}'
@@ -84,6 +97,24 @@ curl -sS http://localhost:4000/api/v1/me/subscriptions \
 
 curl -sS http://localhost:4000/api/v1/polos/sobral/me/vouchers \
   -H "authorization: Bearer $TOKEN"
+
+INSTALLATION_TOKEN="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
+
+curl -sS -X POST http://localhost:4000/api/v1/polos/sobral/me/redemption-devices \
+  -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d "{\"access_contract_id\":\"<contract_uuid>\",\"installation_token\":\"$INSTALLATION_TOKEN\",\"platform\":\"web\"}"
+
+curl -sS -X POST http://localhost:4000/api/v1/polos/sobral/me/redemption-grants \
+  -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d "{\"entitlement_allocation_id\":\"<allocation_uuid>\",\"installation_token\":\"$INSTALLATION_TOKEN\"}"
+
+curl -sS -X POST http://localhost:4000/api/v1/polos/sobral/redemptions \
+  -H 'authorization: Validation M-bCcLGupP8XuBxzemHd-4JumJf6trsiQpinEl30xwg' \
+  -H 'idempotency-key: merchant-redemption-001' \
+  -H 'content-type: application/json' \
+  -d '{"grant":"<signed_grant>"}'
 
 curl -sS http://localhost:4000/api/v1/polos/sobral/checkout-options
 
@@ -115,7 +146,7 @@ curl -sS -X POST http://localhost:4000/api/v1/polos/sobral/places/<place_uuid>/r
   -d '{"source_redemption_id":"<redemption_uuid>","rating":5,"title":"Muito bom","body":"Benefício entregue como anunciado."}'
 ```
 
-O primeiro comando devolve `data.access_token`; atribua-o a `TOKEN` apenas na
+O comando de login devolve `data.access_token`; atribua-o a `TOKEN` apenas na
 sessão do shell. `DELETE /api/v1/auth/session` revoga a sessão atual. A listagem
 de assinaturas também usa cursor: `?limit=20&after=...`, com limite máximo de
 `100` polos e metadados em `meta.page`. O checkout exige uma única chave
@@ -125,6 +156,15 @@ publica as combinações de `product_offering_version_id` e `offering_price_id`
 atualmente provisionáveis, também com cursor e limite máximo de `100`. Repetir
 a mesma seleção com a mesma chave devolve o pedido original; reutilizar a chave
 para outra seleção retorna conflito.
+
+O enrollment aceita apenas um segredo de instalação gerado com 32 bytes
+aleatórios e persiste seu SHA-256. Usuário, polo e contrato são relidos da
+sessão e do banco; o limite de dispositivos vem da versão de policy congelada
+no contrato. O grant dura 120 segundos por padrão, vincula polo, ator,
+alocação, instalação e nonce, e não aceita IDs de ponto de validação do
+cliente. A confirmação deriva esse ponto de uma credencial ativa, executa a
+autenticação e `Clubeira.Redemptions.confirm/2` na mesma transação e mantém o
+replay idempotente.
 
 O início do pagamento aceita hoje somente `pix`. A resposta contém uma ação
 normalizada com `redirect_url` e `copy_paste_code`; repetir a mesma chave
@@ -167,7 +207,9 @@ Toda operação tenant-aware recebe `Clubeira.Tenancy.Scope` e executa dentro de
 de polo.
 
 Autenticação é global: `POST /api/v1/auth/registrations` valida e normaliza o
-email, cria usuário ativo, hash Argon2id, sessão e auditoria na mesma transação.
+email, exige todas as versões de termos vigentes publicadas por
+`GET /api/v1/legal/registration`, e cria usuário ativo, aceite imutável, hash
+Argon2id, sessão e auditoria na mesma transação.
 `user_password_credentials` separa o segredo da identidade e `user_sessions`
 persiste somente SHA-256 do bearer opaco. Cadastro e login têm limites locais
 por instância para tráfego global, IP e identidade, além de um teto fail-fast
@@ -227,7 +269,8 @@ alterar a configuração versionada.
 ## Limites atuais
 
 - `POST /api/v1/auth/registrations` cria atomicamente a conta e uma sessão
-  utilizável no checkout; verificação de email e recuperação de senha ainda são
+  utilizável no checkout depois do aceite legal exato; verificação de email,
+  recuperação de senha e blocklist local de senhas comprometidas ainda são
   bordas próprias;
 - `POST /api/v1/polos/:polo_slug/orders` expõe o checkout autenticado e delega
   para `Clubeira.Billing.place_order/2`;
@@ -248,10 +291,15 @@ alterar a configuração versionada.
   e sua autoria, polo e lugar são revalidados sob RLS;
 - `GET /api/v1/polos/:polo_slug/me/redemptions` pagina somente os resgates
   bem-sucedidos do membro no polo e expõe o vínculo com sua avaliação do lugar;
+- `POST /api/v1/polos/:polo_slug/me/redemption-devices` autoriza uma instalação
+  para o contrato sem confiar em `device_id` externo;
+- `POST /api/v1/polos/:polo_slug/me/redemption-grants` emite a autorização
+  assinada e curta do membro; `POST /api/v1/polos/:polo_slug/redemptions`
+  autentica o ponto de validação e consome o nonce sob idempotência;
 - `Clubeira.Billing.settle_payment/2` continua sendo a porta interna e só
   aceita a captura normalizada pelo adaptador autenticado;
-- `Clubeira.Redemptions.confirm/2` recebe uma confirmação já autenticada; token,
-  QR e autenticação do ponto de validação pertencem à borda de entrada;
+- `Clubeira.Redemptions.confirm/2` permanece a porta interna já autenticada; a
+  borda HTTP acima verifica grant e credencial antes de montar esse comando;
 - a outbox é persistida atomicamente, mas o publicador assíncrono ainda será uma
   fatia própria;
 - publicação/moderação, edição, mídia, respostas e denúncias de avaliações

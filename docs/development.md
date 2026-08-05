@@ -37,7 +37,10 @@ ciclo independentes nos dois polos. A senha local padrão é
 `clubeira-demo-local`; use `CLUBEIRA_DEMO_PASSWORD` para substituí-la.
 As seeds também criam o provedor `mercado_pago`, uma conta global
 `mercado-pago-demo` e vínculos primários com os dois polos. A saída da seed
-mostra o UUID usado na URL do webhook.
+mostra o UUID usado na URL do webhook. Sobral recebe ainda um ponto de
+validação de API. Sua chave é lida de `CLUBEIRA_DEMO_VALIDATION_SECRET` e deve
+ser base64url sem padding de exatamente 32 bytes; o default documentado é
+somente para uso local.
 
 Factories vivem em `support/factory.ex` e são compiladas apenas em `dev` e
 `test`. Dados estruturais das seeds sempre recebem IDs e valores estáveis;
@@ -81,6 +84,26 @@ A integração segue a [Orders API](https://www.mercadopago.com.br/developers/pt
 e a validação oficial de [notificações Order](https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/notifications).
 Use o simulador do painel para provar `200`; uma captura real de sandbox ainda
 deve ser validada com credenciais próprias antes do deploy.
+
+## Resgate online autenticado
+
+O cliente gera e conserva localmente 32 bytes aleatórios para identificar sua
+instalação. A API recebe a forma base64url sem padding, mas o PostgreSQL guarda
+somente SHA-256. O fluxo operacional é:
+
+1. `POST /api/v1/polos/:slug/me/redemption-devices`, com bearer do membro;
+2. `POST /api/v1/polos/:slug/me/redemption-grants`, com alocação e o mesmo
+   segredo de instalação;
+3. transporte de `data.grant` para o app do estabelecimento;
+4. `POST /api/v1/polos/:slug/redemptions`, com
+   `Authorization: Validation <chave>` e `Idempotency-Key`.
+
+Grant e chave de validação são credenciais e não entram em log, audit, evento
+ou fixture persistida. A chave de produção deve ser provisionada por versão e
+rotacionada criando nova `validation_credential`; não substitua o hash de uma
+versão histórica. O grant expira em 120 segundos por padrão. O endpoint final
+rejeita polo divergente, assinatura alterada, chave revogada/expirada e replay
+de nonce antes de qualquer segundo consumo.
 
 ## Roles do banco
 
@@ -205,6 +228,10 @@ Os defaults são conservadores e todos os valores abaixo são validados no boot:
 | `LOGIN_RATE_GLOBAL_PER_SECOND` | `40` | admissões por instância e segundo |
 | `LOGIN_RATE_IP_PER_MINUTE` | `20` | admissões por peer IPv4 `/32` ou IPv6 `/64` e minuto |
 | `LOGIN_RATE_IDENTITY_PER_15_MINUTES` | `10` | admissões por identidade e 15 minutos |
+| `REGISTRATION_RATE_GLOBAL_PER_SECOND` | `10` | cadastros admitidos por instância e segundo |
+| `REGISTRATION_RATE_IP_PER_MINUTE` | `5` | cadastros por peer e minuto |
+| `REGISTRATION_RATE_IDENTITY_PER_15_MINUTES` | `3` | cadastros por identidade e 15 minutos |
+| `REDEMPTION_GRANT_MAX_AGE_SECONDS` | `120` | validade do grant assinado, entre 30 e 600 segundos |
 | `SESSION_RETENTION_DAYS` | `30` | retenção após expiração ou revogação |
 
 Os buckets em ETS e o gate de senha são locais à instância. Em múltiplas

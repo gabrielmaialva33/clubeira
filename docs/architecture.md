@@ -126,8 +126,11 @@ autorização: o checkout autenticado relê todas as condições sob lock e RLS.
 ## Identidade e API do membro
 
 `users` continua sendo a identidade global mínima. O cadastro público normaliza
-o email e persiste usuário ativo, credencial, sessão e os fatos globais de
-auditoria em uma única transação. Senhas ficam na relação 1:1
+o email, exige o conjunto exato de termos de uso vigentes para `pt-BR` e
+persiste usuário ativo, aceite imutável, credencial, sessão e os fatos globais
+de auditoria em uma única transação. `legal_document_versions` identifica o
+conteúdo por SHA-256 e vigência; a policy forçada de `legal_acceptances` só
+expõe o aceite global ao próprio actor. Senhas ficam na relação 1:1
 `user_password_credentials`, nunca em `users`, e são derivadas com Argon2id.
 Sessões usam 32 bytes aleatórios; somente o digest SHA-256 é persistido em
 `user_sessions`, permitindo lookup indexado, expiração e revogação sem tornar
@@ -143,7 +146,8 @@ com `Clubeira.Tenancy.Scope` usando o mesmo ator e `request_id`. Trocar ator,
 request ou polo dentro de um escopo existente falha fechado.
 
 Os endpoints de cadastro e login são protegidos antes do Argon2 por buckets
-global, de IP e de identidade normalizada. Os buckets específicos são debitados antes do global,
+independentes para cada ação, nas dimensões global, IP e identidade
+normalizada. Os buckets específicos são debitados antes do global,
 evitando que um único peer consuma o orçamento compartilhado depois de já ter
 sido bloqueado. As chaves guardam somente fingerprints SHA-256; IPv4 usa o
 endereço e IPv6 é agrupado por `/64`. Hammer ancora cada janela no primeiro hit
@@ -315,20 +319,31 @@ autenticado. Sob lock e idempotency key, a mesma transação:
 - persiste a resposta idempotente para replay seguro.
 
 O identificador do dispositivo nunca é evidência suficiente por si só. A
-borda autenticada deve derivá-lo da credencial apresentada, e o núcleo exige
-um vínculo ativo entre usuário e instalação em qualquer política. O modo
+borda autenticada deriva a instalação de um segredo base64url de 32 bytes e
+persiste apenas seu SHA-256. Enrollment relê usuário, contrato e policy sob
+lock, limita dispositivos pela versão congelada do contrato e grava vínculo,
+auditoria, evento e outbox atomicamente. `user_device_authorizations` usa RLS
+forçado pelo actor. O núcleo exige um vínculo ativo entre usuário e instalação
+em qualquer política. O modo
 `authorized_devices` acrescenta a allowlist do contrato; `any_authenticated`
 dispensa somente essa segunda allowlist.
 
-O nonce também recebe advisory lock transacional, evitando corridas entre
-requisições simultâneas. QR, assinatura de token e confirmação em duas partes
-são uma fronteira futura: `validation_point_id` nunca pode ser aceito como
-prova por ter vindo do cliente. Quando `RedemptionSession` for implementada,
-uma prova criptograficamente válida deverá consumir seu nonce em registro
-próprio antes da elegibilidade. `redemption_attempts` não será a autoridade de
-uso único, pois pedidos rejeitados antes de formar uma tentativa também devem
-ter semântica explícita. Até essa fronteira existir, o core não declara que um
-texto arbitrário recebido como nonce representa um QR autenticado.
+`POST /api/v1/polos/:slug/me/redemption-grants` relê alocação, contrato, ciclo
+e os dois vínculos do dispositivo, então assina por até 120 segundos polo,
+actor, alocação, instalação e um nonce aleatório. O app pode transportar esse
+grant em QR sem expor um comando confiável por construção. O ponto confirma em
+`POST /api/v1/polos/:slug/redemptions` com uma chave de validação de 32 bytes;
+o banco guarda somente seu SHA-256, indexado e único. Status, vigência e ponto
+ativo são conferidos sob RLS, e `validation_point_id` é derivado da credencial,
+nunca do corpo externo.
+
+Autenticação do ponto e `Clubeira.Redemptions.confirm/2` executam na mesma
+transação. O scope começa como serviço do polo e ganha o actor somente depois
+da verificação do grant assinado. O nonce recebe advisory lock transacional:
+retry com a mesma idempotency key devolve o resgate original; o mesmo grant com
+outra chave é registrado como replay negado sem consumir novamente. Renderização
+visual do QR, placard estático, attestation de hardware e modo offline são
+evoluções da borda, sem alterar o contrato interno já autenticado.
 
 ## Normalização e histórico
 
