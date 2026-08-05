@@ -74,7 +74,14 @@ defmodule Clubeira.Seeds.Demo.Ids do
     review_moderator_role_sobral: "019fd355-d921-7ca4-a996-01a2ac350f3f",
     review_moderator_role_londrina: "019fd355-d921-7d0b-a49f-67568636d181",
     moderator_membership_sobral: "019fd355-d921-7d3e-bd4f-f0ffd0531092",
-    moderator_membership_londrina: "019fd355-d921-7d7b-ab58-78dae33dbd29"
+    moderator_membership_londrina: "019fd355-d921-7d7b-ab58-78dae33dbd29",
+    admin_user: "019fd3b3-f348-7724-ad55-27bd17e1218a",
+    admin_role_sobral: "019fd3b3-f348-7803-8649-cbace5b01f7f",
+    admin_role_londrina: "019fd3b3-f348-7894-bfde-7e8af5debc6f",
+    admin_membership_sobral: "019fd3b3-f348-7930-9b67-4a4910a013a2",
+    admin_membership_londrina: "019fd3b3-f348-79e5-b61c-573ce812ba65",
+    organization_identifier_franchise_cnpj: "019fd3b3-f348-7a83-946a-f255e926a787",
+    organization_identifier_local_sobral_cnpj: "019fd3b3-f348-7b27-8b4b-ca3a94928acf"
   }
 
   @spec fetch!(atom()) :: Ecto.UUID.t()

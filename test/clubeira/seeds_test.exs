@@ -17,12 +17,15 @@ defmodule Clubeira.SeedsTest do
   alias Clubeira.Catalog.Edition
   alias Clubeira.Catalog.EditionPlace
   alias Clubeira.Devices
+  alias Clubeira.Directory
   alias Clubeira.Directory.Brand
   alias Clubeira.Directory.City
   alias Clubeira.Directory.Organization
+  alias Clubeira.Directory.OrganizationIdentifier
   alias Clubeira.Directory.Place
   alias Clubeira.Events.DomainEvent
   alias Clubeira.Events.OutboxMessage
+  alias Clubeira.Factory.Brazil
   alias Clubeira.Legal.Acceptance
   alias Clubeira.Legal.Document
   alias Clubeira.Legal.DocumentVersion
@@ -56,11 +59,12 @@ defmodule Clubeira.SeedsTest do
 
     assert Repo.aggregate(City, :count) == 2
     assert Repo.aggregate(Organization, :count) == 2
+    assert Repo.aggregate(OrganizationIdentifier, :count) == 2
     assert Repo.aggregate(Brand, :count) == 2
     assert Repo.aggregate(Place, :count) == 3
     assert Repo.aggregate(PoloRoute, :count) == 2
-    assert Repo.aggregate(User, :count) == 2
-    assert Repo.aggregate(PasswordCredential, :count) == 2
+    assert Repo.aggregate(User, :count) == 3
+    assert Repo.aggregate(PasswordCredential, :count) == 3
     assert Repo.aggregate(PaymentProvider, :count) == 1
     assert Repo.aggregate(MerchantAccount, :count) == 1
     assert Repo.aggregate(Document, :count) == 1
@@ -105,6 +109,7 @@ defmodule Clubeira.SeedsTest do
 
     review = assert_member_api_scenario(first_result)
     assert_moderator_scenario(first_result, review)
+    assert_admin_scenario(first_result)
   end
 
   test "canonical identifiers are unique UUIDv7 values" do
@@ -265,5 +270,45 @@ defmodule Clubeira.SeedsTest do
              Reviews.list_public(public_scope, Ids.fetch!(:place_franchise_sobral), %{})
 
     assert published_review.id == pending_review.id
+  end
+
+  defp assert_admin_scenario(seed_result) do
+    password = System.get_env("CLUBEIRA_DEMO_ADMIN_PASSWORD", "clubeira-admin-local")
+
+    assert seed_result.admin_email == "admin.demo@clubeira.local"
+    assert {:ok, session} = Accounts.login(seed_result.admin_email, password)
+
+    scope =
+      Scope.new!(Ids.fetch!(:polo_sobral),
+        actor_user_id: session.user.id,
+        request_id: Ecto.UUID.generate(version: 7)
+      )
+
+    assert {:ok, onboarding} =
+             Directory.onboard_partner(scope, %{
+               organization: %{
+                 legal_name: "Bistrô Demo da Serra Ltda.",
+                 trade_name: "Bistrô Demo da Serra",
+                 cnpj: Brazil.cnpj(42_424)
+               },
+               place: %{
+                 name: "Bistrô Demo da Serra Centro",
+                 slug: "bistro-demo-da-serra-centro",
+                 address: %{
+                   postal_code: "62010000",
+                   street: "Rua Demo do Administrador",
+                   number: "42",
+                   district: "Centro"
+                 }
+               },
+               idempotency_key: "demo-admin-partner-onboarding"
+             })
+
+    assert {:ok, directory} = Directory.fetch_public("sobral")
+
+    assert Enum.any?(directory.places, fn place ->
+             place.place_id == onboarding.place.id and
+               place.polo_place_id == onboarding.participation.id
+           end)
   end
 end

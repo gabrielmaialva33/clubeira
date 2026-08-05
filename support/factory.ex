@@ -26,6 +26,7 @@ defmodule Clubeira.Factory do
   alias Clubeira.Directory.BrandOwnership
   alias Clubeira.Directory.City
   alias Clubeira.Directory.Organization
+  alias Clubeira.Directory.OrganizationIdentifier
   alias Clubeira.Directory.Place
   alias Clubeira.Directory.PlaceBrand
   alias Clubeira.Directory.PlaceOperator
@@ -42,6 +43,7 @@ defmodule Clubeira.Factory do
   alias Clubeira.Polos.PoloRoute
   alias Clubeira.Redemptions.ValidationCredential
   alias Clubeira.Redemptions.ValidationPoint
+  alias Clubeira.Security.IdentifierVault
   alias Clubeira.Subscriptions.AccessContract
   alias Clubeira.Subscriptions.AccessProduct
   alias Clubeira.Subscriptions.AccessProductVersion
@@ -124,6 +126,20 @@ defmodule Clubeira.Factory do
       trade_name: "Organização Demo #{number}",
       country_code: "BR",
       status: "active"
+    }
+  end
+
+  def organization_identifier_factory do
+    now = timestamp()
+    sealed = IdentifierVault.seal("cnpj", cnpj())
+
+    %OrganizationIdentifier{
+      kind: "cnpj",
+      ciphertext: sealed.ciphertext,
+      lookup_token: sealed.lookup_token,
+      key_version: sealed.key_version,
+      verified_at: now,
+      inserted_at: now
     }
   end
 

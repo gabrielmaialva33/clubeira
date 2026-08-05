@@ -2,6 +2,8 @@ defmodule Clubeira.Seeds.Demo.Directory do
   @moduledoc false
 
   alias Clubeira.Factory
+  alias Clubeira.Factory.Brazil
+  alias Clubeira.Security.IdentifierVault
   alias Clubeira.Seeds.Demo.Ids
   alias Clubeira.Seeds.Writer
 
@@ -17,6 +19,7 @@ defmodule Clubeira.Seeds.Demo.Directory do
   def run! do
     cities = seed_cities!()
     organizations = seed_organizations!()
+    seed_organization_identifiers!(organizations)
     brands = seed_brands!()
     addresses = seed_addresses!(cities)
     places = seed_places!(cities, addresses)
@@ -118,6 +121,35 @@ defmodule Clubeira.Seeds.Demo.Directory do
       )
 
     %{franchise: franchise, local_sobral: local_sobral}
+  end
+
+  defp seed_organization_identifiers!(organizations) do
+    seed_cnpj!(
+      organizations.franchise,
+      id(:organization_identifier_franchise_cnpj),
+      Brazil.cnpj(1_001)
+    )
+
+    seed_cnpj!(
+      organizations.local_sobral,
+      id(:organization_identifier_local_sobral_cnpj),
+      Brazil.cnpj(1_002)
+    )
+  end
+
+  defp seed_cnpj!(organization, identifier_id, cnpj) do
+    sealed = IdentifierVault.seal("cnpj", cnpj)
+
+    Writer.insert_once!(:organization_identifier, %{
+      id: identifier_id,
+      organization: organization,
+      kind: "cnpj",
+      ciphertext: sealed.ciphertext,
+      lookup_token: sealed.lookup_token,
+      key_version: sealed.key_version,
+      verified_at: @range_start,
+      inserted_at: @range_start
+    })
   end
 
   defp seed_addresses!(cities) do

@@ -78,6 +78,13 @@ if config_env() == :prod do
     end
   end
 
+  base64url_key! = fn name ->
+    case Base.url_decode64(required_env!.(name), padding: false) do
+      {:ok, key} when byte_size(key) == 32 -> key
+      _invalid -> raise "#{name} must be unpadded base64url encoding exactly 32 bytes"
+    end
+  end
+
   config :argon2_elixir,
     t_cost: integer_in_range!.("ARGON2_T_COST", 3, 2..10),
     m_cost: integer_in_range!.("ARGON2_M_COST", 16, 16..20),
@@ -164,6 +171,16 @@ if config_env() == :prod do
   database_role_mode = System.get_env("CLUBEIRA_DATABASE_ROLE_MODE", "runtime")
 
   if database_role_mode == "runtime" do
+    identifier_key_version =
+      integer_in_range!.("IDENTIFIER_ENCRYPTION_KEY_VERSION", 1, 1..32_767)
+
+    config :clubeira, Clubeira.Security.IdentifierVault,
+      active_key_version: identifier_key_version,
+      encryption_keys: %{
+        identifier_key_version => base64url_key!.("IDENTIFIER_ENCRYPTION_KEY_BASE64")
+      },
+      lookup_key: base64url_key!.("IDENTIFIER_LOOKUP_KEY_BASE64")
+
     password_reset_url = required_env!.("PASSWORD_RESET_URL")
     mailer_from_email = required_env!.("MAILER_FROM_EMAIL")
 

@@ -33,6 +33,11 @@ config :argon2_elixir, t_cost: 1, m_cost: 8, parallelism: 1
 
 config :clubeira, Clubeira.Security.PasswordGate, max_concurrency: 2
 
+config :clubeira, Clubeira.Security.IdentifierVault,
+  active_key_version: 1,
+  encryption_keys: %{1 => :crypto.hash(:sha256, "test identifier encryption key")},
+  lookup_key: :crypto.hash(:sha256, "test identifier lookup key")
+
 config :clubeira, Clubeira.Accounts.SessionJanitor, enabled: false
 
 config :clubeira, ClubeiraWeb.Plugs.CredentialRateLimit,

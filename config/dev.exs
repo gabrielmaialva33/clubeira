@@ -35,6 +35,11 @@ config :clubeira,
          pool_size: 10
        ] ++ database_role_options
 
+config :clubeira, Clubeira.Security.IdentifierVault,
+  active_key_version: 1,
+  encryption_keys: %{1 => :crypto.hash(:sha256, "development identifier encryption key")},
+  lookup_key: :crypto.hash(:sha256, "development identifier lookup key")
+
 # For development, we disable any cache and enable
 # debugging and code reloading.
 #
