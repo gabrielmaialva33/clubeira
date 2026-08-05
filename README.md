@@ -77,6 +77,7 @@ flowchart LR
 |:--|:--|
 | 🔐 **Identidade** | cadastro atômico com aceite da versão legal vigente, Argon2id, sessão bearer opaca e revogável, rate limit por global/IP/identidade |
 | 🗺️ **Descoberta** | diretório público de parceiros, catálogo comercial, opções de checkout — tudo paginado por cursor |
+| 🏪 **Parceiros** | onboarding administrativo idempotente com CNPJ criptografado, endereço, operador e participação no polo publicados atomicamente |
 | 🛒 **Venda** | checkout idempotente, histórico paginado de pedidos, Pix via Mercado Pago com webhook HMAC que relê a order no PSP antes de liquidar |
 | 🏦 **Recebimento** | contas globais vinculadas por vigência a cada polo, com integridade referencial entre tenant e conta |
 | 📜 **Assinatura** | planos, contratos, ciclos e alocações de benefício independentes por polo |
@@ -140,7 +141,10 @@ com os polos **Sobral** e **Londrina**.
 
 As seeds criam `membro.demo@clubeira.local` com a senha local
 `clubeira-demo-local`. Defina `CLUBEIRA_DEMO_PASSWORD` antes de `mix setup`
-para trocar esse valor. Sobral também recebe um ponto de validação cuja chave
+para trocar esse valor. O backoffice separa
+`moderador.demo@clubeira.local` / `clubeira-moderador-local` de
+`admin.demo@clubeira.local` / `clubeira-admin-local`; só o segundo pode
+cadastrar parceiros. Sobral também recebe um ponto de validação cuja chave
 local de demonstração é
 `M-bCcLGupP8XuBxzemHd-4JumJf6trsiQpinEl30xwg`; substitua-a por 32 bytes
 aleatórios em base64url sem padding via `CLUBEIRA_DEMO_VALIDATION_SECRET` em
@@ -339,10 +343,11 @@ docker compose stop
 | `POST` | `/api/v1/polos/:slug/me/redemption-grants` | 🔑 |
 | `GET` | `/api/v1/polos/:slug/me/redemptions` | 🔑 |
 | `POST` | `/api/v1/polos/:slug/places/:place_id/reviews` | 🔑 |
+| `POST` | `/api/v1/polos/:slug/backoffice/partners` | 🛡️ |
 | `GET` | `/api/v1/polos/:slug/backoffice/reviews` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/reviews/:review_id/moderation-actions` | 🛡️ |
 
-🌐 público · 🔑 bearer do membro · 🏪 credencial do ponto de validação · 🔏 HMAC do PSP · 🛡️ `admin` ou `review_moderator`
+🌐 público · 🔑 bearer do membro · 🏪 credencial do ponto de validação · 🔏 HMAC do PSP · 🛡️ membership de backoffice; cada rota relê sua capacidade no banco
 
 <details>
 <summary><strong>📋 Exemplos com <code>curl</code></strong></summary>
@@ -369,6 +374,12 @@ curl -i -sS -X POST http://localhost:4000/api/v1/auth/password-resets \
 
 curl -sS http://localhost:4000/api/v1/me/subscriptions \
   -H "authorization: Bearer $TOKEN"
+
+curl -sS -X POST http://localhost:4000/api/v1/polos/sobral/backoffice/partners \
+  -H "authorization: Bearer $ADMIN_TOKEN" \
+  -H 'idempotency-key: parceiro-sobral-001' \
+  -H 'content-type: application/json' \
+  -d '{"organization":{"legal_name":"Bistrô da Serra Ltda.","trade_name":"Bistrô da Serra","cnpj":"12.ABC.345/01DE-35"},"place":{"name":"Bistrô da Serra Centro","slug":"bistro-da-serra-centro","address":{"postal_code":"62010-000","street":"Rua das Flores","number":"42","district":"Centro"}}}'
 
 curl -sS http://localhost:4000/api/v1/polos/sobral/me/vouchers \
   -H "authorization: Bearer $TOKEN"
@@ -572,6 +583,11 @@ alterar a configuração versionada.
 - `GET /api/v1/polos/:polo_slug/places` lista a identidade comercial pública
   dos parceiros ativos do polo; desativação os remove da descoberta sem apagar
   referências históricas;
+- `POST /api/v1/polos/:polo_slug/backoffice/partners` exige bearer com role
+  `admin`, aceita CNPJ numérico ou alfanumérico e cria organização,
+  identificador cifrado, endereço, lugar, operador e participação ativa na
+  mesma transação idempotente; cidade, timezone, polo e ator são derivados no
+  servidor, e o CNPJ não entra em resposta, audit, evento ou outbox;
 - `POST /api/v1/polos/:polo_slug/places/:place_id/reviews` cria uma avaliação
   verificada para o membro autenticado; o resgate informado é somente evidência
   e sua autoria, polo e lugar são revalidados sob RLS;
@@ -596,6 +612,8 @@ alterar a configuração versionada.
   recuperável e dead-letter;
 - edição, mídia, respostas, denúncias e ações pós-publicação de avaliações
   continuam como fatias próprias;
+- categorias, horários, contato e fotos do estabelecimento continuam como a
+  próxima evolução do cadastro do parceiro;
 - renovação automática, reembolso e chargeback ainda não fazem parte do fluxo
   operacional.
 

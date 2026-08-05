@@ -101,6 +101,32 @@ lugar, cidade, marca e operador ativos, fazendo o parceiro desaparecer da
 busca sem reescrever pedidos, contratos, resgates ou avaliações anteriores. O
 cursor é opaco, o padrão é 20 lugares e o máximo por página é 100.
 
+### Onboarding administrativo de parceiro
+
+`POST /api/v1/polos/:slug/backoffice/partners` relê dentro da RLS uma
+membership ativa com role key `admin`; `review_moderator` não herda essa
+capacidade. Polo, cidade, timezone e ator vêm da rota, do banco e da sessão,
+nunca do payload. O comando cria organização global, CNPJ protegido, endereço,
+lugar, operador global e `polo_place` tenant-aware na mesma transação. A
+participação só fica pública depois que audit, evento, outbox e resposta
+idempotente também estão persistidos.
+
+O CNPJ é normalizado para 14 posições e valida os dois formatos que coexistem:
+os doze primeiros caracteres podem ser letras ASCII ou dígitos e os dois
+últimos continuam sendo dígitos verificadores por módulo 11, conforme a
+[especificação técnica da Receita Federal](https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/documentos-tecnicos/cnpj).
+O valor normalizado é cifrado com AES-256-GCM e nonce aleatório; unicidade usa
+um HMAC-SHA-256 estável e separado da chave de cifra. A versão da chave de
+cifra acompanha cada linha, permitindo rotação sem alterar a identidade de
+busca. CNPJ, ciphertext e lookup token nunca entram na resposta, auditoria,
+evento ou outbox.
+
+Conflitos de CNPJ e slug são executados em savepoints: o comando remove apenas
+as linhas globais provisórias e finaliza a idempotência como conflito, sem
+deixar organização, endereço ou lugar órfão. Categorias, horários, contatos e
+mídia ainda não fazem parte dessa borda; serão tabelas e APIs próprias, sem
+sobrescrever o histórico de participação já publicado.
+
 ## Catálogo público
 
 `GET /api/v1/polos/:slug/catalog` resolve somente a rota global e executa toda

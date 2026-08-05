@@ -43,6 +43,11 @@ O backoffice usa `moderador.demo@clubeira.local` com a senha local
 `clubeira-moderador-local`; substitua por `CLUBEIRA_DEMO_MODERATOR_EMAIL` e
 `CLUBEIRA_DEMO_MODERATOR_PASSWORD` em ambientes compartilhados. Esse usuário
 recebe o papel `review_moderator` nos dois polos sem qualquer bypass de RLS.
+O cadastro de parceiros usa uma identidade separada:
+`admin.demo@clubeira.local` com `clubeira-admin-local`, configuráveis por
+`CLUBEIRA_DEMO_ADMIN_EMAIL` e `CLUBEIRA_DEMO_ADMIN_PASSWORD`. Ela recebe apenas
+o role key `admin` nos mesmos polos. As organizações demo têm CNPJs fictícios
+válidos e cifrados; nenhum documento real pertence às fixtures.
 As seeds também criam o provedor `mercado_pago`, uma conta global
 `mercado-pago-demo` e vínculos primários com os dois polos. A saída da seed
 mostra o UUID usado na URL do webhook. Sobral recebe ainda um ponto de
@@ -53,6 +58,25 @@ somente para uso local.
 Factories vivem em `support/factory.ex` e são compiladas apenas em `dev` e
 `test`. Dados estruturais das seeds sempre recebem IDs e valores estáveis;
 Faker fica restrito a texto de apresentação irrelevante para a regra testada.
+
+## Chaves de identificadores
+
+O runtime cifra CNPJ e futuros identificadores com uma chave AES-256-GCM
+versionada e deriva a busca exata com uma segunda chave HMAC. Em produção,
+gere dois segredos independentes de 32 bytes e exporte-os como base64url sem
+padding:
+
+```sh
+export IDENTIFIER_ENCRYPTION_KEY_VERSION=1
+export IDENTIFIER_ENCRYPTION_KEY_BASE64="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
+export IDENTIFIER_LOOKUP_KEY_BASE64="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
+```
+
+Guarde os valores num secret manager. Ao rotacionar a cifra, incremente a
+versão e mantenha versões anteriores disponíveis durante a futura rotina de
+recifragem. A chave de lookup permanece estável para preservar a unicidade
+global. A role migrator não precisa dessas chaves; elas são obrigatórias apenas
+no runtime de produção.
 
 ## Mercado Pago Pix
 
