@@ -241,7 +241,7 @@ defmodule Clubeira.SeedsTest do
     assert {:ok, %{reviews: [queued_review], page: %{has_more: false}}} =
              Reviews.list_for_moderation(scope, %{})
 
-    assert queued_review.review.id == pending_review.id
+    assert queued_review.id == pending_review.id
 
     assert {:ok, moderation} =
              Reviews.moderate(scope, %{
@@ -259,6 +259,6 @@ defmodule Clubeira.SeedsTest do
     assert {:ok, %{reviews: [published_review]}} =
              Reviews.list_public(public_scope, Ids.fetch!(:place_franchise_sobral), %{})
 
-    assert published_review.review.id == pending_review.id
+    assert published_review.id == pending_review.id
   end
 end
