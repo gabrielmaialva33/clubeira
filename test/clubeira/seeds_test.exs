@@ -184,8 +184,7 @@ defmodule Clubeira.SeedsTest do
 
     assert {:ok, grant} =
              Redemptions.issue_grant(scope, "sobral", %{
-               entitlement_allocation_id:
-                 seed_result.member.polos.sobral.allocations.franchise,
+               entitlement_allocation_id: seed_result.member.polos.sobral.allocations.franchise,
                installation_token: installation_token
              })
 
