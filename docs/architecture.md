@@ -102,6 +102,13 @@ publicados e são avaliados junto de contrato, ciclo e saldo na tentativa de
 resgate. Quando o produto precisar exibir “disponível agora”, isso será um
 campo derivado explícito, sem mudar silenciosamente o significado do catálogo.
 
+`GET /api/v1/polos/:slug/checkout-options` é a leitura pública comercial que
+completa essa vitrine. Ela pagina preços por UUIDv7 e devolve os pares
+`product_offering_version_id + offering_price_id` usados por
+`POST /api/v1/polos/:slug/orders`. Somente ofertas diretas, publicadas,
+vigentes e provisionáveis aparecem. Essa leitura não reserva preço nem cria
+autorização: o checkout autenticado relê todas as condições sob lock e RLS.
+
 ## Identidade e API do membro
 
 `users` continua sendo a identidade global mínima. Senhas ficam na relação 1:1
@@ -146,6 +153,8 @@ As bordas iniciais são:
 
 - `POST /api/v1/auth/sessions` — cria uma sessão opaca;
 - `DELETE /api/v1/auth/session` — revoga a sessão corrente;
+- `GET /api/v1/polos/:slug/checkout-options` — lista as combinações comerciais
+  públicas atualmente provisionáveis para o polo;
 - `POST /api/v1/polos/:slug/orders` — cria um pedido idempotente com ator e
   polo derivados da sessão e da rota, enquanto preço e moeda são relidos no
   tenant;

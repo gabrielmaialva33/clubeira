@@ -12,6 +12,8 @@ PostgreSQL, domínio normalizado e isolamento por Row-Level Security (RLS).
 
 - catálogo público, autenticação por sessão bearer revogável, descoberta de
   assinaturas multi-polo e carteira de vouchers;
+- descoberta pública paginada das opções comerciais e preços aceitos pelo
+  checkout do polo;
 - planos, contratos, ciclos e alocações de benefício independentes por polo;
 - checkout e liquidação de pagamento transacionais, idempotentes e neutros em
   relação ao provedor;
@@ -55,6 +57,7 @@ cenário determinístico com os polos Sobral e Londrina.
 - aplicação: <http://localhost:4000>
 - health check: <http://localhost:4000/health>
 - catálogo demo: <http://localhost:4000/api/v1/polos/sobral/catalog>
+- opções de checkout: <http://localhost:4000/api/v1/polos/sobral/checkout-options>
 - LiveDashboard em desenvolvimento: <http://localhost:4000/dev/dashboard>
 - caixa de e-mail local: <http://localhost:4000/dev/mailbox>
 
@@ -74,6 +77,8 @@ curl -sS http://localhost:4000/api/v1/me/subscriptions \
 curl -sS http://localhost:4000/api/v1/polos/sobral/me/vouchers \
   -H "authorization: Bearer $TOKEN"
 
+curl -sS http://localhost:4000/api/v1/polos/sobral/checkout-options
+
 curl -sS -X POST http://localhost:4000/api/v1/polos/sobral/orders \
   -H "authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' \
@@ -86,8 +91,11 @@ sessão do shell. `DELETE /api/v1/auth/session` revoga a sessão atual. A listag
 de assinaturas também usa cursor: `?limit=20&after=...`, com limite máximo de
 `100` polos e metadados em `meta.page`. O checkout exige uma única chave
 `Idempotency-Key`, aceita somente uma unidade e deriva comprador, polo, moeda e
-preço novamente no servidor. Repetir a mesma seleção com a mesma chave devolve
-o pedido original; reutilizar a chave para outra seleção retorna conflito.
+preço novamente no servidor. `GET /api/v1/polos/:slug/checkout-options`
+publica as combinações de `product_offering_version_id` e `offering_price_id`
+atualmente provisionáveis, também com cursor e limite máximo de `100`. Repetir
+a mesma seleção com a mesma chave devolve o pedido original; reutilizar a chave
+para outra seleção retorna conflito.
 
 ## Banco e multi-tenancy
 
@@ -169,9 +177,9 @@ alterar a configuração versionada.
 
 - `POST /api/v1/polos/:polo_slug/orders` expõe o checkout autenticado e delega
   para `Clubeira.Billing.place_order/2`;
-- a descoberta pública de versões comerciais e preços ainda será uma fatia
-  própria; o catálogo atual publica os benefícios, não os IDs aceitos pelo
-  checkout;
+- `GET /api/v1/polos/:polo_slug/checkout-options` expõe versões comerciais e
+  preços vigentes; a escrita continua relendo preço, moeda e elegibilidade
+  dentro da transação;
 - `Clubeira.Billing.settle_payment/2` é uma porta interna e só aceita uma
   captura cuja autenticidade já foi verificada pelo futuro adaptador do PSP;
 - `Clubeira.Redemptions.confirm/2` recebe uma confirmação já autenticada; token,
