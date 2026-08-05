@@ -54,6 +54,7 @@ defmodule ClubeiraWeb.Router do
     get "/polos/:polo_slug/catalog", CatalogController, :show
     get "/polos/:polo_slug/checkout-options", CatalogController, :checkout_options
     get "/polos/:polo_slug/places", PlaceController, :index
+    get "/legal/registration", LegalController, :registration
   end
 
   scope "/api/v1", ClubeiraWeb do
