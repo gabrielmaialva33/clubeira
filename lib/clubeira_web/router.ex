@@ -38,6 +38,10 @@ defmodule ClubeiraWeb.Router do
     plug ClubeiraWeb.Plugs.CredentialRateLimit, action: :password_reset_request
   end
 
+  pipeline :password_reset_api do
+    plug ClubeiraWeb.Plugs.CredentialRateLimit, action: :password_reset
+  end
+
   scope "/", ClubeiraWeb do
     pipe_through :browser
 
@@ -66,6 +70,12 @@ defmodule ClubeiraWeb.Router do
     pipe_through [:api, :password_reset_request_api]
 
     post "/auth/password-reset-requests", PasswordResetRequestController, :create
+  end
+
+  scope "/api/v1", ClubeiraWeb do
+    pipe_through [:api, :password_reset_api]
+
+    post "/auth/password-resets", PasswordResetController, :create
   end
 
   scope "/api/v1", ClubeiraWeb do

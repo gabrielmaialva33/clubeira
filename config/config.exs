@@ -60,6 +60,11 @@ config :clubeira, ClubeiraWeb.Plugs.CredentialRateLimit,
       global: [scale_ms: 1_000, limit: 20],
       ip: [scale_ms: 60_000, limit: 10],
       identity: [scale_ms: 900_000, limit: 3]
+    ],
+    password_reset: [
+      global: [scale_ms: 1_000, limit: 40],
+      ip: [scale_ms: 60_000, limit: 20],
+      identity: [scale_ms: 900_000, limit: 10]
     ]
   ]
 

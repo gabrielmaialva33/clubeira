@@ -138,6 +138,26 @@ if config_env() == :prod do
               1..10_000
             )
         ]
+      ],
+      password_reset: [
+        global: [
+          scale_ms: 1_000,
+          limit:
+            integer_in_range!.("PASSWORD_RESET_CONFIRM_RATE_GLOBAL_PER_SECOND", 40, 1..10_000)
+        ],
+        ip: [
+          scale_ms: 60_000,
+          limit: integer_in_range!.("PASSWORD_RESET_CONFIRM_RATE_IP_PER_MINUTE", 20, 1..10_000)
+        ],
+        identity: [
+          scale_ms: 900_000,
+          limit:
+            integer_in_range!.(
+              "PASSWORD_RESET_CONFIRM_RATE_TOKEN_PER_15_MINUTES",
+              10,
+              1..10_000
+            )
+        ]
       ]
     ]
 

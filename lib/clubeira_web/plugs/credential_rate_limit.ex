@@ -10,7 +10,7 @@ defmodule ClubeiraWeb.Plugs.CredentialRateLimit do
 
   @behaviour Plug
 
-  @actions [:login, :registration, :password_reset_request]
+  @actions [:login, :registration, :password_reset_request, :password_reset]
 
   @impl true
   def init(options) do
@@ -52,7 +52,7 @@ defmodule ClubeiraWeb.Plugs.CredentialRateLimit do
   defp limit_keys(conn, action) do
     [
       {:ip, {action, :ip, network_fingerprint(conn.remote_ip)}},
-      {:identity, {action, :identity, fingerprint(normalized_email(conn))}},
+      {:identity, {action, :identity, fingerprint(credential_identity(conn, action))}},
       {:global, {action, :global}}
     ]
   end
@@ -74,11 +74,16 @@ defmodule ClubeiraWeb.Plugs.CredentialRateLimit do
     fingerprint(:erlang.term_to_binary({:ipv6_64, first, second, third, fourth}))
   end
 
-  defp normalized_email(%Plug.Conn{body_params: %{"email" => email}}) when is_binary(email) do
+  defp credential_identity(%Plug.Conn{body_params: %{"token" => token}}, :password_reset)
+       when is_binary(token) and byte_size(token) <= 128,
+       do: token
+
+  defp credential_identity(%Plug.Conn{body_params: %{"email" => email}}, _action)
+       when is_binary(email) do
     email |> String.trim() |> String.downcase()
   end
 
-  defp normalized_email(_conn), do: ""
+  defp credential_identity(_conn, _action), do: ""
 
   defp fingerprint(value), do: :crypto.hash(:sha256, value)
 
