@@ -52,6 +52,7 @@ defmodule ClubeiraWeb.Router do
     pipe_through :api
 
     get "/polos/:polo_slug/catalog", CatalogController, :show
+    get "/polos/:polo_slug/checkout-options", CatalogController, :checkout_options
   end
 
   scope "/api/v1", ClubeiraWeb do
