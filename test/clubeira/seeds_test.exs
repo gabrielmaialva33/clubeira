@@ -12,20 +12,20 @@ defmodule Clubeira.SeedsTest do
   alias Clubeira.Catalog.BenefitOfferVersionPlace
   alias Clubeira.Catalog.Edition
   alias Clubeira.Catalog.EditionPlace
+  alias Clubeira.Devices
   alias Clubeira.Directory.Brand
   alias Clubeira.Directory.City
   alias Clubeira.Directory.Organization
   alias Clubeira.Directory.Place
-  alias Clubeira.Devices
+  alias Clubeira.Legal.Acceptance
   alias Clubeira.Legal.Document
   alias Clubeira.Legal.DocumentVersion
-  alias Clubeira.Legal.Acceptance
   alias Clubeira.Polos.Polo
   alias Clubeira.Polos.PoloPlace
   alias Clubeira.Polos.PoloRoute
+  alias Clubeira.Redemptions
   alias Clubeira.Redemptions.ValidationCredential
   alias Clubeira.Redemptions.ValidationPoint
-  alias Clubeira.Redemptions
   alias Clubeira.Repo
   alias Clubeira.Reviews
   alias Clubeira.Seeds
