@@ -18,6 +18,8 @@ config :argon2_elixir,
 
 config :clubeira, Clubeira.Security.PasswordGate, max_concurrency: 8
 
+config :clubeira, Clubeira.Redemptions.Grant, max_age_seconds: 120
+
 config :clubeira, Clubeira.Accounts.SessionJanitor,
   enabled: true,
   initial_delay_ms: 60_000,

@@ -12,6 +12,7 @@ defmodule Clubeira.Seeds.Demo.Member do
   alias Clubeira.Seeds
   alias Clubeira.Seeds.Demo.Ids
   alias Clubeira.Seeds.Writer
+  alias Clubeira.Tenancy.ActorScope
 
   @default_member_email "membro.demo@clubeira.local"
   @default_password "clubeira-demo-local"
@@ -25,6 +26,7 @@ defmodule Clubeira.Seeds.Demo.Member do
   @spec run!() :: map()
   def run! do
     user = seed_user!()
+    seed_legal_acceptance!(user)
 
     seed_subscription!(user,
       key: :sobral,
@@ -69,6 +71,25 @@ defmodule Clubeira.Seeds.Demo.Member do
     )
 
     %{email: user.email, subscriptions: 2, vouchers: 3}
+  end
+
+  defp seed_legal_acceptance!(user) do
+    scope = ActorScope.new!(user.id, id(:legal_acceptance_demo_member))
+
+    {:ok, _acceptance} =
+      Repo.transact_as_actor(scope, fn ->
+        {:ok,
+         Writer.insert_once!(:legal_acceptance, %{
+           id: id(:legal_acceptance_demo_member),
+           legal_document_version_id: id(:legal_document_version_consumer_terms_pt_br),
+           user_id: user.id,
+           accepted_at: ~U[2026-01-01 00:00:00Z],
+           evidence: %{"source" => "demo_seed"},
+           inserted_at: ~U[2026-01-01 00:00:00Z]
+         })}
+      end)
+
+    :ok
   end
 
   defp seed_user! do

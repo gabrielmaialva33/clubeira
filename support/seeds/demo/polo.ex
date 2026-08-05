@@ -7,6 +7,7 @@ defmodule Clubeira.Seeds.Demo.Polo do
 
   @range_start ~U[2026-01-01 00:00:00Z]
   @range_end ~U[2027-01-01 00:00:00Z]
+  @default_validation_secret "M-bCcLGupP8XuBxzemHd-4JumJf6trsiQpinEl30xwg"
 
   @polo_fields ~w(city_id name timezone status updated_at)a
   @polo_route_fields ~w(slug updated_at)a
@@ -65,6 +66,7 @@ defmodule Clubeira.Seeds.Demo.Polo do
       })
 
       polo_places = seed_polo_places!(polo, city, Keyword.fetch!(options, :places))
+      seed_validation_points!(polo, Keyword.get(options, :validation_points, []))
       edition = seed_edition!(polo, Keyword.fetch!(options, :edition_id))
 
       Enum.each(polo_places, fn polo_place ->
@@ -108,6 +110,48 @@ defmodule Clubeira.Seeds.Demo.Polo do
       },
       @edition_fields
     )
+  end
+
+  defp seed_validation_points!(polo, validation_points) do
+    secret_hash = validation_secret_hash!()
+
+    Enum.each(validation_points, fn attributes ->
+      validation_point =
+        Writer.insert_once!(:validation_point, %{
+          id: Map.fetch!(attributes, :id),
+          polo_id: polo.id,
+          polo_place_id: Map.fetch!(attributes, :polo_place_id),
+          name: Map.fetch!(attributes, :name),
+          kind: "api",
+          status: "active"
+        })
+
+      credential =
+        Writer.insert_once!(:validation_credential, %{
+          id: Map.fetch!(attributes, :credential_id),
+          polo_id: polo.id,
+          validation_point_id: validation_point.id,
+          version: 1,
+          kind: "manual_code",
+          secret_hash: secret_hash,
+          valid_during: active_range(),
+          status: "active",
+          inserted_at: @range_start
+        })
+
+      if credential.secret_hash != secret_hash do
+        raise "demo validation secret changed in place; publish a new credential version"
+      end
+    end)
+  end
+
+  defp validation_secret_hash! do
+    secret = System.get_env("CLUBEIRA_DEMO_VALIDATION_SECRET", @default_validation_secret)
+
+    case Base.url_decode64(secret, padding: false) do
+      {:ok, decoded} when byte_size(decoded) == 32 -> :crypto.hash(:sha256, decoded)
+      _invalid -> raise "CLUBEIRA_DEMO_VALIDATION_SECRET must encode exactly 32 random bytes"
+    end
   end
 
   defp seed_benefit_offers!(polo, offers) do

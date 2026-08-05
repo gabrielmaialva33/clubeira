@@ -17,6 +17,7 @@ defmodule Clubeira.RedemptionsFixtures do
     polo_place
     other_polo_place
     validation_point
+    validation_credential
     other_validation_point
     benefit_offer
     benefit_offer_version
@@ -221,6 +222,8 @@ defmodule Clubeira.RedemptionsFixtures do
       kind: "api",
       status: "active"
     })
+
+    maybe_insert_validation_credential!(ids, active, options)
 
     if Keyword.get(options, :alternate_validation_place, false) do
       insert!("polo_places", %{
@@ -570,6 +573,27 @@ defmodule Clubeira.RedemptionsFixtures do
         valid_during: active,
         status: "active"
       })
+    end
+  end
+
+  defp maybe_insert_validation_credential!(ids, active, options) do
+    case Keyword.get(options, :validation_credential_secret) do
+      nil ->
+        :ok
+
+      secret ->
+        {:ok, decoded_secret} = Base.url_decode64(secret, padding: false)
+
+        insert!("validation_credentials", %{
+          id: ids.validation_credential,
+          polo_id: ids.polo,
+          validation_point_id: ids.validation_point,
+          version: 1,
+          kind: "manual_code",
+          secret_hash: :crypto.hash(:sha256, decoded_secret),
+          valid_during: active,
+          status: "active"
+        })
     end
   end
 

@@ -2,6 +2,7 @@ defmodule Clubeira.SeedsTest do
   use Clubeira.DataCase, async: false
 
   alias Clubeira.Accounts
+  alias Clubeira.Accounts.RequestContext
   alias Clubeira.Accounts.PasswordCredential
   alias Clubeira.Accounts.User
   alias Clubeira.Billing.MerchantAccount
@@ -15,15 +16,23 @@ defmodule Clubeira.SeedsTest do
   alias Clubeira.Directory.City
   alias Clubeira.Directory.Organization
   alias Clubeira.Directory.Place
+  alias Clubeira.Devices
   alias Clubeira.Legal.Document
   alias Clubeira.Legal.DocumentVersion
+  alias Clubeira.Legal.Acceptance
   alias Clubeira.Polos.Polo
   alias Clubeira.Polos.PoloPlace
   alias Clubeira.Polos.PoloRoute
+  alias Clubeira.Redemptions.ValidationCredential
+  alias Clubeira.Redemptions.ValidationPoint
+  alias Clubeira.Redemptions
   alias Clubeira.Repo
   alias Clubeira.Seeds
   alias Clubeira.Seeds.Demo.Ids
   alias Clubeira.Subscriptions
+  alias Clubeira.Tenancy.ActorScope
+
+  @demo_validation_secret "M-bCcLGupP8XuBxzemHd-4JumJf6trsiQpinEl30xwg"
 
   test "migrator seed is idempotent and its tenant data stays isolated under the runtime role" do
     first_result = Clubeira.TestDatabaseRole.as_owner(&Seeds.run!/0)
@@ -31,7 +40,7 @@ defmodule Clubeira.SeedsTest do
     assert {:ok, session} = Accounts.login("membro.demo@clubeira.local", password)
 
     assert Clubeira.TestDatabaseRole.as_owner(&Seeds.run!/0) == first_result
-    assert {:ok, _scope} = Accounts.fetch_scope_by_api_token(session.token)
+    assert {:ok, scope} = Accounts.fetch_scope_by_api_token(session.token)
 
     assert Repo.aggregate(City, :count) == 2
     assert Repo.aggregate(Organization, :count) == 2
@@ -48,18 +57,29 @@ defmodule Clubeira.SeedsTest do
     assert first_result.legal_document_version_id ==
              Ids.fetch!(:legal_document_version_consumer_terms_pt_br)
 
+    assert Repo.aggregate(Acceptance, :count) == 0
+
+    actor_scope = ActorScope.new!(session.user.id, scope.request_id)
+
+    assert {:ok, 1} =
+             Repo.transact_as_actor(actor_scope, fn ->
+               {:ok, Repo.aggregate(Acceptance, :count)}
+             end)
+
     assert_polo_counts(Ids.fetch!(:polo_sobral),
       polo_places: 2,
       edition_places: 2,
       benefit_offers: 2,
-      offer_places: 2
+      offer_places: 2,
+      validation_points: 1
     )
 
     assert_polo_counts(Ids.fetch!(:polo_londrina),
       polo_places: 1,
       edition_places: 1,
       benefit_offers: 1,
-      offer_places: 1
+      offer_places: 1,
+      validation_points: 0
     )
 
     franchise_id = Ids.fetch!(:organization_franchise)
@@ -98,6 +118,8 @@ defmodule Clubeira.SeedsTest do
       assert Repo.aggregate(EditionPlace, :count) == expected[:edition_places]
       assert Repo.aggregate(BenefitOffer, :count) == expected[:benefit_offers]
       assert Repo.aggregate(PoloMerchantAccount, :count) == 1
+      assert Repo.aggregate(ValidationPoint, :count) == expected[:validation_points]
+      assert Repo.aggregate(ValidationCredential, :count) == expected[:validation_points]
 
       assert Repo.aggregate(BenefitOfferVersionPlace, :count) == expected[:offer_places]
     end)
@@ -132,5 +154,36 @@ defmodule Clubeira.SeedsTest do
     assert {:ok, %{vouchers: londrina_vouchers}} = Subscriptions.list_wallet(scope, "londrina")
     assert length(sobral_vouchers) == 2
     assert length(londrina_vouchers) == 1
+
+    installation_token = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+
+    assert {:ok, _enrollment} =
+             Devices.enroll_redemption_device(scope, "sobral", %{
+               access_contract_id: Ids.fetch!(:access_contract_sobral),
+               installation_token: installation_token,
+               platform: "web"
+             })
+
+    assert {:ok, grant} =
+             Redemptions.issue_grant(scope, "sobral", %{
+               entitlement_allocation_id: Ids.fetch!(:allocation_franchise_sobral),
+               installation_token: installation_token
+             })
+
+    validation_secret =
+      System.get_env("CLUBEIRA_DEMO_VALIDATION_SECRET", @demo_validation_secret)
+
+    assert {:ok, redemption} =
+             Redemptions.confirm_grant(
+               "sobral",
+               %{
+                 grant: grant.token,
+                 validation_credential: validation_secret,
+                 idempotency_key: "demo-seed-redemption"
+               },
+               RequestContext.new!()
+             )
+
+    assert redemption.entitlement_allocation_id == Ids.fetch!(:allocation_franchise_sobral)
   end
 end

@@ -30,10 +30,15 @@ defmodule Clubeira.Factory do
   alias Clubeira.Directory.PlaceBrand
   alias Clubeira.Directory.PlaceOperator
   alias Clubeira.Factory.Brazil
+  alias Clubeira.Legal.Acceptance
+  alias Clubeira.Legal.Document
+  alias Clubeira.Legal.DocumentVersion
   alias Clubeira.Polos.Polo
   alias Clubeira.Polos.PoloPlace
   alias Clubeira.Polos.PoloPolicyVersion
   alias Clubeira.Polos.PoloRoute
+  alias Clubeira.Redemptions.ValidationCredential
+  alias Clubeira.Redemptions.ValidationPoint
   alias Clubeira.Subscriptions.AccessContract
   alias Clubeira.Subscriptions.AccessProduct
   alias Clubeira.Subscriptions.AccessProductVersion
@@ -59,6 +64,39 @@ defmodule Clubeira.Factory do
 
   def user_factory do
     %User{email: unique_email(), status: "active"}
+  end
+
+  def legal_document_factory do
+    number = sequence(:legal_document, & &1)
+
+    %Document{
+      code: "consumer-terms-#{number}",
+      document_kind: "terms_of_service",
+      audience: "consumer",
+      status: "active"
+    }
+  end
+
+  def legal_document_version_factory do
+    %DocumentVersion{
+      version: 1,
+      locale: "pt-BR",
+      content_uri: "/legal/demo-consumer-terms-v1.txt",
+      content_sha256: :crypto.hash(:sha256, "demo consumer terms v1"),
+      effective_during: tstz_range(@default_range_start),
+      published_at: @default_range_start,
+      inserted_at: timestamp()
+    }
+  end
+
+  def legal_acceptance_factory do
+    now = timestamp()
+
+    %Acceptance{
+      accepted_at: now,
+      evidence: %{"source" => "factory"},
+      inserted_at: now
+    }
   end
 
   def city_factory do
@@ -457,6 +495,29 @@ defmodule Clubeira.Factory do
       allocation_kind: "per_place",
       issued_units: 1,
       available_units: 1
+    }
+  end
+
+  def validation_point_factory do
+    number = sequence(:validation_point, & &1)
+
+    %ValidationPoint{
+      name: "Validação Demo #{number}",
+      kind: "api",
+      status: "active"
+    }
+  end
+
+  def validation_credential_factory do
+    number = sequence(:validation_credential, & &1)
+
+    %ValidationCredential{
+      version: 1,
+      kind: "manual_code",
+      secret_hash: :crypto.hash(:sha256, "validation-credential-#{number}"),
+      valid_during: tstz_range(@default_range_start),
+      status: "active",
+      inserted_at: timestamp()
     }
   end
 

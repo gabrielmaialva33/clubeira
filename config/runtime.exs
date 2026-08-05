@@ -71,6 +71,10 @@ if config_env() == :prod do
   config :clubeira, Clubeira.Security.PasswordGate,
     max_concurrency: integer_in_range!.("ARGON2_MAX_CONCURRENCY", 8, 1..64)
 
+  config :clubeira, Clubeira.Redemptions.Grant,
+    max_age_seconds:
+      integer_in_range!.("REDEMPTION_GRANT_MAX_AGE_SECONDS", 120, 30..600)
+
   config :clubeira, ClubeiraWeb.Plugs.CredentialRateLimit,
     limiter: Clubeira.Security.LoginRateLimiter,
     limits: [

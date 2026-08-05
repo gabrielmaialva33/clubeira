@@ -65,6 +65,7 @@ defmodule ClubeiraWeb.Router do
     get "/polos/:polo_slug/checkout-options", CatalogController, :checkout_options
     get "/polos/:polo_slug/places", PlaceController, :index
     get "/legal/registration", LegalController, :registration
+    post "/polos/:polo_slug/redemptions", RedemptionConfirmationController, :create
     post "/webhooks/mercado-pago/:merchant_account_id", PaymentWebhookController, :mercado_pago
   end
 
@@ -75,6 +76,8 @@ defmodule ClubeiraWeb.Router do
     get "/me/subscriptions", SubscriptionController, :index
     post "/polos/:polo_slug/orders", CheckoutController, :create
     post "/polos/:polo_slug/orders/:order_id/payment-intents", PaymentIntentController, :create
+    post "/polos/:polo_slug/me/redemption-devices", RedemptionDeviceController, :create
+    post "/polos/:polo_slug/me/redemption-grants", RedemptionGrantController, :create
     post "/polos/:polo_slug/places/:place_id/reviews", ReviewController, :create
     get "/polos/:polo_slug/me/orders", OrderController, :index
     get "/polos/:polo_slug/me/redemptions", RedemptionController, :index

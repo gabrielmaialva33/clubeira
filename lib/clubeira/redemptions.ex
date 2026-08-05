@@ -15,11 +15,13 @@ defmodule Clubeira.Redemptions do
   alias Clubeira.Idempotency
   alias Clubeira.Idempotency.Key
   alias Clubeira.Redemptions.ConfirmedRequest
+  alias Clubeira.Redemptions.AuthenticatedConfirmation
   alias Clubeira.Redemptions.Eligibility
   alias Clubeira.Redemptions.Recorder
   alias Clubeira.Redemptions.Redemption
   alias Clubeira.Redemptions.RedemptionAttempt
   alias Clubeira.Redemptions.RedemptionReader
+  alias Clubeira.Redemptions.GrantIssuer
   alias Clubeira.Repo
   alias Clubeira.Tenancy.Scope
 
@@ -54,6 +56,16 @@ defmodule Clubeira.Redemptions do
   @spec list_for_member(Scope.t(), map()) ::
           {:ok, %{redemptions: [map()], page: map()}} | {:error, term()}
   defdelegate list_for_member(scope, params), to: RedemptionReader, as: :list
+
+  @spec issue_grant(Clubeira.Accounts.Scope.t(), String.t(), map()) ::
+          {:ok, Clubeira.Redemptions.Grant.issued()} | {:error, term()}
+  defdelegate issue_grant(account_scope, polo_slug, attributes), to: GrantIssuer, as: :issue
+
+  @spec confirm_grant(String.t(), map(), Clubeira.Accounts.RequestContext.t()) ::
+          {:ok, Redemption.t()} | {:error, term()}
+  defdelegate confirm_grant(polo_slug, attributes, context),
+    to: AuthenticatedConfirmation,
+    as: :confirm
 
   @spec confirm(Scope.t(), map()) ::
           {:ok, Redemption.t()} | {:error, error_reason() | Ecto.Changeset.t()}

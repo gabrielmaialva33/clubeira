@@ -9,11 +9,13 @@ defmodule Clubeira.Seeds.Demo do
   alias Clubeira.Seeds.Demo.Billing
   alias Clubeira.Seeds.Demo.Directory
   alias Clubeira.Seeds.Demo.Ids
+  alias Clubeira.Seeds.Demo.Legal
   alias Clubeira.Seeds.Demo.Member
   alias Clubeira.Seeds.Demo.Polo
 
   @spec run!() :: map()
   def run! do
+    legal = Legal.run!()
     directory = Directory.run!()
 
     Polo.run!(
@@ -27,6 +29,14 @@ defmodule Clubeira.Seeds.Demo do
       places: [
         {directory.places.franchise_sobral, id(:polo_place_franchise_sobral)},
         {directory.places.local_sobral, id(:polo_place_local_sobral)}
+      ],
+      validation_points: [
+        %{
+          id: id(:validation_point_sobral),
+          credential_id: id(:validation_credential_sobral),
+          polo_place_id: id(:polo_place_franchise_sobral),
+          name: "Caixa Demo Café Horizonte"
+        }
       ],
       offers: [
         %{
@@ -91,6 +101,8 @@ defmodule Clubeira.Seeds.Demo do
       benefit_offers: 3,
       merchant_account_id: billing.account.id,
       merchant_account_reference: billing.account.provider_account_reference,
+      legal_document_version_id: legal.version.id,
+      validation_point_id: id(:validation_point_sobral),
       member_email: member.email,
       payment_provider: billing.provider.code,
       subscriptions: member.subscriptions,
