@@ -13,7 +13,7 @@ defmodule Clubeira.Seeds.Demo.Member do
   alias Clubeira.Seeds.Demo.Ids
   alias Clubeira.Seeds.Writer
 
-  @member_email "membro.demo@clubeira.local"
+  @default_member_email "membro.demo@clubeira.local"
   @default_password "clubeira-demo-local"
   @user_fields ~w(email status disabled_at updated_at)a
   @access_product_fields ~w(polo_id code name status updated_at)a
@@ -72,10 +72,12 @@ defmodule Clubeira.Seeds.Demo.Member do
   end
 
   defp seed_user! do
+    member_email = System.get_env("CLUBEIRA_DEMO_EMAIL", @default_member_email)
+
     user =
       Writer.upsert!(
         :user,
-        %{id: id(:member_user), email: @member_email, status: "active"},
+        %{id: id(:member_user), email: member_email, status: "active"},
         @user_fields
       )
 

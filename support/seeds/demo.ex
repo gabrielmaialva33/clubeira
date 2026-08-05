@@ -6,6 +6,7 @@ defmodule Clubeira.Seeds.Demo do
   while a local partner remains scoped to a single city and polo.
   """
 
+  alias Clubeira.Seeds.Demo.Billing
   alias Clubeira.Seeds.Demo.Directory
   alias Clubeira.Seeds.Demo.Ids
   alias Clubeira.Seeds.Demo.Member
@@ -76,6 +77,7 @@ defmodule Clubeira.Seeds.Demo do
       ]
     )
 
+    billing = Billing.run!()
     member = Member.run!()
 
     %{
@@ -87,7 +89,10 @@ defmodule Clubeira.Seeds.Demo do
       polos: 2,
       editions: 2,
       benefit_offers: 3,
+      merchant_account_id: billing.account.id,
+      merchant_account_reference: billing.account.provider_account_reference,
       member_email: member.email,
+      payment_provider: billing.provider.code,
       subscriptions: member.subscriptions,
       vouchers: member.vouchers
     }

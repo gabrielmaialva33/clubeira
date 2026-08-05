@@ -75,7 +75,9 @@ defmodule Clubeira.Seeds.Demo.Ids do
     access_contract_londrina: "019fca2d-0898-79e5-ba98-09b63f8aac50",
     benefit_cycle_londrina: "019fca2d-0898-7a03-9758-4ec66bee4b23",
     entitlement_subject_londrina: "019fca2d-0898-7a23-b42f-9350ea0d2073",
-    allocation_franchise_londrina: "019fca2d-0898-7a44-9a05-ed4922e84a27"
+    allocation_franchise_londrina: "019fca2d-0898-7a44-9a05-ed4922e84a27",
+    payment_provider_mercado_pago: "019fd2f5-87fe-7cab-9641-39cb8755c35e",
+    merchant_account_mercado_pago_demo: "019fd2f5-87fe-7da6-8085-9e225a46123a"
   }
 
   @spec fetch!(atom()) :: Ecto.UUID.t()

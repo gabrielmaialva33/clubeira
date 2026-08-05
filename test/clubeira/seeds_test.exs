@@ -4,6 +4,9 @@ defmodule Clubeira.SeedsTest do
   alias Clubeira.Accounts
   alias Clubeira.Accounts.PasswordCredential
   alias Clubeira.Accounts.User
+  alias Clubeira.Billing.MerchantAccount
+  alias Clubeira.Billing.PaymentProvider
+  alias Clubeira.Billing.PoloMerchantAccount
   alias Clubeira.Catalog.BenefitOffer
   alias Clubeira.Catalog.BenefitOfferVersionPlace
   alias Clubeira.Catalog.Edition
@@ -12,6 +15,8 @@ defmodule Clubeira.SeedsTest do
   alias Clubeira.Directory.City
   alias Clubeira.Directory.Organization
   alias Clubeira.Directory.Place
+  alias Clubeira.Legal.Document
+  alias Clubeira.Legal.DocumentVersion
   alias Clubeira.Polos.Polo
   alias Clubeira.Polos.PoloPlace
   alias Clubeira.Polos.PoloRoute
@@ -20,12 +25,12 @@ defmodule Clubeira.SeedsTest do
   alias Clubeira.Seeds.Demo.Ids
   alias Clubeira.Subscriptions
 
-  test "demo seed is idempotent and isolated by polo under a non-bypass RLS role" do
-    first_result = Seeds.run!()
+  test "migrator seed is idempotent and its tenant data stays isolated under the runtime role" do
+    first_result = Clubeira.TestDatabaseRole.as_owner(&Seeds.run!/0)
     password = System.get_env("CLUBEIRA_DEMO_PASSWORD", "clubeira-demo-local")
     assert {:ok, session} = Accounts.login("membro.demo@clubeira.local", password)
 
-    assert Seeds.run!() == first_result
+    assert Clubeira.TestDatabaseRole.as_owner(&Seeds.run!/0) == first_result
     assert {:ok, _scope} = Accounts.fetch_scope_by_api_token(session.token)
 
     assert Repo.aggregate(City, :count) == 2
@@ -35,6 +40,13 @@ defmodule Clubeira.SeedsTest do
     assert Repo.aggregate(PoloRoute, :count) == 2
     assert Repo.aggregate(User, :count) == 1
     assert Repo.aggregate(PasswordCredential, :count) == 1
+    assert Repo.aggregate(PaymentProvider, :count) == 1
+    assert Repo.aggregate(MerchantAccount, :count) == 1
+    assert Repo.aggregate(Document, :count) == 1
+    assert Repo.aggregate(DocumentVersion, :count) == 1
+
+    assert first_result.legal_document_version_id ==
+             Ids.fetch!(:legal_document_version_consumer_terms_pt_br)
 
     assert_polo_counts(Ids.fetch!(:polo_sobral),
       polo_places: 2,
@@ -85,6 +97,7 @@ defmodule Clubeira.SeedsTest do
       assert Repo.aggregate(PoloPlace, :count) == expected[:polo_places]
       assert Repo.aggregate(EditionPlace, :count) == expected[:edition_places]
       assert Repo.aggregate(BenefitOffer, :count) == expected[:benefit_offers]
+      assert Repo.aggregate(PoloMerchantAccount, :count) == 1
 
       assert Repo.aggregate(BenefitOfferVersionPlace, :count) == expected[:offer_places]
     end)
