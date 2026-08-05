@@ -73,12 +73,21 @@ curl -sS http://localhost:4000/api/v1/me/subscriptions \
 
 curl -sS http://localhost:4000/api/v1/polos/sobral/me/vouchers \
   -H "authorization: Bearer $TOKEN"
+
+curl -sS -X POST http://localhost:4000/api/v1/polos/sobral/orders \
+  -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -H 'idempotency-key: checkout-mobile-001' \
+  -d '{"product_offering_version_id":"<uuid>","offering_price_id":"<uuid>"}'
 ```
 
 O primeiro comando devolve `data.access_token`; atribua-o a `TOKEN` apenas na
 sessão do shell. `DELETE /api/v1/auth/session` revoga a sessão atual. A listagem
 de assinaturas também usa cursor: `?limit=20&after=...`, com limite máximo de
-`100` polos e metadados em `meta.page`.
+`100` polos e metadados em `meta.page`. O checkout exige uma única chave
+`Idempotency-Key`, aceita somente uma unidade e deriva comprador, polo, moeda e
+preço novamente no servidor. Repetir a mesma seleção com a mesma chave devolve
+o pedido original; reutilizar a chave para outra seleção retorna conflito.
 
 ## Banco e multi-tenancy
 
@@ -158,7 +167,11 @@ alterar a configuração versionada.
 
 ## Limites atuais
 
-- `Clubeira.Billing.place_order/2` é a entrada autenticada do checkout;
+- `POST /api/v1/polos/:polo_slug/orders` expõe o checkout autenticado e delega
+  para `Clubeira.Billing.place_order/2`;
+- a descoberta pública de versões comerciais e preços ainda será uma fatia
+  própria; o catálogo atual publica os benefícios, não os IDs aceitos pelo
+  checkout;
 - `Clubeira.Billing.settle_payment/2` é uma porta interna e só aceita uma
   captura cuja autenticidade já foi verificada pelo futuro adaptador do PSP;
 - `Clubeira.Redemptions.confirm/2` recebe uma confirmação já autenticada; token,

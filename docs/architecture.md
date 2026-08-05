@@ -146,6 +146,9 @@ As bordas iniciais são:
 
 - `POST /api/v1/auth/sessions` — cria uma sessão opaca;
 - `DELETE /api/v1/auth/session` — revoga a sessão corrente;
+- `POST /api/v1/polos/:slug/orders` — cria um pedido idempotente com ator e
+  polo derivados da sessão e da rota, enquanto preço e moeda são relidos no
+  tenant;
 - `GET /api/v1/me/subscriptions` — pagina polos do ator e agrega os contratos
   comprados em cada um;
 - `GET /api/v1/polos/:slug/me/vouchers` — lê o ciclo e as alocações do polo.
