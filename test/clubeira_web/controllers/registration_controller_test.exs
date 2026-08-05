@@ -17,7 +17,9 @@ defmodule ClubeiraWeb.RegistrationControllerTest do
                %{
                  "id" => terms_version_id,
                  "required" => true,
-                 "document_kind" => "terms_of_service"
+                 "document_kind" => "terms_of_service",
+                 "content_uri" => content_uri,
+                 "content_sha256" => content_sha256
                }
              ]
            } =
@@ -26,6 +28,10 @@ defmodule ClubeiraWeb.RegistrationControllerTest do
              |> json_response(200)
 
     assert terms_version_id == terms.version_id
+
+    legal_content = conn |> get(content_uri) |> response(200)
+
+    assert Base.encode16(:crypto.hash(:sha256, legal_content), case: :lower) == content_sha256
 
     registration_conn =
       post(conn, ~p"/api/v1/auth/registrations", %{

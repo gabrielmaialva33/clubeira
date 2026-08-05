@@ -56,6 +56,14 @@ defmodule Clubeira.AccountsTest do
     assert acceptance.user_id == session.user.id
     assert acceptance.legal_document_version_id == terms.version_id
     assert acceptance.polo_id == nil
+    assert Repo.all(Acceptance) == []
+
+    other_actor_scope = ActorScope.new!(Ecto.UUID.generate(), Ecto.UUID.generate())
+
+    assert {:ok, []} =
+             Repo.transact_as_actor(other_actor_scope, fn ->
+               {:ok, Repo.all(Acceptance)}
+             end)
 
     assert Repo.aggregate(
              from(event in SystemEvent,

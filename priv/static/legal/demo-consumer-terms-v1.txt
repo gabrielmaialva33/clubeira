@@ -1,0 +1,24 @@
+TERMOS DE USO DO CONSUMIDOR - AMBIENTE DE DEMONSTRACAO CLUBEIRA
+Versao 1 - pt-BR - vigente desde 1 de janeiro de 2026
+
+Este documento existe exclusivamente para desenvolvimento, demonstracao e
+testes do Clubeira. Ele nao substitui termos revisados e publicados pela
+operacao comercial antes de um lancamento em producao.
+
+1. Conta. A pessoa usuaria e responsavel por manter suas credenciais seguras e
+por informar dados verdadeiros durante o cadastro.
+
+2. Assinatura. Precos, periodicidade, beneficios e regras de cada polo sao
+apresentados antes da compra. A ativacao depende da confirmacao do pagamento.
+
+3. Beneficios. Cada voucher segue a oferta e o ciclo publicados no momento da
+contratacao. O uso exige confirmacao autentica no estabelecimento participante
+e nao pode ser reutilizado apos o consumo confirmado.
+
+4. Privacidade. O ambiente registra apenas os dados necessarios para operar a
+conta, comprovar transacoes, prevenir fraude e manter auditoria. Integracoes de
+producao devem possuir aviso de privacidade proprio.
+
+5. Suporte. Como este e um ambiente de demonstracao, nao ha atendimento,
+garantia comercial, cobranca real ou relacao de consumo decorrente destes
+termos.
