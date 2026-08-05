@@ -84,6 +84,21 @@ defmodule ClubeiraWeb.Plugs.LoginRateLimitTest do
     assert Enum.all?(registration_keys, &(elem(&1, 0) == :registration))
   end
 
+  test "password recovery hashes email and token into independent limiter namespaces" do
+    token = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+
+    request_keys =
+      captured_keys(login_conn("member@example.test"), :password_reset_request)
+
+    reset_keys = captured_keys(reset_conn(token), :password_reset)
+
+    assert {:password_reset, :identity, token_fingerprint} = Enum.at(reset_keys, 1)
+    assert token_fingerprint == :crypto.hash(:sha256, token)
+    refute inspect(reset_keys) =~ token
+    assert Enum.all?(request_keys, &(elem(&1, 0) == :password_reset_request))
+    assert Enum.all?(reset_keys, &(elem(&1, 0) == :password_reset))
+  end
+
   test "the supervised Hammer limiter enforces a real bucket" do
     key = {:test_login_limit, System.unique_integer([:positive, :monotonic])}
     assert {:allow, 1} = LoginRateLimiter.hit(key, 60_000, 1)
@@ -129,7 +144,20 @@ defmodule ClubeiraWeb.Plugs.LoginRateLimitTest do
     |> Map.put(:body_params, %{"email" => email})
   end
 
+  defp reset_conn(token) do
+    conn(:post, "/api/v1/auth/password-resets")
+    |> Map.put(:body_params, %{"token" => token})
+  end
+
   defp config(limiter \\ CaptureLimiter) do
-    [limiter: limiter, limits: [login: @limits, registration: @limits]]
+    [
+      limiter: limiter,
+      limits: [
+        login: @limits,
+        registration: @limits,
+        password_reset_request: @limits,
+        password_reset: @limits
+      ]
+    ]
   end
 end
