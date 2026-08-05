@@ -29,7 +29,8 @@ defmodule Clubeira.Redemptions.AuthenticatedConfirmation do
   defp confirm_in_scope(service_scope, request) do
     Repo.transact_in_polo(service_scope, fn repo ->
       with {:ok, grant} <- Grant.verify(request.grant, service_scope.polo_id),
-           {:ok, credential} <- authenticate_validation_credential(repo, request) do
+           {:ok, credential} <-
+             authenticate_validation_credential(repo, service_scope, request) do
         member_scope =
           Scope.new!(service_scope.polo_id,
             actor_user_id: grant.actor_user_id,
@@ -54,7 +55,7 @@ defmodule Clubeira.Redemptions.AuthenticatedConfirmation do
     end)
   end
 
-  defp authenticate_validation_credential(repo, request) do
+  defp authenticate_validation_credential(repo, scope, request) do
     credential_hash = AuthenticatedConfirmationRequest.credential_hash(request)
 
     query =
@@ -62,7 +63,7 @@ defmodule Clubeira.Redemptions.AuthenticatedConfirmation do
         join: point in ValidationPoint,
         on: point.id == credential.validation_point_id and point.polo_id == credential.polo_id,
         where:
-          credential.secret_hash == ^credential_hash and
+          credential.polo_id == ^scope.polo_id and credential.secret_hash == ^credential_hash and
             credential.status == "active" and
             fragment("? @> statement_timestamp()", credential.valid_during) and
             point.status == "active",

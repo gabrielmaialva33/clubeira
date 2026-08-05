@@ -2,7 +2,10 @@ defmodule ClubeiraWeb.RedemptionConfirmationControllerTest do
   use ClubeiraWeb.ConnCase, async: false
 
   alias Clubeira.Accounts
+  alias Clubeira.Accounts.RequestContext
   alias Clubeira.Accounts.User
+  alias Clubeira.Redemptions
+  alias Clubeira.Redemptions.Grant
   alias Clubeira.RedemptionsFixtures
   alias Clubeira.Repo
 
@@ -171,6 +174,35 @@ defmodule ClubeiraWeb.RedemptionConfirmationControllerTest do
                """,
                [fixture.ids.entitlement_allocation]
              )
+  end
+
+  test "a validation credential is authenticated only inside its own polo" do
+    sobral = RedemptionsFixtures.create!()
+    londrina_secret = random_token()
+
+    _londrina =
+      RedemptionsFixtures.create!(validation_credential_secret: londrina_secret)
+
+    grant =
+      Grant.issue(
+        sobral.scope,
+        sobral.ids.entitlement_allocation,
+        sobral.ids.device,
+        DateTime.utc_now(:microsecond)
+      )
+
+    assert {:error, :validation_credential_invalid} =
+             Clubeira.TestDatabaseRole.as_owner(fn ->
+               Redemptions.confirm_grant(
+                 sobral.polo_slug,
+                 %{
+                   grant: grant.token,
+                   validation_credential: londrina_secret,
+                   idempotency_key: "cross-polo-validation-credential"
+                 },
+                 RequestContext.new!()
+               )
+             end)
   end
 
   defp authenticate!(user_id) do
