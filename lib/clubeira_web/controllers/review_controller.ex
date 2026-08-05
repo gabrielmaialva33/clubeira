@@ -32,7 +32,7 @@ defmodule ClubeiraWeb.ReviewController do
         render_error(conn, :not_found)
 
       {:error, :invalid_pagination} ->
-        render_error(conn, :unprocessable_entity)
+        render_error(conn, :bad_request)
     end
   end
 

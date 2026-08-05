@@ -20,7 +20,10 @@ defmodule ClubeiraWeb.BackofficeReviewController do
       {:error, :moderator_required} ->
         render_error(conn, :forbidden)
 
-      {:error, reason} when reason in [:invalid_pagination, :invalid_review_status] ->
+      {:error, :invalid_pagination} ->
+        render_error(conn, :bad_request)
+
+      {:error, :invalid_review_status} ->
         render_error(conn, :unprocessable_entity)
     end
   end

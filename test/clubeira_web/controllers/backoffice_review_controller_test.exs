@@ -8,6 +8,17 @@ defmodule ClubeiraWeb.BackofficeReviewControllerTest do
 
   @password "uma-senha-de-moderacao-forte"
 
+  test "moderation queue pagination rejects malformed parameters as a bad request", %{conn: conn} do
+    fixture = ReviewsFixtures.pending_review!()
+    moderator_scope = ReviewsFixtures.grant_moderator!(fixture)
+    token = authenticate!(moderator_scope.actor_user_id)
+
+    assert conn
+           |> put_req_header("authorization", "Bearer #{token}")
+           |> get("/api/v1/polos/#{fixture.polo_slug}/backoffice/reviews?limit=0")
+           |> json_response(400) == %{"errors" => %{"detail" => "Bad Request"}}
+  end
+
   test "a polo moderator lists the pending queue with its immutable content", %{conn: conn} do
     fixture = ReviewsFixtures.pending_review!()
     moderator_scope = ReviewsFixtures.grant_moderator!(fixture)

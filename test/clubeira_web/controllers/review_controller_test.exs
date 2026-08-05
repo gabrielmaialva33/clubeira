@@ -9,6 +9,16 @@ defmodule ClubeiraWeb.ReviewControllerTest do
 
   @password "uma-senha-de-review-forte"
 
+  test "public review pagination rejects malformed parameters as a bad request", %{conn: conn} do
+    fixture = RedemptionsFixtures.create!()
+
+    assert conn
+           |> get(
+             ~p"/api/v1/polos/#{fixture.polo_slug}/places/#{fixture.ids.place}/reviews?limit=0"
+           )
+           |> json_response(400) == %{"errors" => %{"detail" => "Bad Request"}}
+  end
+
   test "an authenticated member submits a verified review for a redeemed place", %{conn: conn} do
     fixture = RedemptionsFixtures.create!()
     assert {:ok, redemption} = Redemptions.confirm(fixture.scope, fixture.request)
