@@ -10,8 +10,8 @@ PostgreSQL, domínio normalizado e isolamento por Row-Level Security (RLS).
 
 ## O que já funciona
 
-- catálogo público, autenticação por sessão bearer revogável, descoberta de
-  assinaturas multi-polo e carteira de vouchers;
+- diretório e catálogo públicos, autenticação por sessão bearer revogável,
+  descoberta de assinaturas multi-polo e carteira de vouchers;
 - descoberta pública paginada das opções comerciais e preços aceitos pelo
   checkout do polo;
 - planos, contratos, ciclos e alocações de benefício independentes por polo;
@@ -21,6 +21,8 @@ PostgreSQL, domínio normalizado e isolamento por Row-Level Security (RLS).
   vigência e integridade referencial entre tenant e conta;
 - resgate online atômico, com elegibilidade, proteção contra replay, ledger,
   auditoria, eventos de domínio e outbox;
+- submissão autenticada e idempotente de avaliações verificadas por resgate,
+  com revisão inicial imutável e moderação pendente;
 - migrations, seeds, factories, RLS forçado e testes de concorrência contra
   bancos isolados reais.
 
@@ -57,6 +59,7 @@ cenário determinístico com os polos Sobral e Londrina.
 - aplicação: <http://localhost:4000>
 - health check: <http://localhost:4000/health>
 - catálogo demo: <http://localhost:4000/api/v1/polos/sobral/catalog>
+- parceiros do polo: <http://localhost:4000/api/v1/polos/sobral/places>
 - opções de checkout: <http://localhost:4000/api/v1/polos/sobral/checkout-options>
 - LiveDashboard em desenvolvimento: <http://localhost:4000/dev/dashboard>
 - caixa de e-mail local: <http://localhost:4000/dev/mailbox>
@@ -79,6 +82,8 @@ curl -sS http://localhost:4000/api/v1/polos/sobral/me/vouchers \
 
 curl -sS http://localhost:4000/api/v1/polos/sobral/checkout-options
 
+curl -sS http://localhost:4000/api/v1/polos/sobral/places
+
 curl -sS -X POST http://localhost:4000/api/v1/polos/sobral/orders \
   -H "authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' \
@@ -87,6 +92,12 @@ curl -sS -X POST http://localhost:4000/api/v1/polos/sobral/orders \
 
 curl -sS http://localhost:4000/api/v1/polos/sobral/me/orders \
   -H "authorization: Bearer $TOKEN"
+
+curl -sS -X POST http://localhost:4000/api/v1/polos/sobral/places/<place_uuid>/reviews \
+  -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -H 'idempotency-key: review-mobile-001' \
+  -d '{"source_redemption_id":"<redemption_uuid>","rating":5,"title":"Muito bom","body":"Benefício entregue como anunciado."}'
 ```
 
 O primeiro comando devolve `data.access_token`; atribua-o a `TOKEN` apenas na
@@ -101,7 +112,13 @@ a mesma seleção com a mesma chave devolve o pedido original; reutilizar a chav
 para outra seleção retorna conflito. O histórico de pedidos retorna somente os
 pedidos do ator naquele polo, do mais novo para o mais antigo, com os itens e
 valores históricos; ele usa `?limit=20&after=...` e limita cada página a `100`
-pedidos.
+pedidos. O diretório público usa a mesma paginação para listar somente
+participações, lugares, marcas e operadores ativos, incluindo endereço e
+coordenadas quando cadastradas. Após um resgate confirmado, o membro pode
+enviar uma avaliação de `1` a `5` estrelas com texto não vazio. A API prova no
+banco que o resgate pertence ao ator, polo e lugar da rota, cria a avaliação
+como `pending` e exige `Idempotency-Key`; título é opcional e mídia fica para
+uma fatia posterior.
 
 ## Banco e multi-tenancy
 
@@ -188,12 +205,20 @@ alterar a configuração versionada.
 - `GET /api/v1/polos/:polo_slug/checkout-options` expõe versões comerciais e
   preços vigentes; a escrita continua relendo preço, moeda e elegibilidade
   dentro da transação;
+- `GET /api/v1/polos/:polo_slug/places` lista a identidade comercial pública
+  dos parceiros ativos do polo; desativação os remove da descoberta sem apagar
+  referências históricas;
+- `POST /api/v1/polos/:polo_slug/places/:place_id/reviews` cria uma avaliação
+  verificada para o membro autenticado; o resgate informado é somente evidência
+  e sua autoria, polo e lugar são revalidados sob RLS;
 - `Clubeira.Billing.settle_payment/2` é uma porta interna e só aceita uma
   captura cuja autenticidade já foi verificada pelo futuro adaptador do PSP;
 - `Clubeira.Redemptions.confirm/2` recebe uma confirmação já autenticada; token,
   QR e autenticação do ponto de validação pertencem à borda de entrada;
 - a outbox é persistida atomicamente, mas o publicador assíncrono ainda será uma
   fatia própria;
+- publicação/moderação, edição, mídia, respostas e denúncias de avaliações
+  continuam como fatias próprias;
 - renovação automática, reembolso e chargeback ainda não fazem parte do fluxo
   operacional.
 

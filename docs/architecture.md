@@ -87,6 +87,20 @@ Workers globais não devem reutilizar a role web nem receber bypass irrestrito.
 Quando surgirem, cada categoria terá uma role mínima e uma policy explícita,
 com lote e finalidade auditáveis.
 
+## Diretório público
+
+`GET /api/v1/polos/:slug/places` lista os estabelecimentos cuja participação
+está ativa no polo roteado. A página é fechada por `place_id` dentro da RLS
+antes de consultar endereço, marcas e organizações operadoras globais. Isso
+evita que joins N:N cortem filhos de um parceiro e impede que IDs de outro polo
+sejam usados como ponto de partida para descoberta.
+
+Lugar, marca e organização são identidades globais e históricas; suspensão ou
+encerramento não apaga essas linhas. A leitura pública filtra participação,
+lugar, cidade, marca e operador ativos, fazendo o parceiro desaparecer da
+busca sem reescrever pedidos, contratos, resgates ou avaliações anteriores. O
+cursor é opaco, o padrão é 20 lugares e o máximo por página é 100.
+
 ## Catálogo público
 
 `GET /api/v1/polos/:slug/catalog` resolve somente a rota global e executa toda
@@ -155,11 +169,15 @@ As bordas iniciais são:
 - `DELETE /api/v1/auth/session` — revoga a sessão corrente;
 - `GET /api/v1/polos/:slug/checkout-options` — lista as combinações comerciais
   públicas atualmente provisionáveis para o polo;
+- `GET /api/v1/polos/:slug/places` — pagina o diretório comercial público do
+  polo com endereço, marcas e operadores ativos;
 - `POST /api/v1/polos/:slug/orders` — cria um pedido idempotente com ator e
   polo derivados da sessão e da rota, enquanto preço e moeda são relidos no
   tenant;
 - `GET /api/v1/polos/:slug/me/orders` — pagina os pedidos do ator naquele polo,
   incluindo os itens e preços históricos;
+- `POST /api/v1/polos/:slug/places/:place_id/reviews` — cria uma avaliação
+  verificada e pendente a partir de um resgate do próprio ator naquele lugar;
 - `GET /api/v1/me/subscriptions` — pagina polos do ator e agrega os contratos
   comprados em cada um;
 - `GET /api/v1/polos/:slug/me/vouchers` — lê o ciclo e as alocações do polo.
@@ -182,6 +200,27 @@ cursor opaco e limite máximo de 100 pedidos. A página de pedidos é fechada an
 da leitura dos itens, evitando que o limite corte parte de um pedido. Tanto os
 pedidos quanto seus itens são relidos no mesmo escopo RLS e filtrados pelo ator;
 nenhum `user_id` recebido do cliente participa da autorização.
+
+## Avaliações verificadas
+
+`POST /api/v1/polos/:slug/places/:place_id/reviews` recebe conteúdo do membro e
+um `source_redemption_id`, mas não trata esse UUID como autorização. Dentro de
+`Repo.transact_in_polo/3`, o comando relê o resgate, sua tentativa e o
+`polo_place`: o ator da sessão precisa ser `requesting_user_id`, e polo e lugar
+precisam coincidir com a rota. A role restrita e o RLS forçado mantêm a prova
+tenant-aware; `reviews` e `review_revisions` continuam globais porque a
+identidade da avaliação pertence ao lugar global.
+
+A policy vigente aceita a submissão verificada em `open` ou `verified_only` e
+nega em `disabled`. Cada ator possui no máximo uma avaliação por lugar, e cada
+resgate pode provar no máximo uma avaliação. A criação usa `Idempotency-Key`,
+serializa tentativas concorrentes do mesmo ator/lugar e grava o aggregate
+`pending`, a revisão inicial append-only, auditoria, evento de domínio e outbox
+na mesma transação. Rating e IDs internos podem compor o evento; título e corpo
+permanecem somente no histórico UGC e não são copiados para audit/outbox.
+
+Publicação, rejeição, edição, mídia, resposta do parceiro e denúncia pertencem
+às bordas de moderação seguintes. Submissão não publica conteúdo implicitamente.
 
 ## Assinatura, ciclo e direito de uso
 
