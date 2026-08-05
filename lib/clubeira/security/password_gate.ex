@@ -1,6 +1,6 @@
 defmodule Clubeira.Security.PasswordGate do
   @moduledoc """
-  Fail-fast concurrency gate around memory-hard password verification.
+  Fail-fast concurrency gate around memory-hard password hashing and verification.
 
   Callers are monitored so a crashed request cannot leak a permit. Waiting
   requests are rejected instead of building an unbounded dirty-scheduler queue.

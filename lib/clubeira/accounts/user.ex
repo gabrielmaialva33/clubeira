@@ -8,6 +8,8 @@ defmodule Clubeira.Accounts.User do
 
   use Clubeira.Schema
 
+  import Ecto.Changeset
+
   schema "users" do
     field :email, :string
     field :status, :string
@@ -26,4 +28,12 @@ defmodule Clubeira.Accounts.User do
           inserted_at: DateTime.t(),
           updated_at: DateTime.t()
         }
+
+  @doc false
+  @spec registration_changeset(String.t()) :: Ecto.Changeset.t()
+  def registration_changeset(email) when is_binary(email) do
+    %__MODULE__{}
+    |> change(email: email, status: "active")
+    |> unique_constraint(:email)
+  end
 end

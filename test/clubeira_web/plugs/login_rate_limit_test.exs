@@ -5,7 +5,7 @@ defmodule ClubeiraWeb.Plugs.LoginRateLimitTest do
   import Plug.Test
 
   alias Clubeira.Security.LoginRateLimiter
-  alias ClubeiraWeb.Plugs.LoginRateLimit
+  alias ClubeiraWeb.Plugs.CredentialRateLimit
 
   defmodule CaptureLimiter do
     @moduledoc false
@@ -49,7 +49,7 @@ defmodule ClubeiraWeb.Plugs.LoginRateLimitTest do
     response =
       "member@example.test"
       |> login_conn()
-      |> LoginRateLimit.call(config: [limiter: DenyLimiter, limits: @limits])
+      |> CredentialRateLimit.call(config: config(DenyLimiter))
 
     assert response.halted
     assert response.status == 429
@@ -76,6 +76,14 @@ defmodule ClubeiraWeb.Plugs.LoginRateLimitTest do
     assert ip_fingerprint(ipv4) == ip_fingerprint(ipv4_mapped)
   end
 
+  test "registration and login consume independent limiter namespaces" do
+    login_keys = captured_keys(login_conn("member@example.test"), :login)
+    registration_keys = captured_keys(login_conn("member@example.test"), :registration)
+
+    assert Enum.all?(login_keys, &(elem(&1, 0) == :login))
+    assert Enum.all?(registration_keys, &(elem(&1, 0) == :registration))
+  end
+
   test "the supervised Hammer limiter enforces a real bucket" do
     key = {:test_login_limit, System.unique_integer([:positive, :monotonic])}
     assert {:allow, 1} = LoginRateLimiter.hit(key, 60_000, 1)
@@ -97,8 +105,8 @@ defmodule ClubeiraWeb.Plugs.LoginRateLimitTest do
     assert expires_at <= after_hit + scale
   end
 
-  defp captured_keys(conn) do
-    refute LoginRateLimit.call(conn, config: [limiter: CaptureLimiter, limits: @limits]).halted
+  defp captured_keys(conn, action \\ :login) do
+    refute CredentialRateLimit.call(conn, config: config(), action: action).halted
 
     for _index <- 1..3 do
       assert_receive {:rate_limit_key, key}
@@ -119,5 +127,9 @@ defmodule ClubeiraWeb.Plugs.LoginRateLimitTest do
   defp login_conn(email) do
     conn(:post, "/api/v1/auth/sessions")
     |> Map.put(:body_params, %{"email" => email})
+  end
+
+  defp config(limiter \\ CaptureLimiter) do
+    [limiter: limiter, limits: [login: @limits, registration: @limits]]
   end
 end

@@ -40,8 +40,19 @@ defmodule Clubeira.Accounts.PasswordCredential do
     |> change(user_id: user.id, password_changed_at: now)
     |> cast(%{password: password}, [:password])
     |> validate_required([:password])
-    |> validate_length(:password, min: 12, max: 128)
+    |> validate_length(:password, min: 15, max: 128)
     |> hash_password()
+  end
+
+  @doc false
+  @spec registration_changeset(User.t(), String.t(), DateTime.t()) :: Ecto.Changeset.t()
+  def registration_changeset(%User{} = user, password_hash, %DateTime{} = changed_at)
+      when is_binary(password_hash) do
+    change(%__MODULE__{},
+      user_id: user.id,
+      password_hash: password_hash,
+      password_changed_at: changed_at
+    )
   end
 
   defp hash_password(%Ecto.Changeset{valid?: true} = changeset) do

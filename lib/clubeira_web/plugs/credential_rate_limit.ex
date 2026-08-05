@@ -1,6 +1,7 @@
-defmodule ClubeiraWeb.Plugs.LoginRateLimit do
+defmodule ClubeiraWeb.Plugs.CredentialRateLimit do
   @moduledoc """
-  Applies global, network-peer, and identity limits before Argon2 executes.
+  Applies action-specific global, network-peer, and identity limits before
+  password hashing or verification executes.
   """
 
   import Plug.Conn
@@ -9,23 +10,35 @@ defmodule ClubeiraWeb.Plugs.LoginRateLimit do
 
   @behaviour Plug
 
-  @impl true
-  def init(options), do: options
+  @actions [:login, :registration]
 
   @impl true
-  def call(conn, options) do
-    config = Keyword.get_lazy(options, :config, &runtime_config!/0)
-    limiter = Keyword.fetch!(config, :limiter)
+  def init(options) do
+    action = Keyword.get(options, :action, :login)
 
-    case first_denied_limit(limiter, conn, Keyword.fetch!(config, :limits)) do
-      nil -> conn
-      {dimension, retry_after_ms} -> reject(conn, dimension, retry_after_ms)
+    if action in @actions do
+      Keyword.put(options, :action, action)
+    else
+      raise ArgumentError, "unsupported credential rate-limit action: #{inspect(action)}"
     end
   end
 
-  defp first_denied_limit(limiter, conn, limits) do
+  @impl true
+  def call(conn, options) do
+    action = Keyword.get(options, :action, :login)
+    config = Keyword.get_lazy(options, :config, &runtime_config!/0)
+    limiter = Keyword.fetch!(config, :limiter)
+    limits = config |> Keyword.fetch!(:limits) |> Keyword.fetch!(action)
+
+    case first_denied_limit(limiter, action, conn, limits) do
+      nil -> conn
+      {dimension, retry_after_ms} -> reject(conn, action, dimension, retry_after_ms)
+    end
+  end
+
+  defp first_denied_limit(limiter, action, conn, limits) do
     conn
-    |> limit_keys()
+    |> limit_keys(action)
     |> Enum.find_value(fn {dimension, key} ->
       limit = Keyword.fetch!(limits, dimension)
 
@@ -36,11 +49,11 @@ defmodule ClubeiraWeb.Plugs.LoginRateLimit do
     end)
   end
 
-  defp limit_keys(conn) do
+  defp limit_keys(conn, action) do
     [
-      {:ip, {:login, :ip, network_fingerprint(conn.remote_ip)}},
-      {:identity, {:login, :identity, fingerprint(normalized_email(conn))}},
-      {:global, {:login, :global}}
+      {:ip, {action, :ip, network_fingerprint(conn.remote_ip)}},
+      {:identity, {action, :identity, fingerprint(normalized_email(conn))}},
+      {:global, {action, :global}}
     ]
   end
 
@@ -69,11 +82,11 @@ defmodule ClubeiraWeb.Plugs.LoginRateLimit do
 
   defp fingerprint(value), do: :crypto.hash(:sha256, value)
 
-  defp reject(conn, dimension, retry_after_ms) do
+  defp reject(conn, action, dimension, retry_after_ms) do
     :telemetry.execute(
-      [:clubeira, :security, :login_rate_limited],
+      [:clubeira, :security, :credential_rate_limited],
       %{count: 1},
-      %{dimension: dimension}
+      %{action: action, dimension: dimension}
     )
 
     retry_after_seconds = max(1, ceil(retry_after_ms / 1_000))

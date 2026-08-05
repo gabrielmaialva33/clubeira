@@ -27,7 +27,11 @@ defmodule ClubeiraWeb.Router do
   end
 
   pipeline :login_api do
-    plug ClubeiraWeb.Plugs.LoginRateLimit
+    plug ClubeiraWeb.Plugs.CredentialRateLimit, action: :login
+  end
+
+  pipeline :registration_api do
+    plug ClubeiraWeb.Plugs.CredentialRateLimit, action: :registration
   end
 
   scope "/", ClubeiraWeb do

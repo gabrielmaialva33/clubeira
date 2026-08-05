@@ -7,21 +7,157 @@ defmodule Clubeira.AccountsTest do
   alias Clubeira.Accounts.User
   alias Clubeira.Accounts.UserSession
   alias Clubeira.Audit.SystemEvent
+  alias Clubeira.Legal.Acceptance
+  alias Clubeira.LegalFixtures
   alias Clubeira.RedemptionsFixtures
+  alias Clubeira.Tenancy.ActorScope
 
   @password "uma-senha-de-teste-forte"
 
   setup do
     fixture = RedemptionsFixtures.create!()
+    terms = LegalFixtures.registration_terms!()
     user = Repo.get!(User, fixture.ids.user)
 
-    %{fixture: fixture, user: user}
+    %{fixture: fixture, terms: terms, user: user}
+  end
+
+  test "registers an account, legal acceptance, credential, session, and audit trail atomically",
+       %{terms: terms} do
+    request_id = Ecto.UUID.generate(version: 7)
+    context = RequestContext.new!(request_id)
+
+    assert {:ok, session} =
+             Accounts.register(
+               %{
+                 email: "  NOVO.MEMBRO@Example.Test ",
+                 password: @password,
+                 legal_document_version_ids: [terms.version_id]
+               },
+               context
+             )
+
+    assert session.user.email == "novo.membro@example.test"
+    assert session.user.status == "active"
+    assert session.token_type == "Bearer"
+    assert {:ok, scope} = Accounts.fetch_scope_by_api_token(session.token, context)
+    assert scope.user.id == session.user.id
+
+    credential = Repo.get!(PasswordCredential, session.user.id)
+    assert Argon2.verify_pass(@password, credential.password_hash)
+
+    actor_scope = ActorScope.new!(session.user.id, request_id)
+
+    assert {:ok, [acceptance]} =
+             Repo.transact_as_actor(actor_scope, fn ->
+               {:ok, Repo.all(Acceptance)}
+             end)
+
+    assert acceptance.user_id == session.user.id
+    assert acceptance.legal_document_version_id == terms.version_id
+    assert acceptance.polo_id == nil
+
+    assert Repo.aggregate(
+             from(event in SystemEvent,
+               where:
+                 event.actor_user_id == ^session.user.id and
+                   event.request_id == ^request_id and
+                   event.action in [
+                     "account.registered",
+                     "authentication.session.created"
+                   ]
+             ),
+             :count
+           ) == 2
+  end
+
+  test "rejects a duplicate email without leaving partial registration state", %{terms: terms} do
+    attributes = %{
+      email: "duplicado@example.test",
+      password: @password,
+      legal_document_version_ids: [terms.version_id]
+    }
+
+    assert {:ok, first_session} = Accounts.register(attributes)
+
+    before_counts = {
+      Repo.aggregate(User, :count),
+      Repo.aggregate(PasswordCredential, :count),
+      Repo.aggregate(UserSession, :count),
+      Repo.aggregate(SystemEvent, :count)
+    }
+
+    assert {:error, changeset} = Accounts.register(attributes)
+    assert "has already been taken" in errors_on(changeset).email
+
+    assert {
+             Repo.aggregate(User, :count),
+             Repo.aggregate(PasswordCredential, :count),
+             Repo.aggregate(UserSession, :count),
+             Repo.aggregate(SystemEvent, :count)
+           } == before_counts
+
+    assert {:ok, _scope} = Accounts.fetch_scope_by_api_token(first_session.token)
+  end
+
+  test "validates registration input before writing", %{terms: terms} do
+    before_counts = {
+      Repo.aggregate(User, :count),
+      Repo.aggregate(PasswordCredential, :count),
+      Repo.aggregate(UserSession, :count)
+    }
+
+    assert {:error, changeset} =
+             Accounts.register(%{
+               email: "not-an-email",
+               password: "short",
+               legal_document_version_ids: [terms.version_id]
+             })
+
+    assert "has invalid format" in errors_on(changeset).email
+    assert "should be at least 15 character(s)" in errors_on(changeset).password
+
+    assert {
+             Repo.aggregate(User, :count),
+             Repo.aggregate(PasswordCredential, :count),
+             Repo.aggregate(UserSession, :count)
+           } == before_counts
+  end
+
+  test "requires the current consumer terms before hashing or writing" do
+    before_counts = {
+      Repo.aggregate(User, :count),
+      Repo.aggregate(PasswordCredential, :count),
+      Repo.aggregate(UserSession, :count)
+    }
+
+    assert {:error, changeset} =
+             Accounts.register(%{
+               email: "sem-termos@example.test",
+               password: @password,
+               legal_document_version_ids: []
+             })
+
+    assert "should have at least 1 item(s)" in errors_on(changeset).legal_document_version_ids
+
+    assert {:error, :legal_acceptance_invalid} =
+             Accounts.register(%{
+               email: "termos-errados@example.test",
+               password: @password,
+               legal_document_version_ids: [Ecto.UUID.generate()]
+             })
+
+    assert {
+             Repo.aggregate(User, :count),
+             Repo.aggregate(PasswordCredential, :count),
+             Repo.aggregate(UserSession, :count)
+           } == before_counts
   end
 
   test "stores an Argon2 password hash and validates password length", %{user: user} do
-    assert {:error, changeset} = Accounts.set_password(user, "curta")
+    assert {:error, changeset} = Accounts.set_password(user, String.duplicate("a", 14))
     assert %{password: [message]} = errors_on(changeset)
-    assert message =~ "should be at least 12"
+    assert message =~ "should be at least 15"
 
     assert {:ok, credential} = Accounts.set_password(user, @password)
     assert credential.password_hash != @password

@@ -9,13 +9,16 @@ defmodule Clubeira.Accounts do
   import Ecto.Query
 
   alias Clubeira.Accounts.PasswordCredential
+  alias Clubeira.Accounts.Registration
   alias Clubeira.Accounts.RequestContext
   alias Clubeira.Accounts.Scope
   alias Clubeira.Accounts.User
   alias Clubeira.Accounts.UserSession
   alias Clubeira.Audit
+  alias Clubeira.Legal
   alias Clubeira.Repo
   alias Clubeira.Security.PasswordGate
+  alias Clubeira.Tenancy.ActorScope
 
   @session_validity_seconds 30 * 24 * 60 * 60
   @token_bytes 32
@@ -26,6 +29,36 @@ defmodule Clubeira.Accounts do
           expires_at: DateTime.t(),
           user: User.t()
         }
+
+  @type registration_error ::
+          Ecto.Changeset.t()
+          | :legal_acceptance_invalid
+          | :legal_documents_unavailable
+          | :rate_limited
+
+  @spec register(map()) :: {:ok, login_result()} | {:error, registration_error()}
+  def register(attributes) when is_map(attributes) do
+    register(attributes, RequestContext.new!())
+  end
+
+  def register(attributes), do: Registration.new(attributes)
+
+  @spec register(map(), RequestContext.t()) ::
+          {:ok, login_result()} | {:error, registration_error()}
+  def register(attributes, %RequestContext{} = context) when is_map(attributes) do
+    with {:ok, registration} <- Registration.new(attributes),
+         :ok <-
+           Legal.validate_registration_acceptances(
+             Repo,
+             registration.legal_document_version_ids,
+             "pt-BR"
+           ),
+         {:ok, password_hash} <- hash_registration_password(registration.password) do
+      persist_registration(registration, password_hash, context)
+    end
+  end
+
+  def register(attributes, %RequestContext{}), do: Registration.new(attributes)
 
   @spec login(String.t(), String.t()) ::
           {:ok, login_result()} | {:error, :invalid_credentials | :rate_limited}
@@ -204,16 +237,80 @@ defmodule Clubeira.Accounts do
   end
 
   defp create_session(%User{} = user, %RequestContext{} = context) do
-    decoded_token = :crypto.strong_rand_bytes(@token_bytes)
-    encoded_token = Base.url_encode64(decoded_token, padding: false)
-    now = DateTime.utc_now(:microsecond)
-    expires_at = DateTime.add(now, @session_validity_seconds, :second)
+    session_material = new_session_material()
 
     transaction_result =
       Repo.transact(fn repo ->
-        persist_session(repo, user.id, hash_token(decoded_token), now, expires_at, context)
+        persist_session(
+          repo,
+          user.id,
+          session_material.token_hash,
+          session_material.now,
+          session_material.expires_at,
+          context
+        )
       end)
 
+    format_session_result(transaction_result, session_material.token)
+  end
+
+  defp persist_registration(registration, password_hash, context) do
+    session_material = new_session_material()
+
+    transaction_result =
+      Repo.transact(fn repo ->
+        with :ok <-
+               Legal.validate_registration_acceptances(
+                 repo,
+                 registration.legal_document_version_ids,
+                 "pt-BR"
+               ),
+             {:ok, user} <- repo.insert(User.registration_changeset(registration.email)),
+             {:ok, _credential} <-
+               repo.insert(
+                 PasswordCredential.registration_changeset(
+                   user,
+                   password_hash,
+                   session_material.now
+                 )
+               ) do
+          actor_scope = ActorScope.new!(user.id, context.request_id)
+
+          {:ok, :ok} =
+            Repo.transact_as_actor(actor_scope, fn ->
+              Legal.accept_registration!(
+                repo,
+                user,
+                registration.legal_document_version_ids,
+                session_material.now
+              )
+
+              {:ok, :ok}
+            end)
+
+          Audit.record_system!(repo, context, %{
+            actor_user_id: user.id,
+            action: "account.registered",
+            resource_type: "user",
+            resource_id: user.id,
+            occurred_at: session_material.now
+          })
+
+          persist_session(
+            repo,
+            user.id,
+            session_material.token_hash,
+            session_material.now,
+            session_material.expires_at,
+            context
+          )
+        end
+      end)
+
+    format_session_result(transaction_result, session_material.token)
+  end
+
+  defp format_session_result(transaction_result, encoded_token) do
     case transaction_result do
       {:ok, %{session: session, user: active_user}} ->
         {:ok,
@@ -226,6 +323,28 @@ defmodule Clubeira.Accounts do
 
       {:error, :invalid_credentials} ->
         invalid_credentials()
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp new_session_material do
+    decoded_token = :crypto.strong_rand_bytes(@token_bytes)
+    now = DateTime.utc_now(:microsecond)
+
+    %{
+      token: Base.url_encode64(decoded_token, padding: false),
+      token_hash: hash_token(decoded_token),
+      now: now,
+      expires_at: DateTime.add(now, @session_validity_seconds, :second)
+    }
+  end
+
+  defp hash_registration_password(password) do
+    case PasswordGate.run(fn -> Argon2.hash_pwd_salt(password) end) do
+      {:error, :capacity_exhausted} -> {:error, :rate_limited}
+      password_hash when is_binary(password_hash) -> {:ok, password_hash}
     end
   end
 
