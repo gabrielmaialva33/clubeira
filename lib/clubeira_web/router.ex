@@ -53,12 +53,19 @@ defmodule ClubeiraWeb.Router do
   end
 
   scope "/api/v1", ClubeiraWeb do
+    pipe_through [:api, :registration_api]
+
+    post "/auth/registrations", RegistrationController, :create
+  end
+
+  scope "/api/v1", ClubeiraWeb do
     pipe_through :api
 
     get "/polos/:polo_slug/catalog", CatalogController, :show
     get "/polos/:polo_slug/checkout-options", CatalogController, :checkout_options
     get "/polos/:polo_slug/places", PlaceController, :index
     get "/legal/registration", LegalController, :registration
+    post "/webhooks/mercado-pago/:merchant_account_id", PaymentWebhookController, :mercado_pago
   end
 
   scope "/api/v1", ClubeiraWeb do
@@ -67,6 +74,7 @@ defmodule ClubeiraWeb.Router do
     delete "/auth/session", AuthSessionController, :delete
     get "/me/subscriptions", SubscriptionController, :index
     post "/polos/:polo_slug/orders", CheckoutController, :create
+    post "/polos/:polo_slug/orders/:order_id/payment-intents", PaymentIntentController, :create
     post "/polos/:polo_slug/places/:place_id/reviews", ReviewController, :create
     get "/polos/:polo_slug/me/orders", OrderController, :index
     get "/polos/:polo_slug/me/redemptions", RedemptionController, :index

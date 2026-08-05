@@ -17,4 +17,15 @@ defmodule Clubeira.Billing.MerchantAccount do
 
     timestamps()
   end
+
+  @type t :: %__MODULE__{
+          id: Ecto.UUID.t(),
+          payment_provider_id: Ecto.UUID.t(),
+          kind: String.t(),
+          name: String.t(),
+          provider_account_reference: String.t(),
+          status: String.t(),
+          inserted_at: DateTime.t(),
+          updated_at: DateTime.t()
+        }
 end

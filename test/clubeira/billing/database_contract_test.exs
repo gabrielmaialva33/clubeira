@@ -67,6 +67,25 @@ defmodule Clubeira.Billing.DatabaseContractTest do
     assert definitions["payment_intents_live_order_uidx"] =~ "status"
   end
 
+  test "payment checkout actions stay normalized and constrained" do
+    definitions = constraint_definitions()
+
+    assert definitions["payment_intents_payment_method_check"] =~
+             "payment_method = 'pix'::text"
+
+    assert definitions["payment_intents_next_action_check"] =~
+             "jsonb_typeof(next_action) = 'object'::text"
+
+    %{rows: [["NO", "'{}'::jsonb"]]} =
+      Repo.query!("""
+      SELECT is_nullable, column_default
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'payment_intents'
+        AND column_name = 'next_action'
+      """)
+  end
+
   defp constraint_definitions do
     %{rows: rows} =
       Repo.query!("""
@@ -78,6 +97,8 @@ defmodule Clubeira.Billing.DatabaseContractTest do
         'payment_provider_events_account_fkey',
         'payment_provider_events_polo_merchant_account_fkey',
         'payment_intents_polo_merchant_account_fkey',
+        'payment_intents_payment_method_check',
+        'payment_intents_next_action_check',
         'payments_intent_fkey',
         'benefit_cycles_package_assignment_fkey',
         'entitlement_allocations_package_item_fkey'

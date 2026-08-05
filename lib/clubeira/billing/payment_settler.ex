@@ -34,6 +34,10 @@ defmodule Clubeira.Billing.PaymentSettler do
     "order_update_failed" => :order_update_failed,
     "payment_amount_mismatch" => :payment_amount_mismatch,
     "payment_attempt_conflict" => :payment_attempt_conflict,
+    "payment_intent_mismatch" => :payment_intent_mismatch,
+    "payment_intent_not_found" => :payment_intent_not_found,
+    "payment_intent_unavailable" => :payment_intent_unavailable,
+    "payment_reconciliation_mismatch" => :payment_reconciliation_mismatch,
     "payment_reference_conflict" => :payment_reference_conflict,
     "payment_record_invalid" => :payment_record_invalid,
     "payment_timestamp_out_of_bounds" => :payment_timestamp_out_of_bounds,
@@ -97,7 +101,16 @@ defmodule Clubeira.Billing.PaymentSettler do
     end
   end
 
-  defp settle_received_event(repo, scope, request, idempotency_id, order, provider_event, now) do
+  defp settle_received_event(
+         repo,
+         scope,
+         request,
+         idempotency_id,
+         %Order{status: status} = order,
+         provider_event,
+         now
+       )
+       when status != "paid" do
     with :ok <- ensure_merchant_account_available(repo, scope, request, now),
          :ok <- ensure_order_payable(order),
          :ok <- validate_payment(order, request, now),
@@ -135,6 +148,87 @@ defmodule Clubeira.Billing.PaymentSettler do
       {:error, reason} ->
         reject!(repo, idempotency_id, reason, provider_event, now)
     end
+  end
+
+  defp settle_received_event(
+         repo,
+         scope,
+         request,
+         idempotency_id,
+         %Order{status: "paid"} = order,
+         provider_event,
+         now
+       ) do
+    case reconcile_capture(repo, scope, order, request) do
+      {:ok, contract} ->
+        mark_provider_event_processed!(repo, provider_event, now)
+
+        Idempotency.complete!(
+          repo,
+          idempotency_id,
+          "access_contract",
+          contract.id,
+          %{"access_contract_id" => contract.id},
+          now
+        )
+
+        {:accepted, contract}
+
+      {:error, reason} ->
+        reject!(repo, idempotency_id, reason, provider_event, now)
+    end
+  end
+
+  defp reconcile_capture(
+         repo,
+         scope,
+         order,
+         %{provider_intent_reference: provider_intent_reference} = request
+       )
+       when is_binary(provider_intent_reference) do
+    query =
+      from intent in PaymentIntent,
+        join: payment in Payment,
+        on: payment.payment_intent_id == intent.id,
+        join: order_item in OrderItem,
+        on: order_item.order_id == intent.order_id,
+        join: contract in AccessContract,
+        on: contract.order_item_id == order_item.id,
+        where: intent.polo_id == ^scope.polo_id,
+        where: intent.order_id == ^order.id,
+        where: intent.merchant_account_id == ^request.merchant_account_id,
+        where: intent.provider_reference == ^provider_intent_reference,
+        where: intent.status == "succeeded",
+        where: payment.polo_id == ^scope.polo_id,
+        where: payment.merchant_account_id == ^request.merchant_account_id,
+        where: payment.provider_reference == ^request.provider_reference,
+        where: payment.status == "captured",
+        where: order_item.polo_id == ^scope.polo_id,
+        where: contract.polo_id == ^scope.polo_id,
+        lock: "FOR SHARE",
+        select: {intent, payment, contract}
+
+    case repo.one(query) do
+      {%PaymentIntent{} = intent, %Payment{} = payment, %AccessContract{} = contract} ->
+        if same_capture?(intent, payment, request) do
+          {:ok, contract}
+        else
+          {:error, :payment_reconciliation_mismatch}
+        end
+
+      nil ->
+        {:error, :payment_reconciliation_mismatch}
+    end
+  end
+
+  defp reconcile_capture(_repo, _scope, _order, _request) do
+    {:error, :order_already_paid}
+  end
+
+  defp same_capture?(intent, payment, request) do
+    intent.currency == request.currency and payment.currency == request.currency and
+      Decimal.equal?(intent.amount, request.amount) and
+      Decimal.equal?(payment.amount, request.amount)
   end
 
   defp lock_merchant_account_link(repo, scope, request) do
@@ -281,37 +375,94 @@ defmodule Clubeira.Billing.PaymentSettler do
   end
 
   defp do_insert_capture(repo, scope, order, request, now) do
-    key = idempotency_key(request)
-
-    intent_changeset =
-      %PaymentIntent{
-        polo_id: scope.polo_id,
-        order_id: order.id,
-        merchant_account_id: request.merchant_account_id,
-        idempotency_key: key,
-        provider_reference: request.provider_reference,
-        currency: request.currency,
-        amount: request.amount,
-        status: "succeeded",
-        inserted_at: now,
-        updated_at: now
-      }
-      |> Ecto.Changeset.change()
-      |> Ecto.Changeset.unique_constraint(:provider_reference,
-        name: :payment_intents_provider_reference_uidx
-      )
-      |> Ecto.Changeset.unique_constraint(:order_id,
-        name: :payment_intents_live_order_uidx
-      )
-      |> Ecto.Changeset.unique_constraint(:idempotency_key,
-        name: :payment_intents_order_idempotency_uidx
-      )
-
-    with {:ok, intent} <- repo.insert(intent_changeset, mode: :savepoint),
+    with {:ok, intent} <- capture_intent(repo, scope, order, request, now),
          {:ok, payment} <- insert_payment(repo, scope, intent, request, now) do
       {:ok, intent, payment}
     else
       {:error, %Ecto.Changeset{} = changeset} -> {:error, capture_error_reason(changeset)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp capture_intent(repo, scope, order, %{provider_intent_reference: nil} = request, now) do
+    key = idempotency_key(request)
+
+    %PaymentIntent{
+      polo_id: scope.polo_id,
+      order_id: order.id,
+      merchant_account_id: request.merchant_account_id,
+      idempotency_key: key,
+      provider_reference: request.provider_reference,
+      currency: request.currency,
+      amount: request.amount,
+      status: "succeeded",
+      inserted_at: now,
+      updated_at: now
+    }
+    |> Ecto.Changeset.change()
+    |> Ecto.Changeset.unique_constraint(:provider_reference,
+      name: :payment_intents_provider_reference_uidx
+    )
+    |> Ecto.Changeset.unique_constraint(:order_id,
+      name: :payment_intents_live_order_uidx
+    )
+    |> Ecto.Changeset.unique_constraint(:idempotency_key,
+      name: :payment_intents_order_idempotency_uidx
+    )
+    |> repo.insert(mode: :savepoint)
+  end
+
+  defp capture_intent(repo, scope, order, request, now) do
+    query =
+      from intent in PaymentIntent,
+        where:
+          intent.polo_id == ^scope.polo_id and
+            intent.merchant_account_id == ^request.merchant_account_id and
+            intent.provider_reference == ^request.provider_intent_reference,
+        lock: "FOR UPDATE"
+
+    case repo.one(query) do
+      %PaymentIntent{} = intent -> update_started_intent(repo, intent, order, request, now)
+      nil -> recover_unreferenced_intent(repo, scope, order, request, now)
+    end
+  end
+
+  defp recover_unreferenced_intent(repo, scope, order, request, now) do
+    query =
+      from intent in PaymentIntent,
+        where:
+          intent.polo_id == ^scope.polo_id and intent.order_id == ^order.id and
+            intent.merchant_account_id == ^request.merchant_account_id and
+            is_nil(intent.provider_reference) and intent.status == "created",
+        lock: "FOR UPDATE"
+
+    case repo.one(query) do
+      %PaymentIntent{} = intent -> update_started_intent(repo, intent, order, request, now)
+      nil -> {:error, :payment_intent_not_found}
+    end
+  end
+
+  defp update_started_intent(repo, intent, order, request, now) do
+    cond do
+      intent.order_id != order.id or intent.currency != request.currency or
+          not Decimal.equal?(intent.amount, request.amount) ->
+        {:error, :payment_intent_mismatch}
+
+      intent.status not in ["created", "requires_action", "processing", "authorized"] ->
+        {:error, :payment_intent_unavailable}
+
+      true ->
+        intent
+        |> Ecto.Changeset.change(
+          provider_reference: request.provider_intent_reference,
+          status: "succeeded",
+          next_action: %{},
+          updated_at: now
+        )
+        |> Ecto.Changeset.unique_constraint(:provider_reference,
+          name: :payment_intents_provider_reference_uidx
+        )
+        |> repo.update()
     end
   end
 
@@ -468,12 +619,13 @@ defmodule Clubeira.Billing.PaymentSettler do
 
   defp request_hash(scope, request) do
     Idempotency.fingerprint({
-      1,
+      2,
       scope.polo_id,
       request.order_id,
       request.payment_provider_id,
       request.merchant_account_id,
       request.external_event_id,
+      request.provider_intent_reference,
       request.provider_reference,
       request.amount |> Decimal.normalize() |> Decimal.to_string(:normal),
       request.currency,

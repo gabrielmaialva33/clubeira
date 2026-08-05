@@ -12,4 +12,13 @@ defmodule Clubeira.Billing.PaymentProvider do
 
     timestamps()
   end
+
+  @type t :: %__MODULE__{
+          id: Ecto.UUID.t(),
+          code: String.t(),
+          name: String.t(),
+          status: String.t(),
+          inserted_at: DateTime.t(),
+          updated_at: DateTime.t()
+        }
 end

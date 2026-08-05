@@ -23,6 +23,12 @@ end
 config :clubeira, ClubeiraWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+if mercado_pago_accounts = System.get_env("MERCADO_PAGO_ACCOUNTS_JSON") do
+  config :clubeira, Clubeira.Billing.Gateways.MercadoPago,
+    accounts:
+      Clubeira.Billing.Gateways.MercadoPago.Configuration.parse_accounts!(mercado_pago_accounts)
+end
+
 if config_env() == :dev do
   # Reload browser tabs when matching files change.
   config :clubeira, ClubeiraWeb.Endpoint,
@@ -65,20 +71,36 @@ if config_env() == :prod do
   config :clubeira, Clubeira.Security.PasswordGate,
     max_concurrency: integer_in_range!.("ARGON2_MAX_CONCURRENCY", 8, 1..64)
 
-  config :clubeira, ClubeiraWeb.Plugs.LoginRateLimit,
+  config :clubeira, ClubeiraWeb.Plugs.CredentialRateLimit,
     limiter: Clubeira.Security.LoginRateLimiter,
     limits: [
-      global: [
-        scale_ms: 1_000,
-        limit: integer_in_range!.("LOGIN_RATE_GLOBAL_PER_SECOND", 40, 1..10_000)
+      login: [
+        global: [
+          scale_ms: 1_000,
+          limit: integer_in_range!.("LOGIN_RATE_GLOBAL_PER_SECOND", 40, 1..10_000)
+        ],
+        ip: [
+          scale_ms: 60_000,
+          limit: integer_in_range!.("LOGIN_RATE_IP_PER_MINUTE", 20, 1..10_000)
+        ],
+        identity: [
+          scale_ms: 900_000,
+          limit: integer_in_range!.("LOGIN_RATE_IDENTITY_PER_15_MINUTES", 10, 1..10_000)
+        ]
       ],
-      ip: [
-        scale_ms: 60_000,
-        limit: integer_in_range!.("LOGIN_RATE_IP_PER_MINUTE", 20, 1..10_000)
-      ],
-      identity: [
-        scale_ms: 900_000,
-        limit: integer_in_range!.("LOGIN_RATE_IDENTITY_PER_15_MINUTES", 10, 1..10_000)
+      registration: [
+        global: [
+          scale_ms: 1_000,
+          limit: integer_in_range!.("REGISTRATION_RATE_GLOBAL_PER_SECOND", 10, 1..10_000)
+        ],
+        ip: [
+          scale_ms: 60_000,
+          limit: integer_in_range!.("REGISTRATION_RATE_IP_PER_MINUTE", 5, 1..10_000)
+        ],
+        identity: [
+          scale_ms: 900_000,
+          limit: integer_in_range!.("REGISTRATION_RATE_IDENTITY_PER_15_MINUTES", 3, 1..10_000)
+        ]
       ]
     ]
 

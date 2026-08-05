@@ -22,13 +22,14 @@ defmodule Clubeira.Billing.SettledPayment do
     currency
     occurred_at
   )a
-  @optional_fields ~w(payload)a
+  @optional_fields ~w(provider_intent_reference payload)a
 
   embedded_schema do
     field :order_id, Ecto.UUID
     field :payment_provider_id, Ecto.UUID
     field :merchant_account_id, Ecto.UUID
     field :external_event_id, :string
+    field :provider_intent_reference, :string
     field :provider_reference, :string
     field :amount, :decimal
     field :currency, :string
@@ -41,6 +42,7 @@ defmodule Clubeira.Billing.SettledPayment do
           payment_provider_id: Ecto.UUID.t(),
           merchant_account_id: Ecto.UUID.t(),
           external_event_id: String.t(),
+          provider_intent_reference: String.t() | nil,
           provider_reference: String.t(),
           amount: Decimal.t(),
           currency: String.t(),
@@ -54,6 +56,7 @@ defmodule Clubeira.Billing.SettledPayment do
     |> cast(attributes, @required_fields ++ @optional_fields)
     |> validate_required(@required_fields)
     |> validate_length(:external_event_id, min: 1, max: 255)
+    |> validate_length(:provider_intent_reference, min: 1, max: 255)
     |> validate_length(:provider_reference, min: 1, max: 255)
     |> validate_number(:amount, greater_than_or_equal_to: 0)
     |> validate_format(:currency, ~r/^[A-Z]{3}$/)

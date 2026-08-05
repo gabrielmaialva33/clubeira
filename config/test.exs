@@ -35,12 +35,19 @@ config :clubeira, Clubeira.Security.PasswordGate, max_concurrency: 2
 
 config :clubeira, Clubeira.Accounts.SessionJanitor, enabled: false
 
-config :clubeira, ClubeiraWeb.Plugs.LoginRateLimit,
+config :clubeira, ClubeiraWeb.Plugs.CredentialRateLimit,
   limiter: Clubeira.Security.LoginRateLimiter,
   limits: [
-    global: [scale_ms: 1_000, limit: 10_000],
-    ip: [scale_ms: 60_000, limit: 10_000],
-    identity: [scale_ms: 900_000, limit: 10_000]
+    login: [
+      global: [scale_ms: 1_000, limit: 10_000],
+      ip: [scale_ms: 60_000, limit: 10_000],
+      identity: [scale_ms: 900_000, limit: 10_000]
+    ],
+    registration: [
+      global: [scale_ms: 1_000, limit: 10_000],
+      ip: [scale_ms: 60_000, limit: 10_000],
+      identity: [scale_ms: 900_000, limit: 10_000]
+    ]
   ]
 
 # Disable swoosh api client as it is only required for production adapters
