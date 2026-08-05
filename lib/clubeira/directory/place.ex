@@ -19,4 +19,16 @@ defmodule Clubeira.Directory.Place do
 
     timestamps()
   end
+
+  @type t :: %__MODULE__{
+          id: Ecto.UUID.t(),
+          city_id: Ecto.UUID.t(),
+          address_id: Ecto.UUID.t(),
+          slug: String.t(),
+          name: String.t(),
+          timezone: String.t(),
+          status: String.t(),
+          inserted_at: DateTime.t(),
+          updated_at: DateTime.t()
+        }
 end

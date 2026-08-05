@@ -13,13 +13,14 @@ defmodule Clubeira.Polos.Authorization do
   alias Clubeira.Tenancy.Scope
 
   @capability_roles %{
+    manage_partners: ["admin"],
     moderate_reviews: ["admin", "review_moderator"]
   }
 
-  @type capability :: :moderate_reviews
+  @type capability :: :manage_partners | :moderate_reviews
 
   @spec authorize(module(), Scope.t(), capability(), DateTime.t()) ::
-          :ok | {:error, :moderator_required}
+          :ok | {:error, :moderator_required | :partner_admin_required}
   def authorize(repo, %Scope{actor_user_id: actor_user_id} = scope, capability, now)
       when is_binary(actor_user_id) and is_map_key(@capability_roles, capability) do
     role_keys = Map.fetch!(@capability_roles, capability)
@@ -53,9 +54,15 @@ defmodule Clubeira.Polos.Authorization do
       |> repo.one()
       |> is_binary()
 
-    if authorized?, do: :ok, else: {:error, :moderator_required}
+    if authorized?, do: :ok, else: {:error, authorization_error(capability)}
   end
+
+  def authorize(_repo, %Scope{}, :manage_partners, _now),
+    do: {:error, :partner_admin_required}
 
   def authorize(_repo, %Scope{}, :moderate_reviews, _now),
     do: {:error, :moderator_required}
+
+  defp authorization_error(:manage_partners), do: :partner_admin_required
+  defp authorization_error(:moderate_reviews), do: :moderator_required
 end

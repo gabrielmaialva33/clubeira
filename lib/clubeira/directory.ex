@@ -12,6 +12,7 @@ defmodule Clubeira.Directory do
   alias Clubeira.Directory.Brand
   alias Clubeira.Directory.City
   alias Clubeira.Directory.Organization
+  alias Clubeira.Directory.PartnerOnboarder
   alias Clubeira.Directory.Place
   alias Clubeira.Directory.PlaceBrand
   alias Clubeira.Directory.PlaceOperator
@@ -30,6 +31,17 @@ defmodule Clubeira.Directory do
           places: [map()],
           page: %{limit: pos_integer(), has_more: boolean(), next_cursor: String.t() | nil}
         }
+
+  @doc """
+  Onboards a partner and its first place into an authorized polo.
+  """
+  @spec onboard_partner(Scope.t(), map()) ::
+          {:ok, PartnerOnboarder.result()} | {:error, atom() | Ecto.Changeset.t()}
+  def onboard_partner(%Scope{} = scope, attributes) when is_map(attributes) do
+    PartnerOnboarder.onboard(scope, attributes)
+  end
+
+  def onboard_partner(_scope, _attributes), do: {:error, :partner_admin_required}
 
   @spec fetch_public(String.t(), map()) ::
           {:ok, public_directory()} | {:error, :invalid_pagination | :polo_not_found}

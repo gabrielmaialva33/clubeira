@@ -20,4 +20,15 @@ defmodule Clubeira.Polos.PoloPlace do
 
     timestamps()
   end
+
+  @type t :: %__MODULE__{
+          id: Ecto.UUID.t(),
+          city_id: Ecto.UUID.t(),
+          polo_id: Ecto.UUID.t(),
+          place_id: Ecto.UUID.t(),
+          participation_during: Postgrex.Range.t(),
+          status: String.t(),
+          inserted_at: DateTime.t(),
+          updated_at: DateTime.t()
+        }
 end

@@ -14,4 +14,15 @@ defmodule Clubeira.Directory.Organization do
 
     timestamps()
   end
+
+  @type t :: %__MODULE__{
+          id: Ecto.UUID.t(),
+          kind: String.t(),
+          legal_name: String.t(),
+          trade_name: String.t() | nil,
+          country_code: String.t(),
+          status: String.t(),
+          inserted_at: DateTime.t(),
+          updated_at: DateTime.t()
+        }
 end
