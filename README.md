@@ -7,7 +7,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL_18-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![OTP](https://img.shields.io/badge/OTP_29-A90533?style=for-the-badge&logo=erlang&logoColor=white)](https://www.erlang.org/)
 [![RLS](https://img.shields.io/badge/RLS-FORCED-16A34A?style=for-the-badge)](#-multi-tenancy)
-[![Tests](https://img.shields.io/badge/tests-238-6D28D9?style=for-the-badge)](./test)
+[![Tests](https://img.shields.io/badge/tests-270-6D28D9?style=for-the-badge)](./test)
 [![Migrations](https://img.shields.io/badge/migrations-123-F59E0B?style=for-the-badge)](./priv/repo/migrations)
 [![License](https://img.shields.io/badge/license-MIT-16A34A?style=for-the-badge)](./LICENSE)
 
@@ -535,7 +535,7 @@ alterar a configuração versionada.
 | `credo --strict` | consistência e code smells |
 | `deps.audit` + `hex.audit` | CVE e pacotes retirados |
 | `sobelow --config` | análise estática de segurança Phoenix |
-| `test` | 241 testes, incluindo contratos de RLS e concorrência real |
+| `test` | 270 testes, incluindo contratos de RLS e concorrência real |
 
 ---
 
@@ -584,10 +584,11 @@ alterar a configuração versionada.
   dos parceiros ativos do polo; desativação os remove da descoberta sem apagar
   referências históricas;
 - `POST /api/v1/polos/:polo_slug/backoffice/partners` exige bearer com role
-  `admin`, aceita CNPJ numérico ou alfanumérico e cria organização,
+  `admin`, aceita CNPJ numérico ou alfanumérico e cria uma nova organização,
   identificador cifrado, endereço, lugar, operador e participação ativa na
   mesma transação idempotente; cidade, timezone, polo e ator são derivados no
-  servidor, e o CNPJ não entra em resposta, audit, evento ou outbox;
+  servidor, e o CNPJ não entra em resposta, audit, evento ou outbox; um CNPJ
+  ativo já cadastrado produz conflito auditado, sem vinculação automática;
 - `POST /api/v1/polos/:polo_slug/places/:place_id/reviews` cria uma avaliação
   verificada para o membro autenticado; o resgate informado é somente evidência
   e sua autoria, polo e lugar são revalidados sob RLS;
@@ -614,6 +615,8 @@ alterar a configuração versionada.
   continuam como fatias próprias;
 - categorias, horários, contato e fotos do estabelecimento continuam como a
   próxima evolução do cadastro do parceiro;
+- vincular uma organização já existente a uma nova unidade ou polo exige uma
+  borda própria, com autorização explícita sobre essa identidade global;
 - renovação automática, reembolso e chargeback ainda não fazem parte do fluxo
   operacional.
 

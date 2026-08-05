@@ -111,6 +111,12 @@ lugar, operador global e `polo_place` tenant-aware na mesma transação. A
 participação só fica pública depois que audit, evento, outbox e resposta
 idempotente também estão persistidos.
 
+Essa borda cria uma identidade jurídica nova. Se o CNPJ ativo já existir, o
+comando responde conflito e audita somente o motivo, sem revelar ou vincular a
+organização encontrada. Uma segunda unidade ou participação em outro polo será
+um comando próprio de vínculo: reutilizar uma identidade global exige uma prova
+de autorização diferente da permissão administrativa sobre o polo.
+
 O CNPJ é normalizado para 14 posições e valida os dois formatos que coexistem:
 os doze primeiros caracteres podem ser letras ASCII ou dígitos e os dois
 últimos continuam sendo dígitos verificadores por módulo 11, conforme a
@@ -122,10 +128,14 @@ identidade de busca. CNPJ, ciphertext e lookup token nunca entram na resposta,
 auditoria, evento ou outbox.
 
 Conflitos de CNPJ e slug são executados em savepoints: o comando remove apenas
-as linhas globais provisórias e finaliza a idempotência como conflito, sem
-deixar organização, endereço ou lugar órfão. Categorias, horários, contatos e
-mídia ainda não fazem parte dessa borda; serão tabelas e APIs próprias, sem
-sobrescrever o histórico de participação já publicado.
+as linhas globais provisórias, audita a rejeição e finaliza a idempotência com
+o mesmo status `409` entregue pela API, sem deixar organização, endereço ou
+lugar órfão. Ambos expõem o código genérico `partner_conflict`, evitando usar a
+API como oráculo de CNPJ; conflito de chave expõe `idempotency_conflict`, e uma
+reserva ainda em processamento expõe `request_in_progress` com `Retry-After`.
+Categorias, horários, contatos e mídia ainda não fazem parte dessa borda; serão
+tabelas e APIs próprias, sem sobrescrever o histórico de participação já
+publicado.
 
 ## Catálogo público
 
