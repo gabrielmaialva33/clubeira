@@ -100,6 +100,7 @@ defmodule ClubeiraWeb.Router do
     post "/polos/:polo_slug/me/redemption-devices", RedemptionDeviceController, :create
     post "/polos/:polo_slug/me/redemption-grants", RedemptionGrantController, :create
     post "/polos/:polo_slug/places/:place_id/reviews", ReviewController, :create
+    post "/polos/:polo_slug/backoffice/partners", BackofficePartnerController, :create
     get "/polos/:polo_slug/backoffice/reviews", BackofficeReviewController, :index
 
     post "/polos/:polo_slug/backoffice/reviews/:review_id/moderation-actions",
