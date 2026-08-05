@@ -158,6 +158,8 @@ As bordas iniciais são:
 - `POST /api/v1/polos/:slug/orders` — cria um pedido idempotente com ator e
   polo derivados da sessão e da rota, enquanto preço e moeda são relidos no
   tenant;
+- `GET /api/v1/polos/:slug/me/orders` — pagina os pedidos do ator naquele polo,
+  incluindo os itens e preços históricos;
 - `GET /api/v1/me/subscriptions` — pagina polos do ator e agrega os contratos
   comprados em cada um;
 - `GET /api/v1/polos/:slug/me/vouchers` — lê o ciclo e as alocações do polo.
@@ -174,6 +176,12 @@ cursor opaco. `limit` representa polos, não quantidade final de contratos: um
 polo da página pode devolver mais de uma assinatura. O máximo por chamada é
 100 polos; a fonte tenant continua sendo consultada dentro de uma transação RLS
 separada para cada polo.
+
+O histórico de pedidos usa keyset decrescente sobre `inserted_at + id`, com
+cursor opaco e limite máximo de 100 pedidos. A página de pedidos é fechada antes
+da leitura dos itens, evitando que o limite corte parte de um pedido. Tanto os
+pedidos quanto seus itens são relidos no mesmo escopo RLS e filtrados pelo ator;
+nenhum `user_id` recebido do cliente participa da autorização.
 
 ## Assinatura, ciclo e direito de uso
 

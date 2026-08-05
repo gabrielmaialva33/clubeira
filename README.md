@@ -15,8 +15,8 @@ PostgreSQL, domínio normalizado e isolamento por Row-Level Security (RLS).
 - descoberta pública paginada das opções comerciais e preços aceitos pelo
   checkout do polo;
 - planos, contratos, ciclos e alocações de benefício independentes por polo;
-- checkout e liquidação de pagamento transacionais, idempotentes e neutros em
-  relação ao provedor;
+- checkout, histórico paginado de pedidos e liquidação de pagamento
+  transacionais, idempotentes e neutros em relação ao provedor;
 - contas de recebimento globais vinculadas explicitamente a cada polo, com
   vigência e integridade referencial entre tenant e conta;
 - resgate online atômico, com elegibilidade, proteção contra replay, ledger,
@@ -84,6 +84,9 @@ curl -sS -X POST http://localhost:4000/api/v1/polos/sobral/orders \
   -H 'content-type: application/json' \
   -H 'idempotency-key: checkout-mobile-001' \
   -d '{"product_offering_version_id":"<uuid>","offering_price_id":"<uuid>"}'
+
+curl -sS http://localhost:4000/api/v1/polos/sobral/me/orders \
+  -H "authorization: Bearer $TOKEN"
 ```
 
 O primeiro comando devolve `data.access_token`; atribua-o a `TOKEN` apenas na
@@ -95,7 +98,10 @@ preço novamente no servidor. `GET /api/v1/polos/:slug/checkout-options`
 publica as combinações de `product_offering_version_id` e `offering_price_id`
 atualmente provisionáveis, também com cursor e limite máximo de `100`. Repetir
 a mesma seleção com a mesma chave devolve o pedido original; reutilizar a chave
-para outra seleção retorna conflito.
+para outra seleção retorna conflito. O histórico de pedidos retorna somente os
+pedidos do ator naquele polo, do mais novo para o mais antigo, com os itens e
+valores históricos; ele usa `?limit=20&after=...` e limita cada página a `100`
+pedidos.
 
 ## Banco e multi-tenancy
 
@@ -177,6 +183,8 @@ alterar a configuração versionada.
 
 - `POST /api/v1/polos/:polo_slug/orders` expõe o checkout autenticado e delega
   para `Clubeira.Billing.place_order/2`;
+- `GET /api/v1/polos/:polo_slug/me/orders` lista somente os pedidos do membro
+  autenticado no polo, com paginação keyset e itens históricos;
 - `GET /api/v1/polos/:polo_slug/checkout-options` expõe versões comerciais e
   preços vigentes; a escrita continua relendo preço, moeda e elegibilidade
   dentro da transação;
