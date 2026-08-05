@@ -86,7 +86,7 @@ defmodule Clubeira.Directory.PartnerOnboarder do
 
       {:error, %Ecto.Changeset{}} ->
         repo.delete!(address)
-        reject!(repo, idempotency_id, :place_slug_taken, now)
+        reject!(repo, scope, idempotency_id, :place_slug_taken, now)
     end
   end
 
@@ -111,7 +111,7 @@ defmodule Clubeira.Directory.PartnerOnboarder do
         repo.delete!(organization)
         repo.delete!(place)
         repo.delete!(address)
-        reject!(repo, idempotency_id, :cnpj_already_registered, now)
+        reject!(repo, scope, idempotency_id, :cnpj_already_registered, now)
     end
   end
 
@@ -288,8 +288,16 @@ defmodule Clubeira.Directory.PartnerOnboarder do
     raise "invalid persisted partner onboarding response: #{inspect(key)}"
   end
 
-  defp reject!(repo, idempotency_id, reason, now) do
-    Idempotency.fail!(repo, idempotency_id, reason, nil, nil, now)
+  defp reject!(repo, scope, idempotency_id, reason, now) do
+    Idempotency.fail!(repo, idempotency_id, reason, nil, nil, now, response_status: 409)
+
+    Audit.record_tenant!(repo, scope, %{
+      action: "partner.onboarding_rejected",
+      resource_type: "partner_onboarding",
+      metadata: %{"reason" => Atom.to_string(reason)},
+      occurred_at: now
+    })
+
     {:denied, reason}
   end
 

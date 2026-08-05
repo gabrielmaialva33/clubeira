@@ -75,9 +75,28 @@ defmodule Clubeira.Idempotency do
         ) ::
           :ok
   def fail!(repo, id, reason, resource_type, resource_id, now) do
+    fail!(repo, id, reason, resource_type, resource_id, now, [])
+  end
+
+  @spec fail!(
+          module(),
+          Ecto.UUID.t(),
+          atom(),
+          String.t() | nil,
+          Ecto.UUID.t() | nil,
+          DateTime.t(),
+          keyword()
+        ) :: :ok
+  def fail!(repo, id, reason, resource_type, resource_id, now, options) do
+    response_status = Keyword.get(options, :response_status, 422)
+
+    unless response_status in 400..599 do
+      raise ArgumentError, "response_status must be between 400 and 599"
+    end
+
     transition!(repo, id, %{
       status: "failed",
-      response_status: 422,
+      response_status: response_status,
       response_body: %{"reason" => Atom.to_string(reason)},
       resource_type: resource_type,
       resource_id: resource_id,
