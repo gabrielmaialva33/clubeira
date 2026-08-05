@@ -10,7 +10,7 @@ defmodule ClubeiraWeb.Plugs.CredentialRateLimit do
 
   @behaviour Plug
 
-  @actions [:login, :registration]
+  @actions [:login, :registration, :password_reset_request]
 
   @impl true
   def init(options) do

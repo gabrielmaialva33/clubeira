@@ -119,8 +119,42 @@ if config_env() == :prod do
           scale_ms: 900_000,
           limit: integer_in_range!.("REGISTRATION_RATE_IDENTITY_PER_15_MINUTES", 3, 1..10_000)
         ]
+      ],
+      password_reset_request: [
+        global: [
+          scale_ms: 1_000,
+          limit: integer_in_range!.("PASSWORD_RESET_RATE_GLOBAL_PER_SECOND", 20, 1..10_000)
+        ],
+        ip: [
+          scale_ms: 60_000,
+          limit: integer_in_range!.("PASSWORD_RESET_RATE_IP_PER_MINUTE", 10, 1..10_000)
+        ],
+        identity: [
+          scale_ms: 900_000,
+          limit:
+            integer_in_range!.(
+              "PASSWORD_RESET_RATE_IDENTITY_PER_15_MINUTES",
+              3,
+              1..10_000
+            )
+        ]
       ]
     ]
+
+  password_reset_url = required_env!.("PASSWORD_RESET_URL")
+
+  unless match?(
+           {:ok, %URI{scheme: "https", host: host, userinfo: nil, fragment: nil}}
+           when is_binary(host) and host != "",
+           URI.new(password_reset_url)
+         ) do
+    raise "PASSWORD_RESET_URL must be an absolute HTTPS URL without credentials or a fragment"
+  end
+
+  config :clubeira, Clubeira.Accounts.PasswordRecovery,
+    token_ttl_seconds: integer_in_range!.("PASSWORD_RESET_TOKEN_TTL_MINUTES", 30, 5..120) * 60,
+    reset_url: password_reset_url,
+    from: {"Clubeira", required_env!.("PASSWORD_RESET_FROM_EMAIL")}
 
   retention_days = integer_in_range!.("SESSION_RETENTION_DAYS", 30, 1..365)
 
