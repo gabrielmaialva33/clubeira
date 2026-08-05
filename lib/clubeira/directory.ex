@@ -1,6 +1,6 @@
 defmodule Clubeira.Directory do
   @moduledoc """
-  Public discovery of active commercial places participating in a polo.
+  Partner onboarding and public discovery of active commercial places.
 
   Places, brands and organizations are global identities. A public listing is
   still entered through `polo_places` inside the routed polo's RLS boundary.

@@ -79,7 +79,7 @@ defmodule Clubeira.Directory.PartnerOnboardingRequest do
       |> update_change(:place_slug, &String.trim/1)
       |> update_change(:street, &String.trim/1)
       |> update_change(:number, &String.trim/1)
-      |> update_change(:complement, &String.trim/1)
+      |> update_change(:complement, &normalize_optional_text/1)
       |> update_change(:district, &String.trim/1)
       |> normalize_postal_code()
       |> normalize_cnpj()
@@ -138,6 +138,13 @@ defmodule Clubeira.Directory.PartnerOnboardingRequest do
     changeset
     |> update_change(:postal_code, &String.replace(&1, ~r/[.\-\s]/u, ""))
     |> validate_format(:postal_code, ~r/^\d{8}$/)
+  end
+
+  defp normalize_optional_text(value) do
+    case String.trim(value) do
+      "" -> nil
+      normalized -> normalized
+    end
   end
 
   defp child_map(map, key) do

@@ -78,9 +78,9 @@ defmodule Clubeira.Directory.PartnerOnboarder do
   end
 
   defp onboard_new(repo, scope, polo, request, idempotency_id, now) do
-    address = insert_address!(repo, polo, request)
+    address = insert_address!(repo, polo, request, now)
 
-    case insert_place(repo, polo, address, request) do
+    case insert_place(repo, polo, address, request, now) do
       {:ok, place} ->
         insert_partner_identity(repo, scope, polo, address, place, request, idempotency_id, now)
 
@@ -100,7 +100,7 @@ defmodule Clubeira.Directory.PartnerOnboarder do
          idempotency_id,
          now
        ) do
-    organization = insert_organization!(repo, request)
+    organization = insert_organization!(repo, request, now)
     sealed_cnpj = IdentifierVault.seal("cnpj", request.cnpj)
 
     case insert_identifier(repo, organization, sealed_cnpj, now) do
@@ -141,7 +141,9 @@ defmodule Clubeira.Directory.PartnerOnboarder do
         polo_id: polo.id,
         place_id: place.id,
         participation_during: active_range,
-        status: "active"
+        status: "active",
+        inserted_at: now,
+        updated_at: now
       }
       |> repo.insert!()
 
@@ -164,39 +166,45 @@ defmodule Clubeira.Directory.PartnerOnboarder do
     {:accepted, result}
   end
 
-  defp insert_address!(repo, polo, request) do
+  defp insert_address!(repo, polo, request, now) do
     %Address{
       city_id: polo.city_id,
       postal_code: request.postal_code,
       street: request.street,
       number: request.number,
       complement: empty_to_nil(request.complement),
-      district: request.district
+      district: request.district,
+      inserted_at: now,
+      updated_at: now
     }
     |> repo.insert!()
   end
 
-  defp insert_place(repo, polo, address, request) do
+  defp insert_place(repo, polo, address, request, now) do
     %Place{
       city_id: polo.city_id,
       address_id: address.id,
       slug: request.place_slug,
       name: request.place_name,
       timezone: polo.timezone,
-      status: "active"
+      status: "active",
+      inserted_at: now,
+      updated_at: now
     }
     |> Ecto.Changeset.change()
     |> Ecto.Changeset.unique_constraint(:slug, name: :places_city_id_slug_index)
     |> repo.insert(mode: :savepoint)
   end
 
-  defp insert_organization!(repo, request) do
+  defp insert_organization!(repo, request, now) do
     %Organization{
       kind: "legal_entity",
       legal_name: request.legal_name,
       trade_name: request.trade_name,
       country_code: "BR",
-      status: "active"
+      status: "active",
+      inserted_at: now,
+      updated_at: now
     }
     |> repo.insert!()
   end
