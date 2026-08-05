@@ -274,40 +274,50 @@ defmodule Clubeira.Accounts do
                    session_material.now
                  )
                ) do
-          actor_scope = ActorScope.new!(user.id, context.request_id)
-
-          {:ok, :ok} =
-            Repo.transact_as_actor(actor_scope, fn ->
-              Legal.accept_registration!(
-                repo,
-                user,
-                registration.legal_document_version_ids,
-                session_material.now
-              )
-
-              {:ok, :ok}
-            end)
-
-          Audit.record_system!(repo, context, %{
-            actor_user_id: user.id,
-            action: "account.registered",
-            resource_type: "user",
-            resource_id: user.id,
-            occurred_at: session_material.now
-          })
-
-          persist_session(
+          persist_registered_user(
             repo,
-            user.id,
-            session_material.token_hash,
-            session_material.now,
-            session_material.expires_at,
+            registration,
+            user,
+            session_material,
             context
           )
         end
       end)
 
     format_session_result(transaction_result, session_material.token)
+  end
+
+  defp persist_registered_user(repo, registration, user, session_material, context) do
+    actor_scope = ActorScope.new!(user.id, context.request_id)
+
+    {:ok, :ok} =
+      Repo.transact_as_actor(actor_scope, fn ->
+        Legal.accept_registration!(
+          repo,
+          user,
+          registration.legal_document_version_ids,
+          session_material.now
+        )
+
+        {:ok, :ok}
+      end)
+
+    Audit.record_system!(repo, context, %{
+      actor_user_id: user.id,
+      action: "account.registered",
+      resource_type: "user",
+      resource_id: user.id,
+      occurred_at: session_material.now
+    })
+
+    persist_session(
+      repo,
+      user.id,
+      session_material.token_hash,
+      session_material.now,
+      session_material.expires_at,
+      context
+    )
   end
 
   defp format_session_result(transaction_result, encoded_token) do
