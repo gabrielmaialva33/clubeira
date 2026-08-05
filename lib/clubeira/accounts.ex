@@ -9,6 +9,7 @@ defmodule Clubeira.Accounts do
   import Ecto.Query
 
   alias Clubeira.Accounts.PasswordCredential
+  alias Clubeira.Accounts.PasswordRecovery
   alias Clubeira.Accounts.Registration
   alias Clubeira.Accounts.RequestContext
   alias Clubeira.Accounts.Scope
@@ -86,6 +87,12 @@ defmodule Clubeira.Accounts do
   end
 
   def login(_email, _password, %RequestContext{}), do: invalid_credentials()
+
+  @doc """
+  Requests a password reset without revealing whether the email is registered.
+  """
+  @spec request_password_reset(String.t(), RequestContext.t()) :: :ok | {:error, term()}
+  defdelegate request_password_reset(email, context), to: PasswordRecovery, as: :request
 
   @spec set_password(User.t(), String.t()) ::
           {:ok, PasswordCredential.t()} | {:error, Ecto.Changeset.t()}
