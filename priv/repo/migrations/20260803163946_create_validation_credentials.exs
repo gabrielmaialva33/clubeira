@@ -30,6 +30,11 @@ defmodule Clubeira.Repo.Migrations.CreateValidationCredentials do
 
     create index(:validation_credentials, [:validation_point_id])
 
+    create unique_index(:validation_credentials, [:secret_hash],
+             name: :validation_credentials_secret_hash_uidx,
+             where: "secret_hash IS NOT NULL"
+           )
+
     create constraint(:validation_credentials, :validation_credentials_version_check,
              check: "version > 0"
            )

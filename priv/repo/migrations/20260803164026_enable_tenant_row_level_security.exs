@@ -95,6 +95,20 @@ defmodule Clubeira.Repo.Migrations.EnableTenantRowLevelSecurity do
       """)
     end)
 
+    execute("ALTER TABLE user_device_authorizations ENABLE ROW LEVEL SECURITY")
+    execute("ALTER TABLE user_device_authorizations FORCE ROW LEVEL SECURITY")
+
+    execute("""
+    CREATE POLICY user_device_authorizations_actor_scope ON user_device_authorizations
+    FOR ALL
+    USING (
+      user_id = NULLIF(current_setting('app.current_actor_user_id', true), '')::uuid
+    )
+    WITH CHECK (
+      user_id = NULLIF(current_setting('app.current_actor_user_id', true), '')::uuid
+    );
+    """)
+
     execute("ALTER TABLE legal_acceptances ENABLE ROW LEVEL SECURITY")
     execute("ALTER TABLE legal_acceptances FORCE ROW LEVEL SECURITY")
 
@@ -153,6 +167,13 @@ defmodule Clubeira.Repo.Migrations.EnableTenantRowLevelSecurity do
     execute("DROP POLICY IF EXISTS polo_isolation ON legal_acceptances")
     execute("ALTER TABLE legal_acceptances NO FORCE ROW LEVEL SECURITY")
     execute("ALTER TABLE legal_acceptances DISABLE ROW LEVEL SECURITY")
+
+    execute(
+      "DROP POLICY IF EXISTS user_device_authorizations_actor_scope ON user_device_authorizations"
+    )
+
+    execute("ALTER TABLE user_device_authorizations NO FORCE ROW LEVEL SECURITY")
+    execute("ALTER TABLE user_device_authorizations DISABLE ROW LEVEL SECURITY")
 
     Enum.each(Enum.reverse(@tenant_tables), fn table ->
       execute("DROP POLICY polo_isolation ON #{table}")

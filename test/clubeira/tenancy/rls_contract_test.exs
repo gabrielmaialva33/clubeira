@@ -2,8 +2,10 @@ defmodule Clubeira.Tenancy.RlsContractTest do
   use Clubeira.DataCase, async: false
 
   alias Clubeira.Polos.PoloRoute
+  alias Clubeira.Devices.UserDeviceAuthorization
   alias Clubeira.RedemptionsFixtures
   alias Clubeira.Repo
+  alias Clubeira.Tenancy.ActorScope
 
   @nullable_polo_tables ~w(
     domain_events
@@ -155,5 +157,40 @@ defmodule Clubeira.Tenancy.RlsContractTest do
       """)
 
     assert read_expression =~ "app.current_polo_id"
+  end
+
+  test "user device authorizations are visible only to their authenticated actor" do
+    fixture = RedemptionsFixtures.create!()
+
+    assert %{rows: [[true, true, true]]} =
+             Repo.query!("""
+             SELECT
+               class.relrowsecurity,
+               class.relforcerowsecurity,
+               EXISTS (
+                 SELECT 1
+                 FROM pg_policy AS policy
+                 WHERE policy.polrelid = class.oid
+                   AND policy.polname = 'user_device_authorizations_actor_scope'
+               )
+             FROM pg_class AS class
+             WHERE class.oid = 'public.user_device_authorizations'::regclass
+             """)
+
+    assert Repo.aggregate(UserDeviceAuthorization, :count) == 0
+
+    actor_scope = ActorScope.new!(fixture.ids.user, fixture.scope.request_id)
+
+    assert {:ok, 1} =
+             Repo.transact_as_actor(actor_scope, fn ->
+               {:ok, Repo.aggregate(UserDeviceAuthorization, :count)}
+             end)
+
+    other_actor_scope = ActorScope.new!(Ecto.UUID.generate(), Ecto.UUID.generate())
+
+    assert {:ok, 0} =
+             Repo.transact_as_actor(other_actor_scope, fn ->
+               {:ok, Repo.aggregate(UserDeviceAuthorization, :count)}
+             end)
   end
 end

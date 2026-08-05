@@ -52,4 +52,18 @@ defmodule Clubeira.Redemptions.DatabaseContractTest do
 
     assert definition =~ "(polo_id, requesting_user_id, requested_at, id)"
   end
+
+  test "validation API keys have one indexed non-recoverable identity" do
+    assert %{rows: [[definition]]} =
+             Repo.query!("""
+             SELECT indexdef
+             FROM pg_indexes
+             WHERE schemaname = 'public'
+               AND indexname = 'validation_credentials_secret_hash_uidx'
+             """)
+
+    assert definition =~ "UNIQUE"
+    assert definition =~ "(secret_hash)"
+    assert definition =~ "WHERE (secret_hash IS NOT NULL)"
+  end
 end
