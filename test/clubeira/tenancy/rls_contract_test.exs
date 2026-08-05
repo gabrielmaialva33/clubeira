@@ -1,8 +1,8 @@
 defmodule Clubeira.Tenancy.RlsContractTest do
   use Clubeira.DataCase, async: false
 
-  alias Clubeira.Polos.PoloRoute
   alias Clubeira.Devices.UserDeviceAuthorization
+  alias Clubeira.Polos.PoloRoute
   alias Clubeira.RedemptionsFixtures
   alias Clubeira.Repo
   alias Clubeira.Tenancy.ActorScope

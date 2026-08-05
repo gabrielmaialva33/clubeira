@@ -35,4 +35,24 @@ defmodule Clubeira.Reviews.DatabaseContractTest do
                AND NOT trigger.tgisinternal
              """)
   end
+
+  test "moderation and public feeds have indexes matching their keyset order" do
+    assert %{rows: rows} =
+             Repo.query!("""
+             SELECT indexname, indexdef
+             FROM pg_indexes
+             WHERE schemaname = 'public'
+               AND indexname IN ('reviews_moderation_queue_idx', 'reviews_public_feed_idx')
+             ORDER BY indexname
+             """)
+
+    assert [
+             ["reviews_moderation_queue_idx", moderation_definition],
+             ["reviews_public_feed_idx", public_definition]
+           ] = rows
+
+    assert moderation_definition =~ "(status, inserted_at, id)"
+    assert public_definition =~ "(place_id, published_at, id)"
+    assert public_definition =~ "WHERE (status = 'published'::text)"
+  end
 end
