@@ -20,4 +20,21 @@ defmodule Clubeira.Events.OutboxMessage do
 
     timestamps()
   end
+
+  @type t :: %__MODULE__{
+          id: Ecto.UUID.t(),
+          domain_event_id: Ecto.UUID.t(),
+          topic: String.t(),
+          message_key: String.t(),
+          payload: map(),
+          status: String.t(),
+          attempt_count: non_neg_integer(),
+          available_at: DateTime.t(),
+          locked_at: DateTime.t() | nil,
+          locked_by: String.t() | nil,
+          published_at: DateTime.t() | nil,
+          last_error: String.t() | nil,
+          inserted_at: DateTime.t(),
+          updated_at: DateTime.t()
+        }
 end
