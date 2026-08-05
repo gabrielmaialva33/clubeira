@@ -40,4 +40,16 @@ defmodule Clubeira.Redemptions.DatabaseContractTest do
     assert definition =~ "benefit_package_item_id"
     assert definition =~ "validation_point_id"
   end
+
+  test "member history has an index matching its tenant, actor, and cursor order" do
+    assert %{rows: [[definition]]} =
+             Repo.query!("""
+             SELECT indexdef
+             FROM pg_indexes
+             WHERE schemaname = 'public'
+               AND indexname = 'redemption_attempts_member_history_idx'
+             """)
+
+    assert definition =~ "(polo_id, requesting_user_id, requested_at, id)"
+  end
 end
