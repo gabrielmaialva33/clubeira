@@ -1,34 +1,87 @@
-# Clubeira
+<div align="center">
 
-Backend de um SaaS multi-tenant para clubes de vouchers por assinatura. Um
-único produto atende vários polos independentes — cidades, regiões ou
-franquias — e o mesmo usuário pode manter contratos, ciclos e benefícios
-separados em cada um deles.
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:6D28D9,100:F59E0B&height=200&section=header&text=🎟️%20C%20L%20U%20B%20E%20I%20R%20A&fontSize=52&fontColor=fff&animation=twinkling&fontAlignY=35&desc=Clubes%20de%20vouchers%20por%20assinatura,%20multi-tenant%20de%20verdade&descSize=16&descAlignY=55" width="100%"/>
 
-O projeto segue uma arquitetura de monólito modular em Elixir/Phoenix, com
-PostgreSQL, domínio normalizado e isolamento por Row-Level Security (RLS).
+[![Elixir](https://img.shields.io/badge/Elixir_1.20-4B275F?style=for-the-badge&logo=elixir&logoColor=white)](https://elixir-lang.org/)
+[![Phoenix](https://img.shields.io/badge/Phoenix_1.8-FD4F00?style=for-the-badge&logo=phoenixframework&logoColor=white)](https://www.phoenixframework.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL_18-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![OTP](https://img.shields.io/badge/OTP_29-A90533?style=for-the-badge&logo=erlang&logoColor=white)](https://www.erlang.org/)
+[![RLS](https://img.shields.io/badge/RLS-FORCED-16A34A?style=for-the-badge)](#-multi-tenancy)
+[![Tests](https://img.shields.io/badge/tests-238-6D28D9?style=for-the-badge)](./test)
+[![Migrations](https://img.shields.io/badge/migrations-123-F59E0B?style=for-the-badge)](./priv/repo/migrations)
 
-## O que já funciona
+**[🏗️ Arquitetura](docs/architecture.md)** · **[🛠️ Desenvolvimento](docs/development.md)** · **[🤖 AGENTS.md](AGENTS.md)**
 
-- diretório e catálogo públicos, cadastro atômico com aceite da versão legal
-  vigente, autenticação por sessão bearer revogável, descoberta de assinaturas
-  multi-polo e carteira de vouchers;
-- descoberta pública paginada das opções comerciais e preços aceitos pelo
-  checkout do polo;
-- planos, contratos, ciclos e alocações de benefício independentes por polo;
-- checkout, histórico paginado de pedidos e pagamento Pix via Mercado Pago,
-  com criação autenticada, retry idempotente e webhook HMAC que relê a order
-  no provedor antes de liquidar;
-- contas de recebimento globais vinculadas explicitamente a cada polo, com
-  vigência e integridade referencial entre tenant e conta;
-- enrollment de instalação sem persistir o segredo, grant de resgate assinado e
-  curto, autenticação do ponto de validação e resgate online atômico, com
-  proteção contra replay, ledger, auditoria, eventos de domínio e outbox;
-- submissão autenticada e idempotente de avaliações verificadas por resgate,
-  fila de moderação autorizada por polo, decisão append-only e feed público
-  somente de conteúdo publicado;
-- migrations, seeds, factories, RLS forçado e testes de concorrência contra
-  bancos isolados reais.
+---
+
+*"Um app, muitos polos. Um usuário, contratos independentes em cada um deles."*
+
+</div>
+
+---
+
+> [!IMPORTANT]
+> **RLS é defesa em profundidade, não autorização de negócio.**
+> Nenhum `polo_id`, `user_id`, `device_id` ou `validation_point_id` vindo do
+> cliente vale como prova de permissão. Toda operação tenant-aware entra num
+> `Scope` já autorizado e roda dentro de `Repo.transact_in_polo/3`.
+
+---
+
+## 🎯 Visão geral
+
+Clubeira é o backend de um SaaS multi-tenant para clubes de vouchers por
+assinatura. Um único produto atende vários polos independentes — cidades,
+regiões ou franquias — e o mesmo usuário mantém contratos, ciclos e benefícios
+separados em cada um.
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#6D28D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#F59E0B', 'lineColor': '#F59E0B', 'secondaryColor': '#1e1b4b'}}}%%
+flowchart LR
+    subgraph Membro["👤 Membro"]
+        APP[App / Cliente]
+    end
+
+    subgraph Core["🎟️ Clubeira"]
+        direction TB
+        CHK[🛒 Checkout]
+        PAY[💸 Pix / PSP]
+        CTR[📜 Contrato + Ciclo]
+        RDM[✅ Resgate]
+        CHK --> PAY --> CTR --> RDM
+    end
+
+    subgraph Parceiro["🏪 Parceiro"]
+        VP[Ponto de validação]
+    end
+
+    APP --> CHK
+    RDM --> VP
+    VP -->|grant assinado| RDM
+```
+
+| Propriedade      | Valor                                                     |
+|:-----------------|:----------------------------------------------------------|
+| **Arquitetura**  | Monólito modular Elixir/Phoenix/Ecto                       |
+| **Fonte de verdade** | PostgreSQL 18, schema único normalizado                |
+| **Isolamento**   | `FORCE ROW LEVEL SECURITY` + FKs compostas com `polo_id`   |
+| **Identidade**   | UUIDv7 em todas as entidades novas                         |
+| **Consistência** | Invariante, auditoria, evento e outbox na mesma transação  |
+
+---
+
+## ✅ O que já funciona
+
+| Domínio | Entregue |
+|:--|:--|
+| 🔐 **Identidade** | cadastro atômico com aceite da versão legal vigente, Argon2id, sessão bearer opaca e revogável, rate limit por global/IP/identidade |
+| 🗺️ **Descoberta** | diretório público de parceiros, catálogo comercial, opções de checkout — tudo paginado por cursor |
+| 🛒 **Venda** | checkout idempotente, histórico paginado de pedidos, Pix via Mercado Pago com webhook HMAC que relê a order no PSP antes de liquidar |
+| 🏦 **Recebimento** | contas globais vinculadas por vigência a cada polo, com integridade referencial entre tenant e conta |
+| 📜 **Assinatura** | planos, contratos, ciclos e alocações de benefício independentes por polo |
+| ✅ **Resgate** | enrollment sem persistir segredo, grant assinado e curto, autenticação do ponto de validação, consumo atômico com anti-replay, ledger, auditoria, evento e outbox |
+| ⭐ **UGC** | avaliações verificadas por resgate, fila de moderação autorizada por polo, decisão append-only e feed público só do que foi publicado |
+| 🧪 **Base** | 123 migrations, seeds determinísticas, factories, RLS forçado e testes de concorrência contra bancos isolados reais |
 
 O fluxo de venda implementado no domínio é:
 
@@ -49,38 +102,243 @@ reembolso e chargeback continuam fatias separadas. A API online de resgate já
 entrega o grant que um cliente pode renderizar como QR; placard estático,
 operação offline e o componente visual de leitura continuam bordas próprias.
 
-## Subir o projeto
+---
 
-Pré-requisitos: Docker com Compose e `mise`.
+## ⚡ Subir o projeto
 
-```sh
+```bash
+git clone git@github.com:gabrielmaialva33/clubeira.git && cd clubeira
 mise install
 mix setup
 mix phx.server
 ```
 
-`mix setup` instala as dependências, sobe PostgreSQL 18 em
-`127.0.0.1:55432`, cria/migra o banco com a role de migration e carrega um
-cenário determinístico com os polos Sobral e Londrina.
+`mix setup` instala as dependências, sobe PostgreSQL 18 em `127.0.0.1:55432`,
+cria/migra o banco com a role de migration e carrega um cenário determinístico
+com os polos **Sobral** e **Londrina**.
 
-- aplicação: <http://localhost:4000>
-- health check: <http://localhost:4000/health>
-- catálogo demo: <http://localhost:4000/api/v1/polos/sobral/catalog>
-- parceiros do polo: <http://localhost:4000/api/v1/polos/sobral/places>
-- opções de checkout: <http://localhost:4000/api/v1/polos/sobral/checkout-options>
-- LiveDashboard em desenvolvimento: <http://localhost:4000/dev/dashboard>
-- caixa de e-mail local: <http://localhost:4000/dev/mailbox>
+| Endereço | O que é |
+|:--|:--|
+| <http://localhost:4000> | aplicação |
+| <http://localhost:4000/health> | health check |
+| <http://localhost:4000/api/v1/polos/sobral/catalog> | catálogo demo |
+| <http://localhost:4000/api/v1/polos/sobral/places> | parceiros do polo |
+| <http://localhost:4000/api/v1/polos/sobral/checkout-options> | opções de checkout |
+| <http://localhost:4000/dev/dashboard> | LiveDashboard (dev) |
+| <http://localhost:4000/dev/mailbox> | caixa de e-mail local |
+
+<details>
+<summary><strong>📋 Pré-requisitos e credenciais do cenário demo</strong></summary>
+
+| Ferramenta | Versão |
+|:--|:--|
+| Elixir | `1.20.2-otp-29` |
+| Erlang/OTP | `29.0.5` |
+| Docker + Compose | PostgreSQL `18.4` |
+| Node | `26.2.0` |
 
 As seeds criam `membro.demo@clubeira.local` com a senha local
-`clubeira-demo-local`. Defina `CLUBEIRA_DEMO_PASSWORD` antes de `mix setup` para
-trocar esse valor. Sobral também recebe um ponto de validação cuja chave local
-de demonstração é `M-bCcLGupP8XuBxzemHd-4JumJf6trsiQpinEl30xwg`; substitua-a
-por 32 bytes aleatórios em base64url sem padding via
-`CLUBEIRA_DEMO_VALIDATION_SECRET` em qualquer ambiente compartilhado. Para
-testar o sandbox Pix, defina também
+`clubeira-demo-local`. Defina `CLUBEIRA_DEMO_PASSWORD` antes de `mix setup`
+para trocar esse valor. Sobral também recebe um ponto de validação cuja chave
+local de demonstração é
+`M-bCcLGupP8XuBxzemHd-4JumJf6trsiQpinEl30xwg`; substitua-a por 32 bytes
+aleatórios em base64url sem padding via `CLUBEIRA_DEMO_VALIDATION_SECRET` em
+qualquer ambiente compartilhado. Para testar o sandbox Pix, defina também
 `CLUBEIRA_DEMO_EMAIL` com o e-mail do usuário de teste do Mercado Pago antes de
 rodar as seeds. O mesmo membro possui contratos independentes em Sobral e
 Londrina.
+
+</details>
+
+---
+
+## 🏗️ Arquitetura
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#6D28D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#F59E0B', 'lineColor': '#F59E0B', 'secondaryColor': '#1e1b4b'}}}%%
+graph TB
+    subgraph WEB["🌐 clubeira_web"]
+        R[Router]
+        AUTH[Plugs.ApiAuth]
+        RL[CredentialRateLimit]
+        R --> RL --> AUTH
+    end
+
+    subgraph CTX["🧩 Contexts"]
+        ACC[accounts]
+        CAT[catalog]
+        BIL[billing]
+        SUB[subscriptions]
+        RED[redemptions]
+        REV[reviews]
+        DIR[directory]
+        DEV[devices]
+    end
+
+    subgraph PLAT["⚙️ Plataforma"]
+        TEN[tenancy<br/>Scope + ActorScope]
+        IDM[idempotency]
+        AUD[audit]
+        EVT[events]
+        OBX[outbox]
+    end
+
+    subgraph DB["🐘 PostgreSQL 18"]
+        RLS[FORCE RLS]
+        FK[FKs compostas c/ polo_id]
+        TRG[Triggers + constraints]
+    end
+
+    AUTH --> CTX
+    CTX --> TEN
+    CTX --> IDM
+    CTX --> AUD --> EVT --> OBX
+    TEN --> DB
+    OBX -->|HMAC/HTTPS| EXT[🔗 Consumers externos]
+```
+
+<details>
+<summary><strong>📋 Fronteiras de domínio</strong></summary>
+
+| Módulo | Responsabilidade |
+|:--|:--|
+| `accounts` | usuários, credenciais, sessões, escopo do ator |
+| `legal` | documentos versionados e aceites imutáveis |
+| `polos` | tenants, políticas versionadas, memberships e roles |
+| `directory` | cidades, organizações, marcas, endereços e lugares globais |
+| `catalog` | acordos, ofertas, versões, janelas, blackouts e preços |
+| `billing` | pedidos, intents, pagamentos e a borda do PSP |
+| `subscriptions` | contratos, ciclos e carteira de alocações |
+| `devices` | instalações autorizadas e grants assinados |
+| `redemptions` | tentativas, resgates, ledger e anti-replay |
+| `reviews` | avaliações verificadas, revisões e moderação |
+| `tenancy` | `Scope`, `ActorScope` e as fronteiras transacionais |
+| `idempotency` / `audit` / `events` / `outbox` | infraestrutura de confiabilidade |
+
+</details>
+
+---
+
+## 🔐 Multi-tenancy
+
+Um único schema PostgreSQL, compartilhado pelos polos e normalizado. Dados
+tenant carregam `polo_id`; chaves estrangeiras compostas impedem referências
+entre polos e todas as tabelas com `polo_id` são protegidas por RLS forçado.
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#6D28D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#F59E0B', 'lineColor': '#F59E0B'}}}%%
+sequenceDiagram
+    participant C as Cliente
+    participant W as Borda HTTP
+    participant S as Tenancy.Scope
+    participant P as PostgreSQL (RLS)
+
+    C->>W: Bearer + /polos/:slug/...
+    W->>W: valida sessão, prova papel no polo
+    W->>S: Scope.new!(polo_id, actor, request_id)
+    S->>P: BEGIN + set_config(app.current_polo_id, ..., true)
+    P-->>S: só linhas do polo ativo
+    S->>P: COMMIT (invariante + audit + evento + outbox)
+```
+
+| Camada | Mecanismo |
+|:--|:--|
+| **Integridade relacional** | FKs compostas com `polo_id`: uma linha de Sobral não referencia entidade de Londrina |
+| **Escopo na aplicação** | `Tenancy.Scope` + `Repo.transact_in_polo/3` gravam polo/ator/request só durante a transação |
+| **Defesa no banco** | `FORCE ROW LEVEL SECURITY` em toda relação tenant e em `outbox_messages` |
+| **Role de runtime** | `clubeira_app` é `NOSUPERUSER NOBYPASSRLS`, sem DDL e sem ownership |
+
+<details>
+<summary><strong>📋 Roles, descoberta global e o resto dos detalhes</strong></summary>
+
+Existem credenciais locais diferentes para cada responsabilidade:
+
+- `clubeira_migrator`: dona do schema, usada apenas por migrations e seeds;
+- `clubeira_app`: role de runtime `NOSUPERUSER NOBYPASSRLS`, sem permissão de
+  DDL;
+- `postgres`: administração local e testes; cada teste assume uma role
+  temporária restrita antes de acessar os dados.
+
+Autenticação é global: `POST /api/v1/auth/registrations` valida e normaliza o
+email, exige todas as versões de termos vigentes publicadas por
+`GET /api/v1/legal/registration`, e cria usuário ativo, aceite imutável, hash
+Argon2id, sessão e auditoria na mesma transação.
+`user_password_credentials` separa o segredo da identidade e `user_sessions`
+persiste somente SHA-256 do bearer opaco. Cadastro e login têm limites locais
+por instância para tráfego global, IP e identidade, além de um teto fail-fast
+para operações Argon2 concorrentes. Um limitador no ingress continua
+obrigatório para impor o teto do cluster. Sessões expiradas ou revogadas são
+removidas após a retenção configurada, 30 dias por padrão.
+
+Cada requisição recebe um UUIDv7 interno em `x-request-id`, também usado para
+correlacionar eventos globais de autenticação. Valores enviados pelo cliente
+nesse header não viram identificadores da trilha forense. Para a tela
+cross-polo, `user_contract_polo_routes` revela ao ator apenas os IDs dos polos
+onde ele já contratou. Isso é um índice de roteamento, não uma autorização:
+contrato, ciclo e saldo são relidos dentro da RLS de cada polo.
+
+O endereço público de cada tenant fica na relação global 1:1 `polo_routes`.
+Ela resolve apenas `slug -> polo_id`; depois disso, até a leitura pública do
+catálogo entra numa transação com RLS e confirma que o polo está ativo. A
+policy pública permite somente leitura das rotas; mutações continuam presas ao
+`polo_id` ativo.
+
+O catálogo aceita paginação por cursor com `?limit=20&after=...` (`20` por
+padrão, máximo `100`) e devolve o próximo cursor em `meta.page.next_cursor`.
+Ele publica o catálogo comercial vigente do polo; disponibilidade individual,
+janelas e blackouts são regras da elegibilidade de resgate, não dessa vitrine
+pública.
+
+As contas de recebimento ficam em `merchant_accounts` e podem ser
+compartilhadas entre polos. A relação normalizada `polo_merchant_accounts`
+define quais contas cada polo pode usar, sua função e seu período de vigência.
+Pagamentos, intents e eventos do provedor usam chaves compostas para impedir
+que uma conta seja referenciada pelo tenant errado. O runtime lê apenas
+vínculos vigentes do polo atual; mutações são reservadas à role dona do schema.
+
+```sh
+mix db.migrate  # sobe o container e migra com clubeira_migrator
+mix db.reset    # recria o schema de desenvolvimento e reaplica as seeds
+docker compose stop
+```
+
+`docker compose down` remove somente o container e a rede. O comando
+`docker compose down -v` também apaga o volume e todos os dados locais.
+
+</details>
+
+---
+
+## 🛰️ API
+
+| Método | Rota | Auth |
+|:--|:--|:--:|
+| `GET` | `/api/v1/legal/registration` | 🌐 |
+| `POST` | `/api/v1/auth/registrations` | 🌐 |
+| `POST` | `/api/v1/auth/sessions` | 🌐 |
+| `DELETE` | `/api/v1/auth/session` | 🔑 |
+| `GET` | `/api/v1/polos/:slug/catalog` | 🌐 |
+| `GET` | `/api/v1/polos/:slug/checkout-options` | 🌐 |
+| `GET` | `/api/v1/polos/:slug/places` | 🌐 |
+| `GET` | `/api/v1/polos/:slug/places/:place_id/reviews` | 🌐 |
+| `POST` | `/api/v1/polos/:slug/redemptions` | 🏪 |
+| `POST` | `/api/v1/webhooks/mercado-pago/:merchant_account_id` | 🔏 |
+| `GET` | `/api/v1/me/subscriptions` | 🔑 |
+| `POST` | `/api/v1/polos/:slug/orders` | 🔑 |
+| `POST` | `/api/v1/polos/:slug/orders/:order_id/payment-intents` | 🔑 |
+| `GET` | `/api/v1/polos/:slug/me/orders` | 🔑 |
+| `GET` | `/api/v1/polos/:slug/me/vouchers` | 🔑 |
+| `POST` | `/api/v1/polos/:slug/me/redemption-devices` | 🔑 |
+| `POST` | `/api/v1/polos/:slug/me/redemption-grants` | 🔑 |
+| `GET` | `/api/v1/polos/:slug/me/redemptions` | 🔑 |
+| `POST` | `/api/v1/polos/:slug/places/:place_id/reviews` | 🔑 |
+| `GET` | `/api/v1/polos/:slug/backoffice/reviews` | 🛡️ |
+| `POST` | `/api/v1/polos/:slug/backoffice/reviews/:review_id/moderation-actions` | 🛡️ |
+
+🌐 público · 🔑 bearer do membro · 🏪 credencial do ponto de validação · 🔏 HMAC do PSP · 🛡️ `admin` ou `review_moderator`
+
+<details>
+<summary><strong>📋 Exemplos com <code>curl</code></strong></summary>
 
 ```sh
 curl -sS 'http://localhost:4000/api/v1/legal/registration?locale=pt-BR'
@@ -158,14 +416,45 @@ atualmente provisionáveis, também com cursor e limite máximo de `100`. Repeti
 a mesma seleção com a mesma chave devolve o pedido original; reutilizar a chave
 para outra seleção retorna conflito.
 
-O enrollment aceita apenas um segredo de instalação gerado com 32 bytes
-aleatórios e persiste seu SHA-256. Usuário, polo e contrato são relidos da
-sessão e do banco; o limite de dispositivos vem da versão de policy congelada
-no contrato. O grant dura 120 segundos por padrão, vincula polo, ator,
-alocação, instalação e nonce, e não aceita IDs de ponto de validação do
-cliente. A confirmação deriva esse ponto de uma credencial ativa, executa a
-autenticação e `Clubeira.Redemptions.confirm/2` na mesma transação e mantém o
-replay idempotente.
+O histórico de pedidos retorna somente os pedidos do ator naquele polo, do
+mais novo para o mais antigo, com os itens e valores históricos; ele usa
+`?limit=20&after=...` e limita cada página a `100` pedidos. O diretório público
+usa a mesma paginação para listar somente participações, lugares, marcas e
+operadores ativos, incluindo endereço e coordenadas quando cadastradas. Após um
+resgate confirmado, o membro pode enviar uma avaliação de `1` a `5` estrelas
+com texto não vazio. A API prova no banco que o resgate pertence ao ator, polo
+e lugar da rota, cria a avaliação como `pending` e exige `Idempotency-Key`;
+título é opcional e mídia fica para uma fatia posterior. O histórico
+autenticado de resgates retorna o `id` usado como `source_redemption_id`, a
+identidade do lugar e a versão histórica do benefício; quando o lugar já foi
+avaliado, inclui também o aggregate de review.
+
+</details>
+
+---
+
+## 🔁 Fluxos críticos
+
+### 💸 Pix e a borda do PSP
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#6D28D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#F59E0B', 'lineColor': '#F59E0B'}}}%%
+sequenceDiagram
+    participant M as Membro
+    participant A as Clubeira
+    participant MP as Mercado Pago
+
+    M->>A: POST /orders (Idempotency-Key)
+    A->>A: relê preço/moeda sob lock + RLS
+    M->>A: POST /payment-intents {pix}
+    A->>A: reserva intent, commit ANTES do I/O
+    A->>MP: Orders API (X-Idempotency-Key = uuid do intent)
+    MP-->>A: ação Pix normalizada
+    MP->>A: webhook assinado (HMAC)
+    A->>MP: GET /v1/orders/:id (a fonte da verdade)
+    MP-->>A: processed/accredited
+    A->>A: payment + order + contrato + ciclo + alocações<br/>+ audit + evento + outbox — mesma transação
+```
 
 O início do pagamento aceita hoje somente `pix`. A resposta contém uma ação
 normalizada com `redirect_url` e `copy_paste_code`; repetir a mesma chave
@@ -175,88 +464,33 @@ assinado relê `GET /v1/orders/:id`, provisiona contrato, ciclo e vouchers apena
 para uma captura `processed/accredited`, fecha intents expirados e reconcilia
 notificações repetidas sem duplicar pagamento ou direito.
 
-O histórico de pedidos retorna somente os pedidos do ator naquele polo, do
-mais novo para o mais antigo, com os itens e valores históricos; ele usa
-`?limit=20&after=...` e limita cada página a `100` pedidos. O diretório público
-usa a mesma paginação para listar somente
-participações, lugares, marcas e operadores ativos, incluindo endereço e
-coordenadas quando cadastradas. Após um resgate confirmado, o membro pode
-enviar uma avaliação de `1` a `5` estrelas com texto não vazio. A API prova no
-banco que o resgate pertence ao ator, polo e lugar da rota, cria a avaliação
-como `pending` e exige `Idempotency-Key`; título é opcional e mídia fica para
-uma fatia posterior. O histórico autenticado de resgates retorna o `id` usado
-como `source_redemption_id`, a identidade do lugar e a versão histórica do
-benefício; quando o lugar já foi avaliado, inclui também o aggregate de review.
+### ✅ Resgate online
 
-## Banco e multi-tenancy
-
-O banco usa um único schema PostgreSQL, compartilhado pelos polos e
-normalizado. Dados tenant carregam `polo_id`; chaves estrangeiras compostas
-impedem referências entre polos e todas as tabelas com `polo_id` são protegidas
-por RLS forçado.
-
-Existem credenciais locais diferentes para cada responsabilidade:
-
-- `clubeira_migrator`: dona do schema, usada apenas por migrations e seeds;
-- `clubeira_app`: role de runtime `NOSUPERUSER NOBYPASSRLS`, sem permissão de
-  DDL;
-- `postgres`: administração local e testes; cada teste assume uma role
-  temporária restrita antes de acessar os dados.
-
-Toda operação tenant-aware recebe `Clubeira.Tenancy.Scope` e executa dentro de
-`Clubeira.Repo.transact_in_polo/3`. Sem escopo, as políticas não expõem linhas
-de polo.
-
-Autenticação é global: `POST /api/v1/auth/registrations` valida e normaliza o
-email, exige todas as versões de termos vigentes publicadas por
-`GET /api/v1/legal/registration`, e cria usuário ativo, aceite imutável, hash
-Argon2id, sessão e auditoria na mesma transação.
-`user_password_credentials` separa o segredo da identidade e `user_sessions`
-persiste somente SHA-256 do bearer opaco. Cadastro e login têm limites locais
-por instância para tráfego global, IP e identidade, além de um teto fail-fast
-para operações Argon2 concorrentes. Um limitador no ingress continua
-obrigatório para impor o teto do cluster. Sessões expiradas ou revogadas são
-removidas após a retenção configurada, 30 dias por padrão.
-
-Cada requisição recebe um UUIDv7 interno em `x-request-id`, também usado para
-correlacionar eventos globais de autenticação. Valores enviados pelo cliente
-nesse header não viram identificadores da trilha forense. Para a tela cross-polo,
-`user_contract_polo_routes` revela ao ator apenas os IDs dos polos onde ele já
-contratou. Isso é um índice de roteamento, não uma autorização: contrato, ciclo
-e saldo são relidos dentro da RLS de cada polo.
-
-O endereço público de cada tenant fica na relação global 1:1 `polo_routes`.
-Ela resolve apenas `slug -> polo_id`; depois disso, até a leitura pública do
-catálogo entra numa transação com RLS e confirma que o polo está ativo. A
-policy pública permite somente leitura das rotas; mutações continuam presas ao
-`polo_id` ativo.
-
-O catálogo aceita paginação por cursor com `?limit=20&after=...` (`20` por
-padrão, máximo `100`) e devolve o próximo cursor em `meta.page.next_cursor`.
-Ele publica o catálogo comercial vigente do polo; disponibilidade individual,
-janelas e blackouts são regras da elegibilidade de resgate, não dessa vitrine
-pública.
-
-As contas de recebimento ficam em `merchant_accounts` e podem ser
-compartilhadas entre polos. A relação normalizada `polo_merchant_accounts`
-define quais contas cada polo pode usar, sua função e seu período de vigência.
-Pagamentos, intents e eventos do provedor usam chaves compostas para impedir
-que uma conta seja referenciada pelo tenant errado. O runtime lê apenas
-vínculos vigentes do polo atual; mutações são reservadas à role dona do schema.
-
-```sh
-mix db.migrate  # sobe o container e migra com clubeira_migrator
-mix db.reset    # recria o schema de desenvolvimento e reaplica as seeds
-docker compose stop
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#6D28D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#F59E0B', 'lineColor': '#F59E0B'}}}%%
+flowchart LR
+    E["1️⃣ enrollment<br/>SHA-256 do segredo"] --> G["2️⃣ grant assinado<br/>120s + nonce"]
+    G --> Q["3️⃣ QR / transporte"]
+    Q --> V["4️⃣ ponto de validação<br/>Authorization: Validation"]
+    V --> C["✅ confirm/2<br/>lock + ledger + outbox"]
 ```
 
-`docker compose down` remove somente o container e a rede. O comando
-`docker compose down -v` também apaga o volume e todos os dados locais.
+O enrollment aceita apenas um segredo de instalação gerado com 32 bytes
+aleatórios e persiste seu SHA-256. Usuário, polo e contrato são relidos da
+sessão e do banco; o limite de dispositivos vem da versão de policy congelada
+no contrato. O grant dura 120 segundos por padrão, vincula polo, ator,
+alocação, instalação e nonce, e não aceita IDs de ponto de validação do
+cliente. A confirmação deriva esse ponto de uma credencial ativa, executa a
+autenticação e `Clubeira.Redemptions.confirm/2` na mesma transação e mantém o
+replay idempotente.
 
-## Qualidade
+---
 
-```sh
-mix test
+## 🧪 Qualidade
+
+```bash
+mix test        # suíte completa
+mix test --failed
 mix quality     # format, compile, Credo, audits, Sobelow e testes
 mix dialyzer
 mix precommit   # formata e executa o quality gate
@@ -267,7 +501,38 @@ roda os gates de qualidade, compila em produção e constrói os assets.
 Localmente, `CLUBEIRA_TEST_DB_POOL_SIZE` permite ajustar o pool da suíte sem
 alterar a configuração versionada.
 
-## Limites atuais
+| Gate | O que cobre |
+|:--|:--|
+| `format --check-formatted` | formatação versionada |
+| `compile --warnings-as-errors` | zero warning novo |
+| `credo --strict` | consistência e code smells |
+| `deps.audit` + `hex.audit` | CVE e pacotes retirados |
+| `sobelow --config` | análise estática de segurança Phoenix |
+| `test` | 238 testes, incluindo contratos de RLS e concorrência real |
+
+---
+
+## 🗺️ Status
+
+| Fatia | Status |
+|:--|:--:|
+| Schema normalizado + RLS forçado | ✅ |
+| Cadastro, sessão e aceite legal | ✅ |
+| Catálogo, diretório e checkout-options públicos | ✅ |
+| Checkout autenticado e idempotente | ✅ |
+| Pix Mercado Pago (Orders API + webhook) | ✅ |
+| Contrato, ciclo e alocações | ✅ |
+| Resgate online autenticado | ✅ |
+| Avaliações verificadas + moderação | ✅ |
+| Outbox com HMAC, retry e dead-letter | ✅ |
+| Verificação de e-mail e recuperação de senha | ⏳ |
+| Cartão, reembolso e chargeback | ⏳ |
+| Renovação automática | ⏳ |
+| QR estático, placard e modo offline | ⏳ |
+| Mídia, resposta e denúncia em avaliações | ⏳ |
+
+<details>
+<summary><strong>📋 Limites atuais, na íntegra</strong></summary>
 
 - `POST /api/v1/auth/registrations` cria atomicamente a conta e uma sessão
   utilizável no checkout depois do aceite legal exato; verificação de email,
@@ -314,7 +579,26 @@ alterar a configuração versionada.
 - renovação automática, reembolso e chargeback ainda não fazem parte do fluxo
   operacional.
 
-## Documentação
+</details>
 
-- [Arquitetura](docs/architecture.md)
-- [Desenvolvimento](docs/development.md)
+---
+
+## 📚 Documentação
+
+| Documento | Conteúdo |
+|:--|:--|
+| [docs/architecture.md](docs/architecture.md) | decisões de domínio, multi-tenancy e evolução arquitetural |
+| [docs/development.md](docs/development.md) | toolchain, roles, migrations, seeds, Pix sandbox e outbox |
+| [AGENTS.md](AGENTS.md) | contrato de trabalho para humanos e agentes no repositório |
+
+---
+
+<div align="center">
+
+**Um app. Muitos polos. Zero vazamento entre eles.** 🎟️
+
+*Criado por Gabriel Maia*
+
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:F59E0B,100:6D28D9&height=100&section=footer" width="100%"/>
+
+</div>
