@@ -59,7 +59,6 @@ defmodule Clubeira.Repo.Migrations.EnableTenantRowLevelSecurity do
     platform_invoice_items
     platform_payments
     payment_provider_events
-    legal_acceptances
     domain_events
     tenant_audit_events
     tenant_idempotency_keys
@@ -96,6 +95,28 @@ defmodule Clubeira.Repo.Migrations.EnableTenantRowLevelSecurity do
       """)
     end)
 
+    execute("ALTER TABLE legal_acceptances ENABLE ROW LEVEL SECURITY")
+    execute("ALTER TABLE legal_acceptances FORCE ROW LEVEL SECURITY")
+
+    execute("""
+    CREATE POLICY legal_acceptances_scope ON legal_acceptances
+    FOR ALL
+    USING (
+      polo_id = NULLIF(current_setting('app.current_polo_id', true), '')::uuid
+      OR (
+        polo_id IS NULL
+        AND user_id = NULLIF(current_setting('app.current_actor_user_id', true), '')::uuid
+      )
+    )
+    WITH CHECK (
+      polo_id = NULLIF(current_setting('app.current_polo_id', true), '')::uuid
+      OR (
+        polo_id IS NULL
+        AND user_id = NULLIF(current_setting('app.current_actor_user_id', true), '')::uuid
+      )
+    );
+    """)
+
     execute("ALTER TABLE outbox_messages ENABLE ROW LEVEL SECURITY")
     execute("ALTER TABLE outbox_messages FORCE ROW LEVEL SECURITY")
 
@@ -127,6 +148,11 @@ defmodule Clubeira.Repo.Migrations.EnableTenantRowLevelSecurity do
     execute("DROP POLICY outbox_polo_isolation ON outbox_messages")
     execute("ALTER TABLE outbox_messages NO FORCE ROW LEVEL SECURITY")
     execute("ALTER TABLE outbox_messages DISABLE ROW LEVEL SECURITY")
+
+    execute("DROP POLICY IF EXISTS legal_acceptances_scope ON legal_acceptances")
+    execute("DROP POLICY IF EXISTS polo_isolation ON legal_acceptances")
+    execute("ALTER TABLE legal_acceptances NO FORCE ROW LEVEL SECURITY")
+    execute("ALTER TABLE legal_acceptances DISABLE ROW LEVEL SECURITY")
 
     Enum.each(Enum.reverse(@tenant_tables), fn table ->
       execute("DROP POLICY polo_isolation ON #{table}")

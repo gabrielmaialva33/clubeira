@@ -10,13 +10,14 @@ PostgreSQL, domínio normalizado e isolamento por Row-Level Security (RLS).
 
 ## O que já funciona
 
-- diretório e catálogo públicos, autenticação por sessão bearer revogável,
-  descoberta de assinaturas multi-polo e carteira de vouchers;
+- diretório e catálogo públicos, cadastro atômico, autenticação por sessão
+  bearer revogável, descoberta de assinaturas multi-polo e carteira de vouchers;
 - descoberta pública paginada das opções comerciais e preços aceitos pelo
   checkout do polo;
 - planos, contratos, ciclos e alocações de benefício independentes por polo;
-- checkout, histórico paginado de pedidos e liquidação de pagamento
-  transacionais, idempotentes e neutros em relação ao provedor;
+- checkout, histórico paginado de pedidos e pagamento Pix via Mercado Pago,
+  com criação autenticada, retry idempotente e webhook HMAC que relê a order
+  no provedor antes de liquidar;
 - contas de recebimento globais vinculadas explicitamente a cada polo, com
   vigência e integridade referencial entre tenant e conta;
 - resgate online atômico e histórico paginado do membro, com elegibilidade,
@@ -38,9 +39,11 @@ checkout autenticado
 ```
 
 A liquidação persiste esse resultado de forma atômica e aceita reprocessamento
-seguro. O adaptador HTTP/webhook do PSP e o protocolo de QR ainda são bordas a
-serem implementadas; o core não recebe webhook bruto nem confia em prova não
-autenticada.
+seguro. A primeira borda real de PSP usa a Orders API do Mercado Pago para Pix;
+payload bruto termina no adaptador e o core recebe somente uma captura
+normalizada depois da assinatura e do estado remoto serem verificados. Cartão,
+reembolso, chargeback e o protocolo de QR para resgate continuam fatias
+separadas.
 
 ## Subir o projeto
 
@@ -66,7 +69,9 @@ cenário determinístico com os polos Sobral e Londrina.
 
 As seeds criam `membro.demo@clubeira.local` com a senha local
 `clubeira-demo-local`. Defina `CLUBEIRA_DEMO_PASSWORD` antes de `mix setup` para
-trocar esse valor. O mesmo membro possui contratos independentes em Sobral e
+trocar esse valor. Para testar o sandbox Pix, defina também
+`CLUBEIRA_DEMO_EMAIL` com o e-mail do usuário de teste do Mercado Pago antes de
+rodar as seeds. O mesmo membro possui contratos independentes em Sobral e
 Londrina.
 
 ```sh
@@ -90,6 +95,13 @@ curl -sS -X POST http://localhost:4000/api/v1/polos/sobral/orders \
   -H 'idempotency-key: checkout-mobile-001' \
   -d '{"product_offering_version_id":"<uuid>","offering_price_id":"<uuid>"}'
 
+curl -sS -X POST \
+  http://localhost:4000/api/v1/polos/sobral/orders/<order_uuid>/payment-intents \
+  -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -H 'idempotency-key: payment-mobile-001' \
+  -d '{"payment_method":"pix"}'
+
 curl -sS http://localhost:4000/api/v1/polos/sobral/me/orders \
   -H "authorization: Bearer $TOKEN"
 
@@ -112,10 +124,20 @@ preço novamente no servidor. `GET /api/v1/polos/:slug/checkout-options`
 publica as combinações de `product_offering_version_id` e `offering_price_id`
 atualmente provisionáveis, também com cursor e limite máximo de `100`. Repetir
 a mesma seleção com a mesma chave devolve o pedido original; reutilizar a chave
-para outra seleção retorna conflito. O histórico de pedidos retorna somente os
-pedidos do ator naquele polo, do mais novo para o mais antigo, com os itens e
-valores históricos; ele usa `?limit=20&after=...` e limita cada página a `100`
-pedidos. O diretório público usa a mesma paginação para listar somente
+para outra seleção retorna conflito.
+
+O início do pagamento aceita hoje somente `pix`. A resposta contém uma ação
+normalizada com `redirect_url` e `copy_paste_code`; repetir a mesma chave
+devolve o mesmo intent sem criar outra order no PSP. Timeout ambíguo reutiliza
+o UUID interno do intent como `X-Idempotency-Key` no Mercado Pago. O webhook
+assinado relê `GET /v1/orders/:id`, provisiona contrato, ciclo e vouchers apenas
+para uma captura `processed/accredited`, fecha intents expirados e reconcilia
+notificações repetidas sem duplicar pagamento ou direito.
+
+O histórico de pedidos retorna somente os pedidos do ator naquele polo, do
+mais novo para o mais antigo, com os itens e valores históricos; ele usa
+`?limit=20&after=...` e limita cada página a `100` pedidos. O diretório público
+usa a mesma paginação para listar somente
 participações, lugares, marcas e operadores ativos, incluindo endereço e
 coordenadas quando cadastradas. Após um resgate confirmado, o membro pode
 enviar uma avaliação de `1` a `5` estrelas com texto não vazio. A API prova no
@@ -144,13 +166,14 @@ Toda operação tenant-aware recebe `Clubeira.Tenancy.Scope` e executa dentro de
 `Clubeira.Repo.transact_in_polo/3`. Sem escopo, as políticas não expõem linhas
 de polo.
 
-Autenticação é global: `user_password_credentials` separa o segredo da
-identidade e usa Argon2id; `user_sessions` persiste somente SHA-256 do bearer
-opaco. O login tem limites local por instância para tráfego global, IP e
-identidade, além de um teto fail-fast para verificações Argon2 concorrentes. Um
-limitador no ingress continua obrigatório para impor o teto do cluster. Sessões
-expiradas ou revogadas são removidas após a retenção configurada, 30 dias por
-padrão.
+Autenticação é global: `POST /api/v1/auth/registrations` valida e normaliza o
+email, cria usuário ativo, hash Argon2id, sessão e auditoria na mesma transação.
+`user_password_credentials` separa o segredo da identidade e `user_sessions`
+persiste somente SHA-256 do bearer opaco. Cadastro e login têm limites locais
+por instância para tráfego global, IP e identidade, além de um teto fail-fast
+para operações Argon2 concorrentes. Um limitador no ingress continua
+obrigatório para impor o teto do cluster. Sessões expiradas ou revogadas são
+removidas após a retenção configurada, 30 dias por padrão.
 
 Cada requisição recebe um UUIDv7 interno em `x-request-id`, também usado para
 correlacionar eventos globais de autenticação. Valores enviados pelo cliente
@@ -203,8 +226,15 @@ alterar a configuração versionada.
 
 ## Limites atuais
 
+- `POST /api/v1/auth/registrations` cria atomicamente a conta e uma sessão
+  utilizável no checkout; verificação de email e recuperação de senha ainda são
+  bordas próprias;
 - `POST /api/v1/polos/:polo_slug/orders` expõe o checkout autenticado e delega
   para `Clubeira.Billing.place_order/2`;
+- `POST /api/v1/polos/:polo_slug/orders/:order_id/payment-intents` inicia Pix
+  somente para o comprador autenticado e exige `Idempotency-Key`;
+- `POST /api/v1/webhooks/mercado-pago/:merchant_account_id` autentica a
+  assinatura do tópico Order e confirma o estado pela API do provedor;
 - `GET /api/v1/polos/:polo_slug/me/orders` lista somente os pedidos do membro
   autenticado no polo, com paginação keyset e itens históricos;
 - `GET /api/v1/polos/:polo_slug/checkout-options` expõe versões comerciais e
@@ -218,8 +248,8 @@ alterar a configuração versionada.
   e sua autoria, polo e lugar são revalidados sob RLS;
 - `GET /api/v1/polos/:polo_slug/me/redemptions` pagina somente os resgates
   bem-sucedidos do membro no polo e expõe o vínculo com sua avaliação do lugar;
-- `Clubeira.Billing.settle_payment/2` é uma porta interna e só aceita uma
-  captura cuja autenticidade já foi verificada pelo futuro adaptador do PSP;
+- `Clubeira.Billing.settle_payment/2` continua sendo a porta interna e só
+  aceita a captura normalizada pelo adaptador autenticado;
 - `Clubeira.Redemptions.confirm/2` recebe uma confirmação já autenticada; token,
   QR e autenticação do ponto de validação pertencem à borda de entrada;
 - a outbox é persistida atomicamente, mas o publicador assíncrono ainda será uma

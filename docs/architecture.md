@@ -125,11 +125,15 @@ autorização: o checkout autenticado relê todas as condições sob lock e RLS.
 
 ## Identidade e API do membro
 
-`users` continua sendo a identidade global mínima. Senhas ficam na relação 1:1
+`users` continua sendo a identidade global mínima. O cadastro público normaliza
+o email e persiste usuário ativo, credencial, sessão e os fatos globais de
+auditoria em uma única transação. Senhas ficam na relação 1:1
 `user_password_credentials`, nunca em `users`, e são derivadas com Argon2id.
 Sessões usam 32 bytes aleatórios; somente o digest SHA-256 é persistido em
 `user_sessions`, permitindo lookup indexado, expiração e revogação sem tornar
-um vazamento de banco equivalente a roubo imediato dos bearers ativos.
+um vazamento de banco equivalente a roubo imediato dos bearers ativos. Até a
+confirmação de email existir, o cadastro ativa a identidade imediatamente e
+essa limitação permanece explícita na API.
 
 `ClubeiraWeb.Plugs.ApiAuth` aceita exatamente um header `Authorization: Bearer`,
 valida sessão e usuário ativos e constrói `Clubeira.Accounts.Scope`. O cliente
@@ -138,8 +142,8 @@ context abre primeiro `Clubeira.Tenancy.ActorScope`; cada resultado é reaberto
 com `Clubeira.Tenancy.Scope` usando o mesmo ator e `request_id`. Trocar ator,
 request ou polo dentro de um escopo existente falha fechado.
 
-O endpoint de login é protegido antes do Argon2 por buckets global, de IP e de
-identidade normalizada. Os buckets específicos são debitados antes do global,
+Os endpoints de cadastro e login são protegidos antes do Argon2 por buckets
+global, de IP e de identidade normalizada. Os buckets específicos são debitados antes do global,
 evitando que um único peer consuma o orçamento compartilhado depois de já ter
 sido bloqueado. As chaves guardam somente fingerprints SHA-256; IPv4 usa o
 endereço e IPv6 é agrupado por `/64`. Hammer ancora cada janela no primeiro hit
@@ -148,9 +152,9 @@ deve compor a defesa para garantir o teto agregado do cluster. `conn.remote_ip`
 é a origem de rede considerada pela aplicação, então o proxy confiável deve
 preservar o IP correto sem permitir que o cliente forje esse valor.
 
-Um `PasswordGate` monitorado limita verificações Argon2 simultâneas e rejeita
-excesso sem criar fila ilimitada. Custo, paralelismo, concorrência e limites de
-login são configuração de runtime para permitir calibração por ambiente. O
+Um `PasswordGate` monitorado limita hashes e verificações Argon2 simultâneos e
+rejeita excesso sem criar fila ilimitada. Custo, paralelismo, concorrência e
+limites de autenticação são configuração de runtime para permitir calibração por ambiente. O
 header de resposta `x-request-id` é sempre um UUIDv7 gerado internamente e
 percorre scope e auditoria; o header homônimo recebido do cliente não é aceito
 como identidade forense. Criação/revogação de sessão e troca de senha geram
@@ -165,6 +169,7 @@ a política LGPD; tokens crus nunca são persistidos.
 
 As bordas iniciais são:
 
+- `POST /api/v1/auth/registrations` — cria conta e primeira sessão atomicamente;
 - `POST /api/v1/auth/sessions` — cria uma sessão opaca;
 - `DELETE /api/v1/auth/session` — revoga a sessão corrente;
 - `GET /api/v1/polos/:slug/checkout-options` — lista as combinações comerciais
@@ -174,6 +179,8 @@ As bordas iniciais são:
 - `POST /api/v1/polos/:slug/orders` — cria um pedido idempotente com ator e
   polo derivados da sessão e da rota, enquanto preço e moeda são relidos no
   tenant;
+- `POST /api/v1/polos/:slug/orders/:order_id/payment-intents` — inicia o Pix
+  do próprio comprador e devolve somente a ação normalizada para pagamento;
 - `GET /api/v1/polos/:slug/me/orders` — pagina os pedidos do ator naquele polo,
   incluindo os itens e preços históricos;
 - `GET /api/v1/polos/:slug/me/redemptions` — pagina os resgates confirmados do
@@ -202,6 +209,42 @@ cursor opaco e limite máximo de 100 pedidos. A página de pedidos é fechada an
 da leitura dos itens, evitando que o limite corte parte de um pedido. Tanto os
 pedidos quanto seus itens são relidos no mesmo escopo RLS e filtrados pelo ator;
 nenhum `user_id` recebido do cliente participa da autorização.
+
+## Pagamento Pix e borda do PSP
+
+`Clubeira.Billing.start_payment/2` reserva um `payment_intent` dentro da RLS,
+sob lock do pedido e com conta recebedora vigente. A chamada HTTP acontece
+depois do commit dessa reserva; o UUID do intent vira o `X-Idempotency-Key` da
+Orders API do Mercado Pago. Assim, timeout depois de o PSP criar a cobrança
+não mantém lock de banco nem autoriza uma segunda cobrança: o retry usa a mesma
+identidade local e remota.
+
+A `external_reference` transporta `polo_id + order_id` usando somente
+caracteres aceitos pelo provedor. Ela serve para roteamento de uma notificação,
+nunca para autorização. Pedido, ator, conta, valor e moeda são relidos sob RLS,
+FKs compostas e locks. Credenciais ficam em configuração de runtime por
+`provider_account_reference`; token e segredo de webhook não entram no banco,
+evento, auditoria ou log.
+
+`POST /api/v1/webhooks/mercado-pago/:merchant_account_id` confere a assinatura
+HMAC com `data.id`, `x-request-id` e `ts`, exige que query e body identifiquem a
+mesma order e então consulta `GET /v1/orders/:id` com a credencial da conta. O
+corpo da notificação nunca é prova de captura. O `x-request-id` autenticado é a
+identidade externa da entrega; retries idênticos e novas notificações do mesmo
+pagamento são reconciliados separadamente.
+
+Uma captura `processed/accredited` entra em `PaymentSettler` e grava evento do
+provedor, intent, payment, pedido pago, contrato, ciclo, alocações, auditoria,
+eventos de domínio, outbox e resposta idempotente na mesma transação. O caminho
+também recupera a janela em que o PSP respondeu, mas a conexão caiu antes de o
+`provider_reference` ser persistido. Estados terminais sem captura fecham o
+intent, limpam a ação Pix e liberam uma nova tentativa sem cancelar o pedido;
+essa transição também é auditada e publicada atomicamente.
+
+O adaptador persiste somente IDs externos e estado sanitizado. E-mail do
+pagador e conteúdo integral do QR não entram em provider events, auditoria nem
+outbox. Reembolso, chargeback, cartão e renovação automática continuam bordas
+próprias, sem alterar o contrato interno de captura.
 
 O histórico de resgates usa keyset decrescente sobre
 `redemption_attempts.requested_at + id`. Esse é também o índice composto por

@@ -35,10 +35,52 @@ determinísticas e idempotentes: representam Sobral, Londrina, uma franquia nos
 dois polos, um parceiro local apenas em Sobral e um membro com assinatura e
 ciclo independentes nos dois polos. A senha local padrão é
 `clubeira-demo-local`; use `CLUBEIRA_DEMO_PASSWORD` para substituí-la.
+As seeds também criam o provedor `mercado_pago`, uma conta global
+`mercado-pago-demo` e vínculos primários com os dois polos. A saída da seed
+mostra o UUID usado na URL do webhook.
 
 Factories vivem em `support/factory.ex` e são compiladas apenas em `dev` e
 `test`. Dados estruturais das seeds sempre recebem IDs e valores estáveis;
 Faker fica restrito a texto de apresentação irrelevante para a regra testada.
+
+## Mercado Pago Pix
+
+Configure as credenciais por conta em um único JSON. A chave externa precisa
+ser igual a `merchant_accounts.provider_account_reference`; no cenário demo é
+`mercado-pago-demo`:
+
+```sh
+export MERCADO_PAGO_ACCOUNTS_JSON='{
+  "mercado-pago-demo": {
+    "access_token": "APP_USR_REPLACE_ME",
+    "webhook_secret": "REPLACE_WITH_THE_ORDER_WEBHOOK_SECRET"
+  }
+}'
+```
+
+Configuração vazia, JSON inválido, token curto ou segredo menor que 32 bytes
+fazem o boot falhar sem imprimir a credencial. O mapa aceita várias contas e
+nenhuma delas é persistida no PostgreSQL.
+
+No sandbox, crie um usuário de teste no Mercado Pago e use seu e-mail antes de
+reaplicar as seeds, pois a API rejeita pagador de teste fora de `@testuser.com`:
+
+```sh
+export CLUBEIRA_DEMO_EMAIL='<payer_test_user>@testuser.com'
+mix db.reset
+```
+
+Na aplicação do Mercado Pago, selecione o tópico **Order (Mercado Pago)** e
+configure a URL HTTPS abaixo com o UUID exibido pelas seeds:
+
+```text
+https://<host>/api/v1/webhooks/mercado-pago/<merchant_account_id>
+```
+
+A integração segue a [Orders API](https://www.mercadopago.com.br/developers/pt/reference/online-payments/checkout-api/overview)
+e a validação oficial de [notificações Order](https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/notifications).
+Use o simulador do painel para provar `200`; uma captura real de sandbox ainda
+deve ser validada com credenciais próprias antes do deploy.
 
 ## Roles do banco
 
@@ -145,9 +187,10 @@ Clubeira.Repo.transact_as_actor(actor_scope, fn ->
 end)
 ```
 
-Tokens bearer crus nunca entram em fixtures, logs ou banco. Testes criam a
-senha via `Clubeira.Accounts.set_password/2`, autenticam pela API e verificam
-revogação/expiração em vez de fabricar um token persistido.
+Tokens bearer crus nunca entram em fixtures, logs ou banco. Testes de cadastro
+usam `Clubeira.Accounts.register/1`; fixtures que já possuem usuário criam a
+senha via `Clubeira.Accounts.set_password/2`. Em ambos os casos, autentique pela
+API e verifique revogação/expiração em vez de fabricar um token persistido.
 
 ## Controles de autenticação em produção
 
@@ -158,7 +201,7 @@ Os defaults são conservadores e todos os valores abaixo são validados no boot:
 | `ARGON2_T_COST` | `3` | iterações do Argon2id |
 | `ARGON2_M_COST` | `16` | expoente de memória do Argon2id |
 | `ARGON2_PARALLELISM` | `4` | lanes por derivação |
-| `ARGON2_MAX_CONCURRENCY` | `8` | verificações simultâneas por instância |
+| `ARGON2_MAX_CONCURRENCY` | `8` | hashes/verificações simultâneos por instância |
 | `LOGIN_RATE_GLOBAL_PER_SECOND` | `40` | admissões por instância e segundo |
 | `LOGIN_RATE_IP_PER_MINUTE` | `20` | admissões por peer IPv4 `/32` ou IPv6 `/64` e minuto |
 | `LOGIN_RATE_IDENTITY_PER_15_MINUTES` | `10` | admissões por identidade e 15 minutos |

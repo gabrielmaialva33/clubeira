@@ -69,12 +69,15 @@ cliente como prova de permissão.
   eventos e outbox atomicamente.
 - Timestamp informado pelo provedor é evidência externa; transições de estado e
   vigência usam o relógio transacional do banco.
+- A borda Pix do Mercado Pago autentica `x-signature`, exige identidade
+  consistente entre query e body e relê a order no PSP antes de normalizar uma
+  captura ou estado terminal. Não confie no corpo bruto do webhook.
 - `Clubeira.Redemptions.confirm/2` recebe uma confirmação previamente
   autenticada e consome o entitlement atomicamente, com idempotência e proteção
   contra replay.
-- QR, prova do ponto de validação, webhook HTTP, publicador da outbox,
-  renovações, reembolsos e chargebacks ainda são bordas próprias. Não simule
-  essas integrações dentro do core nem declare uma borda futura como pronta.
+- QR, prova do ponto de validação, publicador da outbox, renovações, reembolsos
+  e chargebacks ainda são bordas próprias. Não simule essas integrações dentro
+  do core nem declare uma borda futura como pronta.
 - Eventos de domínio e auditoria carregam IDs internos e o mínimo de dados.
   Nunca inclua bearer, senha, CPF, contato cifrado ou payload sensível completo.
 
