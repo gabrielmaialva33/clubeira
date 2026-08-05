@@ -35,6 +35,10 @@ determinísticas e idempotentes: representam Sobral, Londrina, uma franquia nos
 dois polos, um parceiro local apenas em Sobral e um membro com assinatura e
 ciclo independentes nos dois polos. A senha local padrão é
 `clubeira-demo-local`; use `CLUBEIRA_DEMO_PASSWORD` para substituí-la.
+As assinaturas demo passam pelos comandos reais `Billing.place_order/2` e
+`Billing.settle_payment/2`: pedido, intent, pagamento, evento do provedor,
+contrato, ciclo, alocações, auditoria, eventos e outbox nascem pela mesma
+fronteira transacional usada pela aplicação, em vez de serem montados à mão.
 O backoffice usa `moderador.demo@clubeira.local` com a senha local
 `clubeira-moderador-local`; substitua por `CLUBEIRA_DEMO_MODERATOR_EMAIL` e
 `CLUBEIRA_DEMO_MODERATOR_PASSWORD` em ambientes compartilhados. Esse usuário

@@ -9,8 +9,9 @@
 [![RLS](https://img.shields.io/badge/RLS-FORCED-16A34A?style=for-the-badge)](#-multi-tenancy)
 [![Tests](https://img.shields.io/badge/tests-238-6D28D9?style=for-the-badge)](./test)
 [![Migrations](https://img.shields.io/badge/migrations-123-F59E0B?style=for-the-badge)](./priv/repo/migrations)
+[![License](https://img.shields.io/badge/license-MIT-16A34A?style=for-the-badge)](./LICENSE)
 
-**[🏗️ Arquitetura](docs/architecture.md)** · **[🛠️ Desenvolvimento](docs/development.md)** · **[🤖 AGENTS.md](AGENTS.md)**
+**[🏗️ Arquitetura](docs/architecture.md)** · **[🛠️ Desenvolvimento](docs/development.md)** · **[🤝 Contribuir](CONTRIBUTING.md)** · **[🔐 Segurança](SECURITY.md)**
 
 ---
 
@@ -508,7 +509,7 @@ alterar a configuração versionada.
 | `credo --strict` | consistência e code smells |
 | `deps.audit` + `hex.audit` | CVE e pacotes retirados |
 | `sobelow --config` | análise estática de segurança Phoenix |
-| `test` | 238 testes, incluindo contratos de RLS e concorrência real |
+| `test` | 241 testes, incluindo contratos de RLS e concorrência real |
 
 ---
 
@@ -590,6 +591,27 @@ alterar a configuração versionada.
 | [docs/architecture.md](docs/architecture.md) | decisões de domínio, multi-tenancy e evolução arquitetural |
 | [docs/development.md](docs/development.md) | toolchain, roles, migrations, seeds, Pix sandbox e outbox |
 | [AGENTS.md](AGENTS.md) | contrato de trabalho para humanos e agentes no repositório |
+
+---
+
+## 🤝 Contribuindo
+
+```bash
+git checkout -b feat/sua-fatia
+mix precommit   # tem que passar antes de abrir o PR
+```
+
+Leia o [CONTRIBUTING.md](CONTRIBUTING.md) antes: ele descreve o fluxo, os
+invariantes inegociáveis de tenancy e transação, as regras de migration e o
+padrão de commit. Participar do projeto implica seguir o
+[Código de Conduta](CODE_OF_CONDUCT.md).
+
+Encontrou uma vulnerabilidade? **Não abra issue pública** — siga o
+[SECURITY.md](SECURITY.md).
+
+## 📄 Licença
+
+Distribuído sob a licença [MIT](LICENSE).
 
 ---
 
