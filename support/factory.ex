@@ -513,7 +513,7 @@ defmodule Clubeira.Factory do
 
     %ValidationCredential{
       version: 1,
-      kind: "manual_code",
+      kind: "api_key",
       secret_hash: :crypto.hash(:sha256, "validation-credential-#{number}"),
       valid_during: tstz_range(@default_range_start),
       status: "active",

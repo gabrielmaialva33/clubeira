@@ -589,7 +589,7 @@ defmodule Clubeira.RedemptionsFixtures do
           polo_id: ids.polo,
           validation_point_id: ids.validation_point,
           version: 1,
-          kind: "manual_code",
+          kind: "api_key",
           secret_hash: :crypto.hash(:sha256, decoded_secret),
           valid_during: active,
           status: "active"

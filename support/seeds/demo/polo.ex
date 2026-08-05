@@ -132,7 +132,7 @@ defmodule Clubeira.Seeds.Demo.Polo do
           polo_id: polo.id,
           validation_point_id: validation_point.id,
           version: 1,
-          kind: "manual_code",
+          kind: "api_key",
           secret_hash: secret_hash,
           valid_during: active_range(),
           status: "active",

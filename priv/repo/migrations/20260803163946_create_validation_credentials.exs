@@ -40,7 +40,8 @@ defmodule Clubeira.Repo.Migrations.CreateValidationCredentials do
            )
 
     create constraint(:validation_credentials, :validation_credentials_kind_check,
-             check: "kind IN ('static_qr', 'rotating_qr', 'nfc', 'manual_code', 'public_key')"
+             check:
+               "kind IN ('static_qr', 'rotating_qr', 'nfc', 'manual_code', 'public_key', 'api_key')"
            )
 
     create constraint(:validation_credentials, :validation_credentials_material_check,

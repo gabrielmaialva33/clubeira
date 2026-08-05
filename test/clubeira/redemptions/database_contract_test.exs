@@ -66,4 +66,17 @@ defmodule Clubeira.Redemptions.DatabaseContractTest do
     assert definition =~ "(secret_hash)"
     assert definition =~ "WHERE (secret_hash IS NOT NULL)"
   end
+
+  test "validation API keys use an explicit credential kind" do
+    assert %{rows: [[definition]]} =
+             Repo.query!("""
+             SELECT pg_get_constraintdef(db_constraint.oid)
+             FROM pg_constraint AS db_constraint
+             JOIN pg_class AS table_class ON table_class.oid = db_constraint.conrelid
+             WHERE table_class.relname = 'validation_credentials'
+               AND db_constraint.conname = 'validation_credentials_kind_check'
+             """)
+
+    assert definition =~ "'api_key'"
+  end
 end
