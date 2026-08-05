@@ -277,8 +277,18 @@ serializa tentativas concorrentes do mesmo ator/lugar e grava o aggregate
 na mesma transação. Rating e IDs internos podem compor o evento; título e corpo
 permanecem somente no histórico UGC e não são copiados para audit/outbox.
 
-Publicação, rejeição, edição, mídia, resposta do parceiro e denúncia pertencem
-às bordas de moderação seguintes. Submissão não publica conteúdo implicitamente.
+Submissão não publica conteúdo implicitamente. A fila autenticada relê uma
+membership ativa do polo e aceita somente os role keys estáveis `admin` ou
+`review_moderator`; `roles` recebidos em um scope nunca substituem essa prova.
+Publicar ou rejeitar trava o review `pending`, prova que seu resgate de origem é
+do mesmo polo e grava estado terminal, `moderation_action` append-only,
+idempotência, auditoria, evento e outbox na mesma transação. O motivo completo
+fica apenas no histórico de moderação e não vaza para audit/outbox.
+
+O feed público retorna somente reviews `published`, vinculados por seu resgate
+ao polo da rota, e sempre lê a revisão imutável mais recente. Edição, mídia,
+resposta do parceiro, denúncia, ocultação e remoção pós-publicação continuam
+bordas próprias.
 
 `GET /api/v1/polos/:slug/me/redemptions` fornece ao cliente o
 `source_redemption_id` e o `place_id` necessários para essa submissão. Quando o

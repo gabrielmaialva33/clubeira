@@ -25,7 +25,8 @@ PostgreSQL, domínio normalizado e isolamento por Row-Level Security (RLS).
   curto, autenticação do ponto de validação e resgate online atômico, com
   proteção contra replay, ledger, auditoria, eventos de domínio e outbox;
 - submissão autenticada e idempotente de avaliações verificadas por resgate,
-  com revisão inicial imutável e moderação pendente;
+  fila de moderação autorizada por polo, decisão append-only e feed público
+  somente de conteúdo publicado;
 - migrations, seeds, factories, RLS forçado e testes de concorrência contra
   bancos isolados reais.
 
@@ -289,6 +290,11 @@ alterar a configuração versionada.
 - `POST /api/v1/polos/:polo_slug/places/:place_id/reviews` cria uma avaliação
   verificada para o membro autenticado; o resgate informado é somente evidência
   e sua autoria, polo e lugar são revalidados sob RLS;
+- `GET /api/v1/polos/:polo_slug/places/:place_id/reviews` lista somente
+  avaliações publicadas daquele lugar e polo, com paginação keyset;
+- `GET /api/v1/polos/:polo_slug/backoffice/reviews` entrega a fila ao papel
+  `review_moderator` ou `admin`; o endpoint de `moderation-actions` publica ou
+  rejeita sob lock, idempotência, auditoria, evento e outbox;
 - `GET /api/v1/polos/:polo_slug/me/redemptions` pagina somente os resgates
   bem-sucedidos do membro no polo e expõe o vínculo com sua avaliação do lugar;
 - `POST /api/v1/polos/:polo_slug/me/redemption-devices` autoriza uma instalação
@@ -303,7 +309,7 @@ alterar a configuração versionada.
 - a outbox é persistida atomicamente e o worker opcional entrega envelopes por
   HTTPS com HMAC, deduplicação por `event_id`, retry exponencial, lease
   recuperável e dead-letter;
-- publicação/moderação, edição, mídia, respostas e denúncias de avaliações
+- edição, mídia, respostas, denúncias e ações pós-publicação de avaliações
   continuam como fatias próprias;
 - renovação automática, reembolso e chargeback ainda não fazem parte do fluxo
   operacional.

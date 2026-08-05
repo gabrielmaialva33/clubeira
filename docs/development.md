@@ -35,6 +35,10 @@ determinísticas e idempotentes: representam Sobral, Londrina, uma franquia nos
 dois polos, um parceiro local apenas em Sobral e um membro com assinatura e
 ciclo independentes nos dois polos. A senha local padrão é
 `clubeira-demo-local`; use `CLUBEIRA_DEMO_PASSWORD` para substituí-la.
+O backoffice usa `moderador.demo@clubeira.local` com a senha local
+`clubeira-moderador-local`; substitua por `CLUBEIRA_DEMO_MODERATOR_EMAIL` e
+`CLUBEIRA_DEMO_MODERATOR_PASSWORD` em ambientes compartilhados. Esse usuário
+recebe o papel `review_moderator` nos dois polos sem qualquer bypass de RLS.
 As seeds também criam o provedor `mercado_pago`, uma conta global
 `mercado-pago-demo` e vínculos primários com os dois polos. A saída da seed
 mostra o UUID usado na URL do webhook. Sobral recebe ainda um ponto de
