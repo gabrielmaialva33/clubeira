@@ -278,7 +278,7 @@ Os defaults são conservadores e todos os valores abaixo são validados no boot:
 | `PASSWORD_RESET_CONFIRM_RATE_TOKEN_PER_15_MINUTES` | `10` | tentativas por fingerprint de token e 15 minutos |
 | `PASSWORD_RESET_TOKEN_TTL_MINUTES` | `30` | validade do token, entre 5 e 120 minutos |
 | `PASSWORD_RESET_URL` | obrigatória | URL HTTPS da tela que recebe `?token=...` |
-| `MAILER_PROVIDER` | `resend` obrigatório | adapter de produção aceito no boot |
+| `MAILER_PROVIDER` | obrigatória (`resend`) | adapter de produção aceito no boot |
 | `MAILER_FROM_EMAIL` | obrigatória | remetente verificado usado pelo Clubeira |
 | `RESEND_API_KEY` | obrigatória | credencial do provider, nunca persistida |
 | `REDEMPTION_GRANT_MAX_AGE_SECONDS` | `120` | validade do grant assinado, entre 30 e 600 segundos |
@@ -294,7 +294,9 @@ Em desenvolvimento, solicitações de recuperação aparecem em
 `MAILER_PROVIDER=resend`, um remetente já verificado e a chave via secret
 manager; ausência ou valor inválido impede o boot. A resposta pública continua
 `202` mesmo se a entrega falhar, enquanto a credencial é revogada e a falha
-vira telemetria sem email ou token.
+vira telemetria sem email ou token. Jobs com
+`CLUBEIRA_DATABASE_ROLE_MODE=migrator` não precisam receber os segredos do
+mailer.
 
 ## Operação local
 
