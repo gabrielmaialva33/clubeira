@@ -117,9 +117,9 @@ os doze primeiros caracteres podem ser letras ASCII ou dígitos e os dois
 [especificação técnica da Receita Federal](https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/documentos-tecnicos/cnpj).
 O valor normalizado é cifrado com AES-256-GCM e nonce aleatório; unicidade usa
 um HMAC-SHA-256 estável e separado da chave de cifra. A versão da chave de
-cifra acompanha cada linha, permitindo rotação sem alterar a identidade de
-busca. CNPJ, ciphertext e lookup token nunca entram na resposta, auditoria,
-evento ou outbox.
+cifra acompanha cada linha e prepara uma recifragem futura sem alterar a
+identidade de busca. CNPJ, ciphertext e lookup token nunca entram na resposta,
+auditoria, evento ou outbox.
 
 Conflitos de CNPJ e slug são executados em savepoints: o comando remove apenas
 as linhas globais provisórias e finaliza a idempotência como conflito, sem

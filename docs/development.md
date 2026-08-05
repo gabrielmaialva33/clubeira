@@ -72,11 +72,11 @@ export IDENTIFIER_ENCRYPTION_KEY_BASE64="$(openssl rand -base64 32 | tr '+/' '-_
 export IDENTIFIER_LOOKUP_KEY_BASE64="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
 ```
 
-Guarde os valores num secret manager. Ao rotacionar a cifra, incremente a
-versão e mantenha versões anteriores disponíveis durante a futura rotina de
-recifragem. A chave de lookup permanece estável para preservar a unicidade
-global. A role migrator não precisa dessas chaves; elas são obrigatórias apenas
-no runtime de produção.
+Guarde os valores num secret manager. O writer atual carrega somente a chave de
+cifra ativa: não incremente a versão antes de existir a rotina de leitura e
+recifragem que carregará também a versão anterior. A chave de lookup permanece
+estável para preservar a unicidade global. A role migrator não precisa dessas
+chaves; elas são obrigatórias apenas no runtime de produção.
 
 ## Mercado Pago Pix
 
