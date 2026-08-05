@@ -105,6 +105,37 @@ versão histórica. O grant expira em 120 segundos por padrão. O endpoint final
 rejeita polo divergente, assinatura alterada, chave revogada/expirada e replay
 de nonce antes de qualquer segundo consumo.
 
+## Publicador da outbox
+
+Em produção, habilite uma única integração HTTPS por configuração de runtime:
+
+```sh
+export OUTBOX_PUBLISHER_ENABLED=true
+export OUTBOX_WEBHOOK_URL='https://events.example.com/clubeira'
+export OUTBOX_WEBHOOK_SECRET='<pelo-menos-32-bytes-aleatorios>'
+```
+
+Os defaults são lote `50`, ciclo de `1s`, timeout HTTP de `10s`, lease de
+`60s`, máximo de `10` tentativas e backoff entre `1s` e `1h`. Todos podem ser
+ajustados por `OUTBOX_BATCH_SIZE`, `OUTBOX_INTERVAL_MS`,
+`OUTBOX_HTTP_TIMEOUT_MS`, `OUTBOX_LOCK_TIMEOUT_MS`, `OUTBOX_MAX_ATTEMPTS`,
+`OUTBOX_RETRY_BASE_MS` e `OUTBOX_RETRY_MAX_MS`; valores inválidos abortam o
+boot.
+
+Cada instância pode executar o worker: claims PostgreSQL com `SKIP LOCKED`
+coordenam réplicas sem eleição de líder. A requisição usa `Content-Type:
+application/json` e envia `x-clubeira-event-id`, `x-clubeira-topic`,
+`x-clubeira-message-key`, `x-clubeira-timestamp` e
+`x-clubeira-signature`. A assinatura é `v1=` seguida do HMAC-SHA256 hexadecimal
+de `timestamp <> "." <> body`.
+
+O consumer precisa validar a assinatura em tempo constante, recusar timestamps
+fora de sua janela e persistir `event_id` como chave idempotente antes do `2xx`.
+Qualquer outro status ou erro de transporte agenda retry exponencial; depois de
+`OUTBOX_MAX_ATTEMPTS`, a mensagem permanece em `dead_letter` para inspeção e
+reprocessamento operacional. O corpo de erro do consumer e o segredo nunca são
+persistidos em `last_error`.
+
 ## Roles do banco
 
 O desenvolvimento inicia a aplicação como `clubeira_app`. Cada conexão valida

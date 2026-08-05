@@ -368,11 +368,21 @@ evoluções da borda, sem alterar o contrato interno já autenticado.
 
 `domain_events` preserva fatos operacionais imutáveis, mas seus payloads devem
 carregar IDs internos e o mínimo de dados, nunca CPF, contato cifrado ou outro
-dado pessoal direto. `outbox_messages` é estado de transporte e poderá ser
-expurgado depois de publicado conforme uma política operacional. Quando volume
-justificar particionamento, arquivamento ou descarte de eventos ocorrerá por
-operação privilegiada e auditada da role de migration, nunca por deleção da
-role web.
+dado pessoal direto. `outbox_messages` é estado de transporte. O worker faz
+claim tenant-aware com `FOR UPDATE SKIP LOCKED`, libera a transação antes do I/O
+HTTPS e finaliza somente o claim que ainda possui. Claims abandonados voltam a
+ser entregues depois do lease; portanto a semântica é at-least-once e o
+consumer deve deduplicar por `event_id`. Falhas usam backoff exponencial
+limitado e terminam em `dead_letter` após o máximo configurado.
+
+O envelope é assinado sobre os bytes exatos enviados, sem carregar o segredo:
+`v1=hex(HMAC-SHA256(secret, timestamp <> "." <> body))`. O consumer deve
+comparar em tempo constante, impor uma janela curta ao timestamp Unix e só
+responder `2xx` depois de persistir idempotentemente o evento. Mensagens
+publicadas poderão ser expurgadas conforme uma política operacional. Quando
+volume justificar particionamento, arquivamento ou descarte de eventos ocorrerá
+por operação privilegiada e auditada da role de migration, nunca por deleção
+da role web.
 
 O primeiro evento de um resgate usa `sequence = 1` e
 `aggregate_version = 1`. Reversão ou qualquer novo evento do mesmo aggregate

@@ -300,8 +300,9 @@ alterar a configuração versionada.
   aceita a captura normalizada pelo adaptador autenticado;
 - `Clubeira.Redemptions.confirm/2` permanece a porta interna já autenticada; a
   borda HTTP acima verifica grant e credencial antes de montar esse comando;
-- a outbox é persistida atomicamente, mas o publicador assíncrono ainda será uma
-  fatia própria;
+- a outbox é persistida atomicamente e o worker opcional entrega envelopes por
+  HTTPS com HMAC, deduplicação por `event_id`, retry exponencial, lease
+  recuperável e dead-letter;
 - publicação/moderação, edição, mídia, respostas e denúncias de avaliações
   continuam como fatias próprias;
 - renovação automática, reembolso e chargeback ainda não fazem parte do fluxo
