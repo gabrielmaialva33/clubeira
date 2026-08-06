@@ -22,6 +22,9 @@ defmodule Clubeira.Redemptions do
   alias Clubeira.Redemptions.Redemption
   alias Clubeira.Redemptions.RedemptionAttempt
   alias Clubeira.Redemptions.RedemptionReader
+  alias Clubeira.Redemptions.ValidationCredentialRevoker
+  alias Clubeira.Redemptions.ValidationCredentialRotator
+  alias Clubeira.Redemptions.ValidationPointProvisioner
   alias Clubeira.Repo
   alias Clubeira.Tenancy.Scope
 
@@ -66,6 +69,33 @@ defmodule Clubeira.Redemptions do
   defdelegate confirm_grant(polo_slug, attributes, context),
     to: AuthenticatedConfirmation,
     as: :confirm
+
+  @doc """
+  Provisions an API validation point for an active place participation.
+  """
+  @spec provision_validation_point(Scope.t(), Ecto.UUID.t(), map()) ::
+          {:ok, ValidationPointProvisioner.result()} | {:error, term()}
+  defdelegate provision_validation_point(scope, place_id, attributes),
+    to: ValidationPointProvisioner,
+    as: :provision
+
+  @doc """
+  Replaces the current API validation credential with a new immutable version.
+  """
+  @spec rotate_validation_credential(Scope.t(), Ecto.UUID.t(), map()) ::
+          {:ok, ValidationCredentialRotator.result()} | {:error, term()}
+  defdelegate rotate_validation_credential(scope, credential_id, attributes),
+    to: ValidationCredentialRotator,
+    as: :rotate
+
+  @doc """
+  Revokes the current API validation credential without replacing it.
+  """
+  @spec revoke_validation_credential(Scope.t(), Ecto.UUID.t(), map()) ::
+          {:ok, ValidationCredentialRevoker.result()} | {:error, term()}
+  defdelegate revoke_validation_credential(scope, credential_id, attributes),
+    to: ValidationCredentialRevoker,
+    as: :revoke
 
   @spec confirm(Scope.t(), map()) ::
           {:ok, Redemption.t()} | {:error, error_reason() | Ecto.Changeset.t()}

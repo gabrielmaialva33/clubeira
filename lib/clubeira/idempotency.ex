@@ -55,9 +55,28 @@ defmodule Clubeira.Idempotency do
 
   @spec complete!(module(), Ecto.UUID.t(), String.t(), Ecto.UUID.t(), map(), DateTime.t()) :: :ok
   def complete!(repo, id, resource_type, resource_id, response_body, now) do
+    complete!(repo, id, resource_type, resource_id, response_body, now, [])
+  end
+
+  @spec complete!(
+          module(),
+          Ecto.UUID.t(),
+          String.t(),
+          Ecto.UUID.t(),
+          map(),
+          DateTime.t(),
+          keyword()
+        ) :: :ok
+  def complete!(repo, id, resource_type, resource_id, response_body, now, options) do
+    response_status = Keyword.get(options, :response_status, 201)
+
+    unless response_status in 200..299 do
+      raise ArgumentError, "response_status must be between 200 and 299"
+    end
+
     transition!(repo, id, %{
       status: "completed",
-      response_status: 201,
+      response_status: response_status,
       response_body: response_body,
       resource_type: resource_type,
       resource_id: resource_id,
