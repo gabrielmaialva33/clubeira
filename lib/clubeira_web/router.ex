@@ -114,6 +114,7 @@ defmodule ClubeiraWeb.Router do
     pipe_through [:api, :authenticated_api]
 
     delete "/auth/session", AuthSessionController, :delete
+    get "/me", AccountController, :show
     get "/me/subscriptions", SubscriptionController, :index
     post "/polos/:polo_slug/orders", CheckoutController, :create
     post "/polos/:polo_slug/orders/:order_id/payment-intents", PaymentIntentController, :create

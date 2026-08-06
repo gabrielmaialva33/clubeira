@@ -76,6 +76,25 @@ defmodule ClubeiraWeb.EmailVerificationControllerTest do
              resource_id: ^user_id
            } = Repo.get_by!(SystemEvent, request_id: verification_conn.assigns.request_id)
 
+    assert %{
+             "data" => %{
+               "user" => %{
+                 "id" => ^user_id,
+                 "email" => "verify@example.test",
+                 "email_verified_at" => verified_at
+               },
+               "session" => %{"expires_at" => session_expires_at}
+             }
+           } =
+             conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{session["access_token"]}")
+             |> get(~p"/api/v1/me")
+             |> json_response(200)
+
+    assert {:ok, _verified_at, 0} = DateTime.from_iso8601(verified_at)
+    assert {:ok, _session_expires_at, 0} = DateTime.from_iso8601(session_expires_at)
+
     assert verification_conn
            |> recycle()
            |> post(~p"/api/v1/auth/email-verifications", %{"token" => token})
