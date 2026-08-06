@@ -1,6 +1,6 @@
 defmodule Clubeira.Catalog do
   @moduledoc """
-  Read operations for the published catalog of a polo.
+  Published catalog reads and administrative publication commands for a polo.
 
   A public route may resolve the tenant before authentication, but all tenant
   data is still read inside `Clubeira.Repo.transact_in_polo/3` and filtered to
@@ -10,6 +10,7 @@ defmodule Clubeira.Catalog do
   import Ecto.Query
 
   alias Clubeira.Catalog.BenefitOffer
+  alias Clubeira.Catalog.BenefitOfferPublisher
   alias Clubeira.Catalog.BenefitOfferVersion
   alias Clubeira.Catalog.BenefitOfferVersionPlace
   alias Clubeira.Directory.Place
@@ -36,6 +37,15 @@ defmodule Clubeira.Catalog do
         }
 
   @type fetch_error :: :invalid_pagination | :polo_not_found
+
+  @doc """
+  Publishes a new benefit and its immutable first version at one active place.
+  """
+  @spec publish_benefit_offer(Scope.t(), Ecto.UUID.t(), map()) ::
+          {:ok, BenefitOfferPublisher.result()} | {:error, term()}
+  defdelegate publish_benefit_offer(scope, place_id, attributes),
+    to: BenefitOfferPublisher,
+    as: :publish
 
   @spec fetch_public(String.t(), map()) :: {:ok, public_catalog()} | {:error, fetch_error()}
   def fetch_public(slug, params \\ %{})
