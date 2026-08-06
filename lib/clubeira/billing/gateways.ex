@@ -105,7 +105,11 @@ defmodule Clubeira.Billing.Gateways do
   end
 
   @spec fetch_payment(String.t(), MerchantAccount.t(), String.t()) ::
-          {:ok, :pending | {:terminal, terminal_payment()} | captured_payment()}
+          {:ok,
+           :pending
+           | {:terminal, terminal_payment()}
+           | {:refunded, refunded_payment()}
+           | captured_payment()}
           | {:error, atom()}
   def fetch_payment("mercado_pago", %MerchantAccount{} = account, provider_reference) do
     MercadoPago.fetch_order(account, provider_reference)

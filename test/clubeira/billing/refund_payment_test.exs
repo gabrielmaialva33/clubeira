@@ -3,6 +3,7 @@ defmodule Clubeira.Billing.RefundPaymentTest do
 
   import Ecto.Query
 
+  alias Clubeira.Audit.TenantEvent
   alias Clubeira.Billing
   alias Clubeira.Billing.Gateways.MercadoPago
   alias Clubeira.Billing.Payment
@@ -14,7 +15,7 @@ defmodule Clubeira.Billing.RefundPaymentTest do
 
   @access_token "test-refund-access-token"
 
-  test "an authorized full refund revokes only the remaining entitlement balance" do
+  test "an authorized full refund revokes remaining balance without erasing issuance history" do
     fixture = BillingFixtures.create!()
     admin_scope = grant_admin!(fixture)
     configure_mercado_pago!(fixture)
@@ -38,6 +39,7 @@ defmodule Clubeira.Billing.RefundPaymentTest do
       assert request.method == "POST"
       assert request.request_path == "/v1/orders/#{fixture.provider_reference}/refund"
       assert Plug.Conn.get_req_header(request, "authorization") == ["Bearer #{@access_token}"]
+
       assert [provider_idempotency_key] =
                Plug.Conn.get_req_header(request, "x-idempotency-key")
 
@@ -46,33 +48,7 @@ defmodule Clubeira.Billing.RefundPaymentTest do
 
       request
       |> Plug.Conn.put_status(:created)
-      |> Req.Test.json(%{
-        id: fixture.provider_reference,
-        status: "refunded",
-        status_detail: "refunded",
-        external_reference: "#{fixture.polo.id}_#{order.id}",
-        total_amount: Decimal.to_string(order.total_amount),
-        currency: order.currency,
-        last_updated_date: DateTime.to_iso8601(DateTime.utc_now(:microsecond)),
-        transactions: %{
-          payments: [
-            %{
-              id: fixture.provider_reference,
-              status: "refunded",
-              status_detail: "refunded",
-              amount: Decimal.to_string(order.total_amount)
-            }
-          ],
-          refunds: [
-            %{
-              id: provider_refund_reference,
-              transaction_id: fixture.provider_reference,
-              amount: Decimal.to_string(order.total_amount),
-              status: "processed"
-            }
-          ]
-        }
-      })
+      |> Req.Test.json(refund_order_response(fixture, order, provider_refund_reference))
     end)
 
     assert {:ok, refund} =
@@ -124,7 +100,11 @@ defmodule Clubeira.Billing.RefundPaymentTest do
                             AND contracts.id = $3
                           GROUP BY orders.status, contracts.status, cycles.status
                           """,
-                          [order.id, fixture.polo.id, contract.id]
+                          [
+                            Ecto.UUID.dump!(order.id),
+                            Ecto.UUID.dump!(fixture.polo.id),
+                            Ecto.UUID.dump!(contract.id)
+                          ]
                         )
 
                refund_event =
@@ -137,11 +117,142 @@ defmodule Clubeira.Billing.RefundPaymentTest do
                  )
 
                assert refund_event.aggregate_version == 1
-               assert repo.get_by!(OutboxMessage, domain_event_id: refund_event.id).topic ==
-                        "billing.refunds.succeeded"
+
+               outbox = repo.get_by!(OutboxMessage, domain_event_id: refund_event.id)
+               assert outbox.topic == "billing.refunds.succeeded"
+
+               audit =
+                 repo.get_by!(TenantEvent,
+                   action: "refund.succeeded",
+                   resource_id: refund.id
+                 )
+
+               assert audit.metadata["reason"] == "Cancelamento solicitado pelo assinante"
+
+               assert repo.aggregate(
+                        from(entry in Clubeira.Subscriptions.EntitlementLedgerEntry,
+                          where: entry.entry_kind == "initial_grant"
+                        ),
+                        :count
+                      ) == 2
+
+               refute inspect([refund_event.payload, refund_event.metadata, outbox.payload]) =~
+                        "Cancelamento solicitado pelo assinante"
 
                {:ok, :verified}
              end)
+  end
+
+  test "a retry after an ambiguous provider failure reuses the reserved refund" do
+    fixture = BillingFixtures.create!()
+    admin_scope = grant_admin!(fixture)
+    configure_mercado_pago!(fixture)
+    {order, payment} = captured_payment!(fixture)
+
+    attributes = %{
+      idempotency_key: "refund-ambiguous-retry",
+      reason: "Solicitação de cancelamento confirmada"
+    }
+
+    test_process = self()
+
+    Req.Test.expect(MercadoPago, fn request ->
+      [provider_key] = Plug.Conn.get_req_header(request, "x-idempotency-key")
+      send(test_process, {:provider_key, provider_key})
+      Req.Test.transport_error(request, :timeout)
+    end)
+
+    assert {:error, :payment_gateway_unavailable} =
+             Billing.refund_payment(admin_scope, payment.id, attributes)
+
+    assert_receive {:provider_key, first_provider_key}
+
+    Req.Test.expect(MercadoPago, fn request ->
+      [provider_key] = Plug.Conn.get_req_header(request, "x-idempotency-key")
+      send(test_process, {:provider_key, provider_key})
+
+      request
+      |> Plug.Conn.put_status(:created)
+      |> Req.Test.json(refund_order_response(fixture, order, "REF01JQ4S4KY8HWQ6NA5PXB65B3D6"))
+    end)
+
+    assert {:ok, refund} = Billing.refund_payment(admin_scope, payment.id, attributes)
+    assert_receive {:provider_key, second_provider_key}
+    assert first_provider_key == refund.id
+    assert second_provider_key == first_provider_key
+
+    assert {:ok, replayed} = Billing.refund_payment(admin_scope, payment.id, attributes)
+    assert replayed.id == refund.id
+  end
+
+  test "a definitive provider rejection is stable and leaves the captured sale untouched" do
+    fixture = BillingFixtures.create!()
+    admin_scope = grant_admin!(fixture)
+    configure_mercado_pago!(fixture)
+    {order, payment} = captured_payment!(fixture)
+
+    attributes = %{
+      idempotency_key: "refund-definitive-rejection",
+      reason: "Pedido revisado e aprovado pelo atendimento"
+    }
+
+    Req.Test.expect(MercadoPago, fn request ->
+      request
+      |> Plug.Conn.put_status(:bad_request)
+      |> Req.Test.json(%{message: "refund_not_available"})
+    end)
+
+    assert {:error, :payment_gateway_rejected} =
+             Billing.refund_payment(admin_scope, payment.id, attributes)
+
+    assert {:error, :payment_gateway_rejected} =
+             Billing.refund_payment(admin_scope, payment.id, attributes)
+
+    assert {:ok, :verified} =
+             Repo.transact_in_polo(admin_scope, fn repo ->
+               refund = repo.one!(Clubeira.Billing.Refund)
+               assert refund.status == "failed"
+               assert refund.failure_reason == "payment_gateway_rejected"
+               assert repo.get!(Payment, payment.id).status == "captured"
+
+               assert repo.one!(
+                        from(persisted_order in Clubeira.Subscriptions.Order,
+                          where: persisted_order.id == ^order.id,
+                          select: persisted_order.status
+                        )
+                      ) == "paid"
+
+               refute repo.exists?(
+                        from(event in DomainEvent,
+                          where: event.event_type == "refund.succeeded"
+                        )
+                      )
+
+               {:ok, :verified}
+             end)
+  end
+
+  test "the same idempotency key cannot be reused with another reason" do
+    fixture = BillingFixtures.create!()
+    admin_scope = grant_admin!(fixture)
+    configure_mercado_pago!(fixture)
+    {_order, payment} = captured_payment!(fixture)
+
+    Req.Test.expect(MercadoPago, fn request ->
+      Req.Test.transport_error(request, :timeout)
+    end)
+
+    assert {:error, :payment_gateway_unavailable} =
+             Billing.refund_payment(admin_scope, payment.id, %{
+               idempotency_key: "refund-conflicting-reuse",
+               reason: "Motivo original validado"
+             })
+
+    assert {:error, :idempotency_conflict} =
+             Billing.refund_payment(admin_scope, payment.id, %{
+               idempotency_key: "refund-conflicting-reuse",
+               reason: "Outro motivo para a mesma chave"
+             })
   end
 
   defp payment!(fixture) do
@@ -151,6 +262,52 @@ defmodule Clubeira.Billing.RefundPaymentTest do
       end)
 
     payment
+  end
+
+  defp captured_payment!(fixture) do
+    assert {:ok, order} =
+             Billing.place_order(
+               fixture.member_scope,
+               BillingFixtures.checkout_request(fixture)
+             )
+
+    assert {:ok, _contract} =
+             Billing.settle_payment(
+               fixture.service_scope,
+               BillingFixtures.settled_payment(fixture, order)
+             )
+
+    {order, payment!(fixture)}
+  end
+
+  defp refund_order_response(fixture, order, provider_refund_reference) do
+    %{
+      id: fixture.provider_reference,
+      status: "refunded",
+      status_detail: "refunded",
+      external_reference: "#{fixture.polo.id}_#{order.id}",
+      total_amount: Decimal.to_string(order.total_amount),
+      currency: order.currency,
+      last_updated_date: DateTime.to_iso8601(DateTime.utc_now(:microsecond)),
+      transactions: %{
+        payments: [
+          %{
+            id: fixture.provider_reference,
+            status: "refunded",
+            status_detail: "refunded",
+            amount: Decimal.to_string(order.total_amount)
+          }
+        ],
+        refunds: [
+          %{
+            id: provider_refund_reference,
+            transaction_id: fixture.provider_reference,
+            amount: Decimal.to_string(order.total_amount),
+            status: "processed"
+          }
+        ]
+      }
+    }
   end
 
   defp grant_admin!(fixture) do

@@ -8,6 +8,7 @@ defmodule Clubeira.Billing.PaymentWebhookHandler do
   alias Clubeira.Billing.PaymentProvider
   alias Clubeira.Billing.PaymentSettler
   alias Clubeira.Billing.PaymentTerminator
+  alias Clubeira.Billing.RefundSettler
   alias Clubeira.Repo
   alias Clubeira.Tenancy.Scope
 
@@ -100,6 +101,15 @@ defmodule Clubeira.Billing.PaymentWebhookHandler do
            payment
          ) do
       {:ok, _intent} -> {:ok, :processed}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp process_provider_payment({:refunded, provider_refund}, provider, account, request) do
+    scope = Scope.new!(provider_refund.polo_id, request_id: request.internal_request_id)
+
+    case RefundSettler.reconcile(scope, provider, account, provider_refund) do
+      {:ok, _refund} -> {:ok, :processed}
       {:error, reason} -> {:error, reason}
     end
   end

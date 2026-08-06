@@ -74,7 +74,11 @@ defmodule Clubeira.Billing.Gateways.MercadoPago do
   end
 
   @spec fetch_order(MerchantAccount.t(), String.t()) ::
-          {:ok, :pending | {:terminal, terminal_payment()} | captured_payment()}
+          {:ok,
+           :pending
+           | {:terminal, terminal_payment()}
+           | {:refunded, refunded_payment()}
+           | captured_payment()}
           | {:error, atom()}
   def fetch_order(%MerchantAccount{} = account, provider_reference)
       when is_binary(provider_reference) do
@@ -187,10 +191,22 @@ defmodule Clubeira.Billing.Gateways.MercadoPago do
     end
   end
 
-  defp normalize_refund(
+  defp normalize_refund(response, provider_reference, request) do
+    with {:ok, refund} <- normalize_refund_evidence(response, provider_reference),
+         true <- Decimal.equal?(refund.amount, request.amount),
+         true <- refund.currency == request.currency,
+         true <- refund.polo_id == request.polo_id and refund.order_id == request.order_id,
+         true <- refund.provider_payment_reference == request.provider_payment_reference do
+      {:ok, refund}
+    else
+      _invalid -> {:error, :payment_gateway_invalid_response}
+    end
+  end
+
+  defp normalize_refund_evidence(
          %Req.Response{
            body: %{
-             "id" => provider_reference,
+             "id" => response_provider_reference,
              "status" => order_status,
              "status_detail" => order_status_detail,
              "external_reference" => external_reference,
@@ -209,7 +225,7 @@ defmodule Clubeira.Billing.Gateways.MercadoPago do
                "refunds" => [
                  %{
                    "id" => provider_refund_reference,
-                   "transaction_id" => provider_payment_reference,
+                   "transaction_id" => refund_transaction_reference,
                    "amount" => refund_amount,
                    "status" => refund_status
                  }
@@ -217,23 +233,22 @@ defmodule Clubeira.Billing.Gateways.MercadoPago do
              }
            }
          },
-         provider_reference,
-         request
+         provider_reference
        ) do
-    with true <- refunded_status?(order_status, order_status_detail),
+    with true <- response_provider_reference == provider_reference,
+         true <- refunded_status?(order_status, order_status_detail),
          true <- refunded_status?(payment_status, payment_status_detail),
          true <- refund_status == "processed",
          {:ok, total_amount} <- decimal(total_amount),
          {:ok, payment_amount} <- decimal(payment_amount),
          {:ok, refund_amount} <- decimal(refund_amount),
-         true <- Decimal.equal?(total_amount, request.amount),
-         true <- Decimal.equal?(payment_amount, request.amount),
-         true <- Decimal.equal?(refund_amount, request.amount),
-         true <- currency == request.currency and valid_currency?(currency),
+         true <- Decimal.equal?(total_amount, payment_amount),
+         true <- Decimal.equal?(payment_amount, refund_amount),
+         true <- Decimal.positive?(refund_amount),
+         true <- valid_currency?(currency),
          {:ok, occurred_at} <- datetime(occurred_at),
          {:ok, polo_id, order_id} <- external_reference(external_reference),
-         true <- polo_id == request.polo_id and order_id == request.order_id,
-         true <- provider_payment_reference == request.provider_payment_reference,
+         true <- refund_transaction_reference == provider_payment_reference,
          true <- valid_reference?(provider_payment_reference),
          true <- valid_reference?(provider_refund_reference) do
       {:ok,
@@ -260,7 +275,7 @@ defmodule Clubeira.Billing.Gateways.MercadoPago do
     end
   end
 
-  defp normalize_refund(%Req.Response{}, _provider_reference, _request) do
+  defp normalize_refund_evidence(%Req.Response{}, _provider_reference) do
     {:error, :payment_gateway_invalid_response}
   end
 
@@ -311,6 +326,19 @@ defmodule Clubeira.Billing.Gateways.MercadoPago do
 
   defp normalize_created_pix(%Req.Response{}, _expected_amount) do
     {:error, :payment_gateway_invalid_response}
+  end
+
+  defp normalize_order(
+         %Req.Response{
+           body: %{"status" => status, "status_detail" => "refunded"}
+         } = response,
+         provider_reference
+       )
+       when status in ["processed", "refunded"] do
+    case normalize_refund_evidence(response, provider_reference) do
+      {:ok, refund} -> {:ok, {:refunded, refund}}
+      {:error, _reason} = error -> error
+    end
   end
 
   defp normalize_order(
