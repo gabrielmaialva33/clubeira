@@ -11,6 +11,7 @@ defmodule Clubeira.Redemptions.ValidationPoint do
     field :name, :string
     field :kind, :string
     field :status, :string
+    field :revision, :integer, default: 1
 
     timestamps()
   end
@@ -22,6 +23,7 @@ defmodule Clubeira.Redemptions.ValidationPoint do
           name: String.t(),
           kind: String.t(),
           status: String.t(),
+          revision: pos_integer(),
           inserted_at: DateTime.t(),
           updated_at: DateTime.t()
         }

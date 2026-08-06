@@ -79,4 +79,25 @@ defmodule Clubeira.Redemptions.DatabaseContractTest do
 
     assert definition =~ "'api_key'"
   end
+
+  test "validation points persist one positive monotonic stream revision" do
+    assert %{rows: [["NO", "1"]]} =
+             Repo.query!("""
+             SELECT is_nullable, column_default
+             FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = 'validation_points'
+               AND column_name = 'revision'
+             """)
+
+    assert %{rows: [[definition]]} =
+             Repo.query!("""
+             SELECT pg_get_constraintdef(db_constraint.oid)
+             FROM pg_constraint AS db_constraint
+             WHERE db_constraint.conrelid = 'public.validation_points'::regclass
+               AND db_constraint.conname = 'validation_points_revision_check'
+             """)
+
+    assert definition =~ "revision > 0"
+  end
 end
