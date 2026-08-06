@@ -535,6 +535,157 @@ defmodule ClubeiraWeb.BackofficeProductOfferingControllerTest do
              Enum.sort([published_benefit_id, existing_benefit_id])
   end
 
+  test "an admin rediscovers inactive offerings with their latest version and prices", %{
+    conn: conn
+  } do
+    fixture = BillingFixtures.create!()
+    other_polo = BillingFixtures.create!()
+    admin_scope = grant_admin!(fixture)
+    admin_token = authenticate!(admin_scope.actor_user_id)
+
+    moderator_scope =
+      ReviewsFixtures.grant_moderator!(%{
+        ids: %{polo: fixture.polo.id},
+        scope: fixture.service_scope
+      })
+
+    moderator_token = authenticate!(moderator_scope.actor_user_id)
+    benefit_version_id = publish_benefit!(conn, fixture, admin_token)
+
+    published =
+      publish_product_offering!(
+        conn,
+        fixture,
+        admin_token,
+        benefit_version_id,
+        "product-offering-inventory-publication"
+      )
+
+    offering_id = published["product_offering"]["id"]
+    version_id = published["product_offering"]["version_id"]
+    price_id = published["price"]["id"]
+    private_reason = "Pausa reservada do planejamento comercial"
+
+    assert %{"data" => %{"status" => "paused", "revision" => 2}} =
+             conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{admin_token}")
+             |> put_req_header("idempotency-key", "product-offering-inventory-pause")
+             |> post(product_offering_lifecycle_path(fixture, offering_id), %{
+               "action" => "pause",
+               "reason" => private_reason
+             })
+             |> json_response(200)
+
+    inventory_path = product_offerings_path(fixture)
+
+    assert %{
+             "data" => [
+               %{
+                 "id" => ^offering_id,
+                 "code" => "clube-sobral-premium",
+                 "scope_kind" => "evergreen",
+                 "sales_channel" => "direct",
+                 "status" => "paused",
+                 "revision" => 2,
+                 "recorded_at" => recorded_at,
+                 "latest_version" => %{
+                   "id" => ^version_id,
+                   "version" => 1,
+                   "name" => "Clube Sobral Premium",
+                   "status" => "published",
+                   "activation_policy" => "payment_confirmation",
+                   "renewal_policy" => "none",
+                   "effective_from" => effective_from,
+                   "effective_until" => nil,
+                   "cycle" => %{
+                     "policy" => "calendar",
+                     "interval_unit" => "month",
+                     "interval_count" => 1
+                   },
+                   "prices" => [
+                     %{
+                       "id" => ^price_id,
+                       "key" => "default",
+                       "currency" => "BRL",
+                       "amount" => "39.90",
+                       "billing_model" => "subscription",
+                       "interval_unit" => "month",
+                       "interval_count" => 1,
+                       "installments" => 1,
+                       "valid_from" => valid_from,
+                       "valid_until" => nil
+                     }
+                   ]
+                 }
+               }
+             ],
+             "meta" => %{
+               "count" => 1,
+               "page" => %{"limit" => 1, "has_more" => true, "next_cursor" => cursor}
+             }
+           } =
+             conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{admin_token}")
+             |> get(inventory_path <> "?limit=1")
+             |> json_response(200)
+
+    for timestamp <- [recorded_at, effective_from, valid_from] do
+      assert {:ok, _datetime, 0} = DateTime.from_iso8601(timestamp)
+    end
+
+    assert is_binary(cursor)
+    refute cursor =~ offering_id
+
+    assert %{
+             "data" => [%{"id" => original_offering_id}],
+             "meta" => %{
+               "count" => 1,
+               "page" => %{"limit" => 1, "has_more" => false, "next_cursor" => nil}
+             }
+           } =
+             conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{admin_token}")
+             |> get(inventory_path <> "?limit=1&after=#{cursor}")
+             |> json_response(200)
+
+    assert original_offering_id == fixture.offering_version.product_offering_id
+    refute original_offering_id == other_polo.offering_version.product_offering_id
+
+    filters = URI.encode_query(%{"status" => "paused", "code" => "clube-sobral-premium"})
+
+    assert %{"data" => [%{"id" => ^offering_id}]} =
+             conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{admin_token}")
+             |> get(inventory_path <> "?#{filters}")
+             |> json_response(200)
+
+    refute inspect(published) =~ private_reason
+
+    assert conn
+           |> recycle()
+           |> put_req_header("authorization", "Bearer #{moderator_token}")
+           |> get(inventory_path)
+           |> json_response(403) == %{"errors" => %{"detail" => "Forbidden"}}
+
+    assert conn
+           |> recycle()
+           |> put_req_header("authorization", "Bearer #{admin_token}")
+           |> get(inventory_path <> "?after=not-a-cursor")
+           |> json_response(400) == %{"errors" => %{"detail" => "Bad Request"}}
+
+    assert conn
+           |> recycle()
+           |> put_req_header("authorization", "Bearer #{admin_token}")
+           |> get(inventory_path <> "?status=unknown")
+           |> json_response(422) == %{
+             "errors" => %{"detail" => "Unprocessable Content"}
+           }
+  end
+
   defp grant_admin!(fixture) do
     ReviewsFixtures.grant_moderator!(
       %{ids: %{polo: fixture.polo.id}, scope: fixture.service_scope},
@@ -631,5 +782,9 @@ defmodule ClubeiraWeb.BackofficeProductOfferingControllerTest do
 
   defp product_offerings_path(fixture) do
     "/api/v1/polos/#{fixture.polo_route.slug}/backoffice/product-offerings"
+  end
+
+  defp product_offering_lifecycle_path(fixture, offering_id) do
+    product_offerings_path(fixture) <> "/#{offering_id}/lifecycle-actions"
   end
 end

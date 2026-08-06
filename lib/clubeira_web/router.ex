@@ -131,6 +131,10 @@ defmodule ClubeiraWeb.Router do
          BackofficeBenefitOfferController,
          :create
 
+    get "/polos/:polo_slug/backoffice/product-offerings",
+        BackofficeProductOfferingController,
+        :index
+
     post "/polos/:polo_slug/backoffice/product-offerings",
          BackofficeProductOfferingController,
          :create
