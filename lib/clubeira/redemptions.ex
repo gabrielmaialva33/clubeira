@@ -26,6 +26,7 @@ defmodule Clubeira.Redemptions do
   alias Clubeira.Redemptions.ValidationCredentialRotator
   alias Clubeira.Redemptions.ValidationPointLifecycle
   alias Clubeira.Redemptions.ValidationPointProvisioner
+  alias Clubeira.Redemptions.ValidationPointReader
   alias Clubeira.Repo
   alias Clubeira.Tenancy.Scope
 
@@ -79,6 +80,13 @@ defmodule Clubeira.Redemptions do
   defdelegate provision_validation_point(scope, place_id, attributes),
     to: ValidationPointProvisioner,
     as: :provision
+
+  @doc """
+  Lists validation points and their latest credential metadata for polo admins.
+  """
+  @spec list_validation_points(Scope.t(), map()) ::
+          {:ok, %{validation_points: [map()], page: map()}} | {:error, term()}
+  defdelegate list_validation_points(scope, params), to: ValidationPointReader, as: :list
 
   @doc """
   Applies an authorized lifecycle action to a validation point.

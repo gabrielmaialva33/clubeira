@@ -100,4 +100,29 @@ defmodule Clubeira.Redemptions.DatabaseContractTest do
 
     assert definition =~ "revision > 0"
   end
+
+  test "backoffice validation point feeds have indexes matching their keyset filters" do
+    assert %{rows: rows} =
+             Repo.query!("""
+             SELECT indexname, indexdef
+             FROM pg_indexes
+             WHERE schemaname = 'public'
+               AND indexname IN (
+                 'validation_points_backoffice_feed_idx',
+                 'validation_points_backoffice_status_feed_idx',
+                 'validation_points_backoffice_place_feed_idx'
+               )
+             """)
+
+    indexes = Map.new(rows, fn [name, definition] -> {name, definition} end)
+
+    assert indexes["validation_points_backoffice_feed_idx"] =~
+             "(polo_id, inserted_at, id)"
+
+    assert indexes["validation_points_backoffice_status_feed_idx"] =~
+             "(polo_id, status, inserted_at, id)"
+
+    assert indexes["validation_points_backoffice_place_feed_idx"] =~
+             "(polo_id, polo_place_id, inserted_at, id)"
+  end
 end
