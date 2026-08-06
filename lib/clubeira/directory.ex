@@ -15,7 +15,13 @@ defmodule Clubeira.Directory do
   alias Clubeira.Directory.PartnerOnboarder
   alias Clubeira.Directory.Place
   alias Clubeira.Directory.PlaceBrand
+  alias Clubeira.Directory.PlaceCategory
   alias Clubeira.Directory.PlaceOperator
+  alias Clubeira.Directory.PlaceProfilePublisher
+  alias Clubeira.Directory.PlaceProfileView
+  alias Clubeira.Directory.PoloPlaceOpeningPeriod
+  alias Clubeira.Directory.PoloPlaceProfile
+  alias Clubeira.Directory.PoloPlaceProfileCategory
   alias Clubeira.Polos
   alias Clubeira.Polos.Polo
   alias Clubeira.Polos.PoloPlace
@@ -42,6 +48,18 @@ defmodule Clubeira.Directory do
   end
 
   def onboard_partner(_scope, _attributes), do: {:error, :partner_admin_required}
+
+  @doc """
+  Replaces the public profile of an active place participation.
+  """
+  @spec publish_place_profile(Scope.t(), Ecto.UUID.t(), map()) ::
+          {:ok, PlaceProfilePublisher.result()} | {:error, atom() | Ecto.Changeset.t()}
+  def publish_place_profile(%Scope{} = scope, place_id, attributes) when is_map(attributes) do
+    PlaceProfilePublisher.publish(scope, place_id, attributes)
+  end
+
+  def publish_place_profile(_scope, _place_id, _attributes),
+    do: {:error, :partner_admin_required}
 
   @spec fetch_public(String.t(), map()) ::
           {:ok, public_directory()} | {:error, :invalid_pagination | :polo_not_found}
@@ -137,14 +155,17 @@ defmodule Clubeira.Directory do
     {page_rows, overflow} = Enum.split(rows, pagination.limit)
     has_more = overflow != []
     place_ids = Enum.map(page_rows, & &1.place_id)
+    polo_place_ids = Enum.map(page_rows, & &1.polo_place_id)
     brands_by_place = list_brands(repo, place_ids)
     operators_by_place = list_operators(repo, place_ids)
+    profiles_by_polo_place = list_profiles(repo, polo_id, polo_place_ids)
 
     places =
       Enum.map(page_rows, fn place ->
         place
         |> Map.put(:brands, Map.get(brands_by_place, place.place_id, []))
         |> Map.put(:operators, Map.get(operators_by_place, place.place_id, []))
+        |> Map.put(:profile, Map.get(profiles_by_polo_place, place.polo_place_id))
       end)
 
     %{
@@ -213,6 +234,61 @@ defmodule Clubeira.Directory do
     })
     |> repo.all()
     |> Enum.group_by(& &1.place_id, &Map.delete(&1, :place_id))
+  end
+
+  defp list_profiles(_repo, _polo_id, []), do: %{}
+
+  defp list_profiles(repo, polo_id, polo_place_ids) do
+    profiles =
+      PoloPlaceProfile
+      |> where(
+        [profile],
+        profile.polo_id == ^polo_id and profile.polo_place_id in ^polo_place_ids
+      )
+      |> repo.all()
+
+    profile_ids = Enum.map(profiles, & &1.id)
+    categories_by_profile = list_profile_categories(repo, profile_ids)
+    periods_by_profile = list_profile_periods(repo, profile_ids)
+
+    Map.new(profiles, fn profile ->
+      profile_data =
+        PlaceProfileView.build(
+          profile,
+          Map.get(categories_by_profile, profile.id, []),
+          Map.get(periods_by_profile, profile.id, [])
+        )
+
+      {profile.polo_place_id, profile_data}
+    end)
+  end
+
+  defp list_profile_categories(_repo, []), do: %{}
+
+  defp list_profile_categories(repo, profile_ids) do
+    PoloPlaceProfileCategory
+    |> join(:inner, [profile_category], category in PlaceCategory,
+      on: category.id == profile_category.place_category_id
+    )
+    |> where([profile_category], profile_category.polo_place_profile_id in ^profile_ids)
+    |> where([_profile_category, category], category.status == "active")
+    |> select([profile_category, category], %{
+      profile_id: profile_category.polo_place_profile_id,
+      key: category.key,
+      name: category.name,
+      display_order: category.display_order
+    })
+    |> repo.all()
+    |> Enum.group_by(& &1.profile_id, &Map.delete(&1, :profile_id))
+  end
+
+  defp list_profile_periods(_repo, []), do: %{}
+
+  defp list_profile_periods(repo, profile_ids) do
+    PoloPlaceOpeningPeriod
+    |> where([period], period.polo_place_profile_id in ^profile_ids)
+    |> repo.all()
+    |> Enum.group_by(& &1.polo_place_profile_id)
   end
 
   defp parse_pagination(params) do
