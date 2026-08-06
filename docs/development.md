@@ -93,6 +93,35 @@ polo falha como `404`, sem reservar a chave nem criar dados parciais. Header
 `invalid_idempotency_key`; payload ou chave malformados retornam `422` antes da
 reserva.
 
+## Publicação administrativa de produtos comerciais
+
+Depois de publicar os benefícios, um admin pode montar uma configuração
+vendável completa:
+
+```text
+POST /api/v1/polos/:slug/backoffice/product-offerings
+Authorization: Bearer <admin-token>
+Idempotency-Key: <8-a-128-caracteres>
+```
+
+O corpo contém `offering`, `price` e uma lista não vazia de `benefits`.
+`offering.cycle` aceita `calendar` ou `anniversary`, intervalos em `day`,
+`month` ou `year`, e `effective_during` usa o intervalo semiaberto habitual.
+Preço usa string decimal positiva com até duas casas e moeda alfabética de três
+letras. Cada benefício informa uma versão publicada, unidades por ciclo e
+`consumption_unit` igual a `per_place` ou `shared_scope`; IDs duplicados são
+rejeitados.
+
+O endpoint devolve `201` com todas as identidades necessárias ao checkout. Ele
+deriva lugares, escopo, políticas, versões e prioridades no servidor. ID
+inexistente ou de outro polo retorna `404`; identidade visível cuja oferta,
+versão ou participação não cobre toda a vigência retorna `409` com
+`benefit_configuration_unavailable`. Código comercial já usado retorna `409`
+com `product_offering_code_conflict`; retries exatos, inclusive com preço
+decimal ou ordem dos benefícios equivalentes, devolvem o DTO original.
+Reutilizar a chave com conteúdo diferente retorna `idempotency_conflict`, e
+validação de payload ocorre antes da reserva.
+
 ## Chaves de identificadores
 
 O runtime cifra CNPJ e futuros identificadores com uma chave AES-256-GCM

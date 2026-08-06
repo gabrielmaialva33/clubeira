@@ -347,6 +347,7 @@ docker compose stop
 | `POST` | `/api/v1/polos/:slug/backoffice/partners` | 🛡️ |
 | `PUT` | `/api/v1/polos/:slug/backoffice/places/:place_id/profile` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/places/:place_id/benefit-offers` | 🛡️ |
+| `POST` | `/api/v1/polos/:slug/backoffice/product-offerings` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/places/:place_id/validation-points` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/validation-points/:validation_point_id/lifecycle-actions` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/validation-credentials/:credential_id/rotations` | 🛡️ |
@@ -401,6 +402,13 @@ curl -sS -X POST \
   -H 'idempotency-key: cafe-cortesia-sobral-001' \
   -H 'content-type: application/json' \
   -d '{"offer":{"code":"cafe-cortesia","name":"Café cortesia","benefit_kind":"discount_percentage"},"version":{"title":"15% no café da manhã","description":"Desconto no consumo do café da manhã.","terms":"Um uso por ciclo, de segunda a sexta.","redemption_instructions":"Apresente o voucher antes de pedir a conta.","percentage_value":"15.0000","effective_during":{"starts_at":"2026-08-01T00:00:00Z","ends_at":null}}}'
+
+curl -sS -X POST \
+  http://localhost:4000/api/v1/polos/sobral/backoffice/product-offerings \
+  -H "authorization: Bearer $ADMIN_TOKEN" \
+  -H 'idempotency-key: clube-sobral-premium-001' \
+  -H 'content-type: application/json' \
+  -d '{"offering":{"code":"clube-sobral-premium","name":"Clube Sobral Premium","description":"Plano mensal com benefícios publicados pelo polo.","cycle":{"policy":"calendar","interval_unit":"month","interval_count":1},"effective_during":{"starts_at":"2026-08-01T00:00:00Z","ends_at":null}},"price":{"currency":"BRL","amount":"39.90"},"benefits":[{"benefit_offer_version_id":"<benefit_version_uuid>","allowance_per_cycle":2,"consumption_unit":"per_place"}]}'
 
 VALIDATION_SECRET="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')"
 VALIDATION_SECRET_SHA256="$(printf '%s=' "$VALIDATION_SECRET" | tr '_-' '/+' | openssl base64 -d -A | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=\n')"
@@ -496,6 +504,13 @@ publica as combinações de `product_offering_version_id` e `offering_price_id`
 atualmente provisionáveis, também com cursor e limite máximo de `100`. Repetir
 a mesma seleção com a mesma chave devolve o pedido original; reutilizar a chave
 para outra seleção retorna conflito.
+
+A publicação comercial do backoffice exige `admin` e `Idempotency-Key`. Ela
+recebe somente versões de benefício já publicadas e monta no servidor o produto,
+a oferta direta, o preço recorrente, o pacote, o escopo e seus itens em versões
+iniciais imutáveis. Todos os benefícios e lugares precisam cobrir o período
+completo da oferta; o grafo só aparece em `checkout-options` quando também é
+provisionável pelo fluxo real de liquidação.
 
 O histórico de pedidos retorna somente os pedidos do ator naquele polo, do
 mais novo para o mais antigo, com os itens e valores históricos; ele usa
@@ -631,7 +646,7 @@ alterar a configuração versionada.
 | `credo --strict` | consistência e code smells |
 | `deps.audit` + `hex.audit` | CVE e pacotes retirados |
 | `sobelow --config` | análise estática de segurança Phoenix |
-| `test` | 346 testes, incluindo contratos de RLS e concorrência real |
+| `test` | 356 testes, incluindo contratos de RLS e concorrência real |
 
 ---
 
@@ -644,6 +659,7 @@ alterar a configuração versionada.
 | Catálogo, diretório e checkout-options públicos | ✅ |
 | Perfil operacional do estabelecimento | ✅ |
 | Publicação administrativa de benefício v1 | ✅ |
+| Publicação administrativa de produto comercial v1 | ✅ |
 | Checkout autenticado e idempotente | ✅ |
 | Pix Mercado Pago (Orders API + webhook) | ✅ |
 | Contrato, ciclo e alocações | ✅ |
@@ -704,6 +720,13 @@ alterar a configuração versionada.
   na borda e novamente no banco, retry devolve o DTO original e códigos
   concorrentes produzem um único vencedor com conflito auditado; header
   idempotente ausente ou ambíguo falha com `400` e código estável;
+- `POST /api/v1/polos/:polo_slug/backoffice/product-offerings` exige `admin` e
+  `Idempotency-Key` e publica atomicamente o grafo comercial inicial completo:
+  produto e versão, oferta e versão, preço, pacote e versão, escopo, lugares,
+  itens e assignment; polo, políticas suportadas, prioridades e lugares são
+  derivados no servidor, versões de benefício precisam estar publicadas e
+  cobrir toda a vigência, retry é exato e colisões concorrentes deixam um único
+  grafo com rejeição auditada para o perdedor;
 - `POST /api/v1/polos/:polo_slug/backoffice/places/:place_id/validation-points`
   exige `admin` e `Idempotency-Key`, relê a participação ativa e cria ponto mais
   credencial atomicamente; recebe somente o SHA-256 da chave gerada pelo cliente,
@@ -748,9 +771,10 @@ alterar a configuração versionada.
 - a taxonomia global é curada por migration/seed e ainda não possui API de
   administração; fotos do estabelecimento continuam uma fatia própria com sua
   futura borda de armazenamento;
-- ofertas de benefício já podem nascer pela API, mas pacotes, itens, planos e
-  preços ainda são definidos por factory/seed; publicar essa cadeia comercial é
-  a próxima fronteira necessária para vender uma configuração nova sem SQL;
+- a API comercial publica somente a configuração inicial direta, evergreen e
+  de assinatura, com uma versão, um preço e `renewal_policy = none`; novas
+  versões, edições, múltiplos preços/canais e renovação continuam fronteiras
+  próprias para não reescrever configuração histórica;
 - vincular uma organização já existente a uma nova unidade ou polo exige uma
   borda própria, com autorização explícita sobre essa identidade global;
 - renovação automática, reembolso e chargeback ainda não fazem parte do fluxo

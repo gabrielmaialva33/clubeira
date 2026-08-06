@@ -202,6 +202,30 @@ concorrentes, retornam o mesmo resultado, enquanto duas chaves para o mesmo
 código deixam um único vencedor. Oferta, versão, vínculo, audit, evento e outbox
 nascem ou falham juntos.
 
+### Publicação administrativa comercial
+
+`POST /api/v1/polos/:slug/backoffice/product-offerings` publica a menor unidade
+vendável sem depender de SQL ou seed. Um único comando cria o produto de acesso
+e sua versão `1`, a oferta direta evergreen e sua versão `1`, o preço padrão de
+assinatura, o pacote e sua versão `1`, o escopo, seus lugares e itens, e o
+assignment entre oferta e pacote. As versões já nascem `published`; alterações
+futuras criam novas versões em vez de reinterpretar pedidos, contratos ou
+alocações existentes.
+
+O request referencia somente versões de benefício publicadas. O servidor relê
+oferta, versão, participação e lugar sob RLS e exige que cada cadeia cubra todo
+o `tstzrange` da configuração comercial. O escopo é derivado da união dos
+lugares válidos, e políticas ainda não implementadas no provisioner não são
+aceitas como opção configurável. Neste primeiro corte, a oferta é direta,
+evergreen, ativada pela confirmação do pagamento, com um beneficiário,
+`shared_contract` e `renewal_policy = none`.
+
+A reserva idempotente acontece antes da leitura das referências para que uma
+rejeição seja reproduzível. A montagem inteira do grafo usa um savepoint único:
+qualquer colisão de identidade desfaz todos os nós comerciais sem perder a
+resposta idempotente e a auditoria da rejeição. No sucesso, grafo, evento,
+outbox, auditoria e DTO `201` confirmam na mesma transação tenant-aware.
+
 `GET /api/v1/polos/:slug/checkout-options` é a leitura pública comercial que
 completa essa vitrine. Ela pagina preços por UUIDv7 e devolve os pares
 `product_offering_version_id + offering_price_id` usados por
