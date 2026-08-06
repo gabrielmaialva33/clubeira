@@ -42,6 +42,27 @@ defmodule Clubeira.Billing.Gateways do
           required(:status) => String.t()
         }
 
+  @type refund_request :: %{
+          required(:amount) => Decimal.t(),
+          required(:currency) => String.t(),
+          required(:idempotency_key) => Ecto.UUID.t(),
+          required(:order_id) => Ecto.UUID.t(),
+          required(:polo_id) => Ecto.UUID.t(),
+          required(:provider_payment_reference) => String.t()
+        }
+
+  @type refunded_payment :: %{
+          required(:amount) => Decimal.t(),
+          required(:currency) => String.t(),
+          required(:occurred_at) => DateTime.t(),
+          required(:order_id) => Ecto.UUID.t(),
+          required(:payload) => map(),
+          required(:polo_id) => Ecto.UUID.t(),
+          required(:provider_payment_reference) => String.t(),
+          required(:provider_reference) => String.t(),
+          required(:provider_refund_reference) => String.t()
+        }
+
   @spec create_payment(String.t(), MerchantAccount.t(), String.t(), payment_request()) ::
           {:ok, created_payment()} | {:error, atom()}
   def create_payment("mercado_pago", %MerchantAccount{} = account, "pix", request) do
@@ -49,6 +70,16 @@ defmodule Clubeira.Billing.Gateways do
   end
 
   def create_payment(_provider, %MerchantAccount{}, _payment_method, _request) do
+    {:error, :payment_gateway_unsupported}
+  end
+
+  @spec refund_payment(String.t(), MerchantAccount.t(), String.t(), refund_request()) ::
+          {:ok, refunded_payment()} | {:error, atom()}
+  def refund_payment("mercado_pago", %MerchantAccount{} = account, provider_reference, request) do
+    MercadoPago.refund_order(account, provider_reference, request)
+  end
+
+  def refund_payment(_provider, %MerchantAccount{}, _provider_reference, _request) do
     {:error, :payment_gateway_unsupported}
   end
 

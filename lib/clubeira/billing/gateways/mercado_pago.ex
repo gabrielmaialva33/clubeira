@@ -18,6 +18,8 @@ defmodule Clubeira.Billing.Gateways.MercadoPago do
   @type created_payment :: Clubeira.Billing.Gateways.created_payment()
   @type captured_payment :: Clubeira.Billing.Gateways.captured_payment()
   @type terminal_payment :: Clubeira.Billing.Gateways.terminal_payment()
+  @type refund_request :: Clubeira.Billing.Gateways.refund_request()
+  @type refunded_payment :: Clubeira.Billing.Gateways.refunded_payment()
 
   @spec create_pix(MerchantAccount.t(), payment_request()) ::
           {:ok, created_payment()} | {:error, atom()}
@@ -26,6 +28,25 @@ defmodule Clubeira.Billing.Gateways.MercadoPago do
          {:ok, response} <- request_pix_order(access_token, request) do
       normalize_created_pix(response, request.amount)
     end
+  end
+
+  @spec refund_order(MerchantAccount.t(), String.t(), refund_request()) ::
+          {:ok, refunded_payment()} | {:error, atom()}
+  def refund_order(%MerchantAccount{} = account, provider_reference, request)
+      when is_binary(provider_reference) and is_map(request) do
+    with true <- valid_reference?(provider_reference),
+         {:ok, access_token} <- access_token(account.provider_account_reference),
+         {:ok, response} <- request_full_refund(access_token, provider_reference, request),
+         {:ok, refund} <- normalize_refund(response, provider_reference, request) do
+      {:ok, refund}
+    else
+      false -> {:error, :payment_gateway_invalid_response}
+      {:error, _reason} = error -> error
+    end
+  end
+
+  def refund_order(%MerchantAccount{}, _provider_reference, _request) do
+    {:error, :payment_gateway_invalid_response}
   end
 
   @spec authenticate_webhook(
@@ -137,6 +158,110 @@ defmodule Clubeira.Billing.Gateways.MercadoPago do
       {:error, _reason} ->
         {:error, :payment_gateway_unavailable}
     end
+  end
+
+  defp request_full_refund(access_token, provider_reference, request) do
+    options =
+      [
+        url: @api_url <> "/" <> provider_reference <> "/refund",
+        auth: {:bearer, access_token},
+        headers: [{"x-idempotency-key", request.idempotency_key}],
+        json: %{},
+        retry: false,
+        receive_timeout: 10_000
+      ]
+      |> Keyword.merge(request_options())
+
+    case Req.post(options) do
+      {:ok, %Req.Response{status: status} = response} when status in 200..299 ->
+        {:ok, response}
+
+      {:ok, %Req.Response{status: status}} when status == 429 or status >= 500 ->
+        {:error, :payment_gateway_unavailable}
+
+      {:ok, %Req.Response{}} ->
+        {:error, :payment_gateway_rejected}
+
+      {:error, _reason} ->
+        {:error, :payment_gateway_unavailable}
+    end
+  end
+
+  defp normalize_refund(
+         %Req.Response{
+           body: %{
+             "id" => provider_reference,
+             "status" => order_status,
+             "status_detail" => order_status_detail,
+             "external_reference" => external_reference,
+             "total_amount" => total_amount,
+             "currency" => currency,
+             "last_updated_date" => occurred_at,
+             "transactions" => %{
+               "payments" => [
+                 %{
+                   "id" => provider_payment_reference,
+                   "status" => payment_status,
+                   "status_detail" => payment_status_detail,
+                   "amount" => payment_amount
+                 }
+               ],
+               "refunds" => [
+                 %{
+                   "id" => provider_refund_reference,
+                   "transaction_id" => provider_payment_reference,
+                   "amount" => refund_amount,
+                   "status" => refund_status
+                 }
+               ]
+             }
+           }
+         },
+         provider_reference,
+         request
+       ) do
+    with true <- refunded_status?(order_status, order_status_detail),
+         true <- refunded_status?(payment_status, payment_status_detail),
+         true <- refund_status == "processed",
+         {:ok, total_amount} <- decimal(total_amount),
+         {:ok, payment_amount} <- decimal(payment_amount),
+         {:ok, refund_amount} <- decimal(refund_amount),
+         true <- Decimal.equal?(total_amount, request.amount),
+         true <- Decimal.equal?(payment_amount, request.amount),
+         true <- Decimal.equal?(refund_amount, request.amount),
+         true <- currency == request.currency and valid_currency?(currency),
+         {:ok, occurred_at} <- datetime(occurred_at),
+         {:ok, polo_id, order_id} <- external_reference(external_reference),
+         true <- polo_id == request.polo_id and order_id == request.order_id,
+         true <- provider_payment_reference == request.provider_payment_reference,
+         true <- valid_reference?(provider_payment_reference),
+         true <- valid_reference?(provider_refund_reference) do
+      {:ok,
+       %{
+         amount: refund_amount,
+         currency: currency,
+         occurred_at: occurred_at,
+         order_id: order_id,
+         payload: %{
+           "provider" => "mercado_pago",
+           "provider_order_id" => provider_reference,
+           "provider_payment_id" => provider_payment_reference,
+           "provider_refund_id" => provider_refund_reference,
+           "order_status" => order_status,
+           "order_status_detail" => order_status_detail
+         },
+         polo_id: polo_id,
+         provider_payment_reference: provider_payment_reference,
+         provider_reference: provider_reference,
+         provider_refund_reference: provider_refund_reference
+       }}
+    else
+      _invalid -> {:error, :payment_gateway_invalid_response}
+    end
+  end
+
+  defp normalize_refund(%Req.Response{}, _provider_reference, _request) do
+    {:error, :payment_gateway_invalid_response}
   end
 
   defp normalize_created_pix(
@@ -383,6 +508,11 @@ defmodule Clubeira.Billing.Gateways.MercadoPago do
   defp valid_currency?(currency) do
     is_binary(currency) and String.match?(currency, ~r/^[A-Z]{3}$/)
   end
+
+  defp refunded_status?(status, "refunded") when status in ["processed", "refunded"],
+    do: true
+
+  defp refunded_status?(_status, _detail), do: false
 
   defp terminal_status("expired"), do: {:ok, "expired"}
   defp terminal_status("failed"), do: {:ok, "failed"}
