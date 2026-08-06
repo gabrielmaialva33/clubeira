@@ -2,7 +2,9 @@ defmodule Clubeira.Directory.PartnerOnboardingConcurrencyTest do
   use ExUnit.Case, async: false
 
   alias Clubeira.Directory
+  alias Clubeira.Factory
   alias Clubeira.Factory.Brazil
+  alias Clubeira.Redemptions
   alias Clubeira.RedemptionsFixtures
   alias Clubeira.Repo
   alias Clubeira.Repo.RuntimeRole
@@ -156,6 +158,395 @@ defmodule Clubeira.Directory.PartnerOnboardingConcurrencyTest do
            }
   end
 
+  test "concurrent retries publish one place profile and replay the committed response", %{
+    repo: repo
+  } do
+    fixture = RedemptionsFixtures.create!()
+    scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    category = Factory.insert(:place_category)
+
+    request =
+      profile_request(category.key, "profile-concurrent-retry", %{
+        email: "retry@parceiro.example",
+        phone: "+5588999990101",
+        weekday: 2
+      })
+
+    assert [{:ok, first}, {:ok, second}] =
+             run_concurrently(repo, [
+               fn -> Directory.publish_place_profile(scope, fixture.ids.place, request) end,
+               fn -> Directory.publish_place_profile(scope, fixture.ids.place, request) end
+             ])
+
+    assert first == second
+    assert get_in(first, ["profile", "revision"]) == 1
+
+    assert profile_counts(fixture) == %{
+             audits: 1,
+             categories: 1,
+             domain_events: 1,
+             idempotency_keys: 1,
+             outbox_messages: 1,
+             periods: 1,
+             profiles: 1
+           }
+  end
+
+  test "concurrent profile replacements serialize complete revisions without lost updates", %{
+    repo: repo
+  } do
+    fixture = RedemptionsFixtures.create!()
+    scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    morning = Factory.insert(:place_category)
+    evening = Factory.insert(:place_category)
+
+    first_request =
+      profile_request(morning.key, "profile-concurrent-first", %{
+        email: "manha@parceiro.example",
+        phone: "+5588999990102",
+        weekday: 3
+      })
+
+    second_request =
+      profile_request(evening.key, "profile-concurrent-second", %{
+        email: "noite@parceiro.example",
+        phone: "+5588999990103",
+        weekday: 4
+      })
+
+    assert [{:ok, _first}, {:ok, _second}] =
+             results =
+             run_concurrently(repo, [
+               fn ->
+                 Directory.publish_place_profile(scope, fixture.ids.place, first_request)
+               end,
+               fn ->
+                 Directory.publish_place_profile(scope, fixture.ids.place, second_request)
+               end
+             ])
+
+    assert results
+           |> Enum.map(fn {:ok, result} -> get_in(result, ["profile", "revision"]) end)
+           |> Enum.sort() == [1, 2]
+
+    {:ok, directory} = Directory.fetch_public(fixture.polo_slug)
+    public_place = Enum.find(directory.places, &(&1.place_id == fixture.ids.place))
+
+    revision_two =
+      Enum.find_value(results, fn
+        {:ok, %{"profile" => %{"revision" => 2} = profile}} -> profile
+        _other -> nil
+      end)
+
+    assert public_place.profile == revision_two
+
+    assert profile_counts(fixture) == %{
+             audits: 2,
+             categories: 1,
+             domain_events: 2,
+             idempotency_keys: 2,
+             outbox_messages: 2,
+             periods: 1,
+             profiles: 1
+           }
+  end
+
+  test "concurrent retries provision one validation point and replay its credential metadata", %{
+    repo: repo
+  } do
+    fixture = RedemptionsFixtures.create!()
+    scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    before = validation_point_counts(fixture)
+    secret_sha256 = validation_secret_sha256()
+
+    request = %{
+      name: "Caixa concorrente",
+      secret_sha256: secret_sha256,
+      expires_at: DateTime.add(fixture.now, 90, :day),
+      idempotency_key: "validation-point-concurrent-retry"
+    }
+
+    assert [{:ok, first}, {:ok, second}] =
+             run_concurrently(repo, [
+               fn ->
+                 Redemptions.provision_validation_point(scope, fixture.ids.place, request)
+               end,
+               fn ->
+                 Redemptions.provision_validation_point(scope, fixture.ids.place, request)
+               end
+             ])
+
+    assert first["id"] == second["id"]
+    assert get_in(first, ["credential", "id"]) == get_in(second, ["credential", "id"])
+
+    assert count_deltas(before, validation_point_counts(fixture)) == %{
+             audits: 1,
+             credentials: 1,
+             domain_events: 1,
+             idempotency_keys: 1,
+             outbox_messages: 1,
+             points: 1
+           }
+  end
+
+  test "concurrent distinct requests for one credential digest commit one stable point", %{
+    repo: repo
+  } do
+    fixture = RedemptionsFixtures.create!()
+    scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    before = validation_point_counts(fixture)
+    secret_sha256 = validation_secret_sha256()
+    expires_at = DateTime.add(fixture.now, 90, :day)
+
+    results =
+      run_concurrently(repo, [
+        fn ->
+          Redemptions.provision_validation_point(scope, fixture.ids.place, %{
+            name: "Caixa concorrente A",
+            secret_sha256: secret_sha256,
+            expires_at: expires_at,
+            idempotency_key: "validation-point-concurrent-first"
+          })
+        end,
+        fn ->
+          Redemptions.provision_validation_point(scope, fixture.ids.place, %{
+            name: "Caixa concorrente B",
+            secret_sha256: secret_sha256,
+            expires_at: expires_at,
+            idempotency_key: "validation-point-concurrent-second"
+          })
+        end
+      ])
+
+    assert Enum.count(results, &match?({:ok, _result}, &1)) == 1
+    assert Enum.count(results, &match?({:error, :credential_already_registered}, &1)) == 1
+
+    assert count_deltas(before, validation_point_counts(fixture)) == %{
+             audits: 2,
+             credentials: 1,
+             domain_events: 1,
+             idempotency_keys: 2,
+             outbox_messages: 1,
+             points: 1
+           }
+  end
+
+  test "concurrent retries rotate one validation credential and replay its metadata", %{
+    repo: repo
+  } do
+    current_secret = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+    fixture = RedemptionsFixtures.create!(validation_credential_secret: current_secret)
+    scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    before = validation_credential_rotation_counts(fixture)
+
+    request = %{
+      secret_sha256: validation_secret_sha256(),
+      expires_at: DateTime.add(fixture.now, 90, :day),
+      idempotency_key: "validation-credential-concurrent-retry"
+    }
+
+    assert [{:ok, first}, {:ok, second}] =
+             run_concurrently(repo, [
+               fn ->
+                 Redemptions.rotate_validation_credential(
+                   scope,
+                   fixture.ids.validation_credential,
+                   request
+                 )
+               end,
+               fn ->
+                 Redemptions.rotate_validation_credential(
+                   scope,
+                   fixture.ids.validation_credential,
+                   request
+                 )
+               end
+             ])
+
+    assert first == second
+    assert get_in(first, ["credential", "version"]) == 2
+
+    assert count_deltas(before, validation_credential_rotation_counts(fixture)) == %{
+             audits: 1,
+             credentials: 1,
+             domain_events: 1,
+             idempotency_keys: 1,
+             outbox_messages: 1
+           }
+  end
+
+  test "concurrent distinct rotations of one credential commit one winner and one stale conflict",
+       %{
+         repo: repo
+       } do
+    current_secret = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+    fixture = RedemptionsFixtures.create!(validation_credential_secret: current_secret)
+    scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    before = validation_credential_rotation_counts(fixture)
+    expires_at = DateTime.add(fixture.now, 90, :day)
+
+    results =
+      run_concurrently(repo, [
+        fn ->
+          Redemptions.rotate_validation_credential(
+            scope,
+            fixture.ids.validation_credential,
+            %{
+              secret_sha256: validation_secret_sha256(),
+              expires_at: expires_at,
+              idempotency_key: "validation-credential-concurrent-first"
+            }
+          )
+        end,
+        fn ->
+          Redemptions.rotate_validation_credential(
+            scope,
+            fixture.ids.validation_credential,
+            %{
+              secret_sha256: validation_secret_sha256(),
+              expires_at: expires_at,
+              idempotency_key: "validation-credential-concurrent-second"
+            }
+          )
+        end
+      ])
+
+    assert Enum.count(results, &match?({:ok, _result}, &1)) == 1
+    assert Enum.count(results, &match?({:error, :validation_credential_stale}, &1)) == 1
+
+    assert count_deltas(before, validation_credential_rotation_counts(fixture)) == %{
+             audits: 2,
+             credentials: 1,
+             domain_events: 1,
+             idempotency_keys: 2,
+             outbox_messages: 1
+           }
+
+    assert %{rows: [[1, 1, 2]]} =
+             RedemptionsFixtures.scoped_query!(
+               fixture,
+               """
+               SELECT
+                 count(*) FILTER (WHERE status = 'revoked'),
+                 count(*) FILTER (WHERE status = 'active'),
+                 max(version)
+               FROM validation_credentials
+               WHERE validation_point_id = $1
+               """,
+               [fixture.ids.validation_point]
+             )
+  end
+
+  test "concurrent retries revoke one validation credential and replay its metadata", %{
+    repo: repo
+  } do
+    current_secret = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+    fixture = RedemptionsFixtures.create!(validation_credential_secret: current_secret)
+    scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    before = validation_credential_revocation_counts(fixture)
+    request = %{idempotency_key: "validation-credential-concurrent-revocation-retry"}
+
+    assert [{:ok, first}, {:ok, second}] =
+             run_concurrently(repo, [
+               fn ->
+                 Redemptions.revoke_validation_credential(
+                   scope,
+                   fixture.ids.validation_credential,
+                   request
+                 )
+               end,
+               fn ->
+                 Redemptions.revoke_validation_credential(
+                   scope,
+                   fixture.ids.validation_credential,
+                   request
+                 )
+               end
+             ])
+
+    assert first == second
+    assert get_in(first, ["credential", "status"]) == "revoked"
+
+    assert count_deltas(before, validation_credential_revocation_counts(fixture)) == %{
+             audits: 1,
+             credentials: 0,
+             domain_events: 1,
+             idempotency_keys: 1,
+             outbox_messages: 1
+           }
+  end
+
+  test "concurrent rotation and revocation of one credential commit one lifecycle winner", %{
+    repo: repo
+  } do
+    current_secret = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+    fixture = RedemptionsFixtures.create!(validation_credential_secret: current_secret)
+    scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    before = validation_credential_lifecycle_counts(fixture)
+
+    results =
+      run_concurrently(repo, [
+        fn ->
+          Redemptions.rotate_validation_credential(
+            scope,
+            fixture.ids.validation_credential,
+            %{
+              secret_sha256: validation_secret_sha256(),
+              expires_at: DateTime.add(fixture.now, 90, :day),
+              idempotency_key: "validation-credential-racing-rotation"
+            }
+          )
+        end,
+        fn ->
+          Redemptions.revoke_validation_credential(
+            scope,
+            fixture.ids.validation_credential,
+            %{idempotency_key: "validation-credential-racing-revocation"}
+          )
+        end
+      ])
+
+    credential_delta =
+      case results do
+        [{:ok, rotation}, {:error, :validation_credential_stale}] ->
+          assert get_in(rotation, ["credential", "status"]) == "active"
+          1
+
+        [{:error, :validation_credential_revoked}, {:ok, revocation}] ->
+          assert get_in(revocation, ["credential", "status"]) == "revoked"
+          0
+      end
+
+    assert count_deltas(before, validation_credential_lifecycle_counts(fixture)) == %{
+             audits: 2,
+             credentials: credential_delta,
+             domain_events: 1,
+             idempotency_keys: 2,
+             outbox_messages: 1
+           }
+
+    expected_rows =
+      if credential_delta == 1,
+        do: [[1, 1, 2]],
+        else: [[1, 0, 1]]
+
+    state =
+      RedemptionsFixtures.scoped_query!(
+        fixture,
+        """
+        SELECT
+          count(*) FILTER (WHERE status = 'revoked'),
+          count(*) FILTER (WHERE status = 'active'),
+          max(version)
+        FROM validation_credentials
+        WHERE validation_point_id = $1
+        """,
+        [fixture.ids.validation_point]
+      )
+
+    assert state.rows == expected_rows
+  end
+
   defp onboarding_request(suffix, cnpj, idempotency_key) do
     %{
       organization: %{
@@ -174,6 +565,167 @@ defmodule Clubeira.Directory.PartnerOnboardingConcurrencyTest do
         }
       },
       idempotency_key: idempotency_key
+    }
+  end
+
+  defp profile_request(category_key, idempotency_key, attributes) do
+    %{
+      contact: %{email: attributes.email, phone: attributes.phone},
+      category_keys: [category_key],
+      weekly_hours: [
+        %{weekday: attributes.weekday, opens_at: "09:00", closes_at: "18:00"}
+      ],
+      special_hours: [],
+      idempotency_key: idempotency_key
+    }
+  end
+
+  defp profile_counts(fixture) do
+    %{rows: [[profiles, categories, periods, audits, events, outbox, idempotency_keys]]} =
+      RedemptionsFixtures.scoped_query!(fixture, """
+      SELECT
+        (SELECT count(*) FROM polo_place_profiles),
+        (SELECT count(*) FROM polo_place_profile_categories),
+        (SELECT count(*) FROM polo_place_opening_periods),
+        (SELECT count(*) FROM tenant_audit_events
+           WHERE resource_type = 'polo_place_profile'),
+        (SELECT count(*) FROM domain_events
+           WHERE aggregate_type = 'polo_place_profile'),
+        (SELECT count(*) FROM outbox_messages
+           WHERE topic IN ('places.profiles.published', 'places.profiles.updated')),
+        (SELECT count(*) FROM tenant_idempotency_keys
+           WHERE scope = 'directory.publish_place_profile')
+      """)
+
+    %{
+      profiles: profiles,
+      categories: categories,
+      periods: periods,
+      audits: audits,
+      domain_events: events,
+      outbox_messages: outbox,
+      idempotency_keys: idempotency_keys
+    }
+  end
+
+  defp validation_point_counts(fixture) do
+    %{rows: [[points, credentials, audits, events, outbox, idempotency_keys]]} =
+      RedemptionsFixtures.scoped_query!(fixture, """
+      SELECT
+        (SELECT count(*) FROM validation_points),
+        (SELECT count(*) FROM validation_credentials),
+        (SELECT count(*) FROM tenant_audit_events
+           WHERE action IN (
+             'validation_point.provisioned',
+             'validation_point.provisioning_rejected'
+           )),
+        (SELECT count(*) FROM domain_events
+           WHERE aggregate_type = 'validation_point'),
+        (SELECT count(*) FROM outbox_messages
+           WHERE topic = 'redemptions.validation_points.provisioned'),
+        (SELECT count(*) FROM tenant_idempotency_keys
+           WHERE scope = 'redemptions.provision_validation_point')
+      """)
+
+    %{
+      points: points,
+      credentials: credentials,
+      audits: audits,
+      domain_events: events,
+      outbox_messages: outbox,
+      idempotency_keys: idempotency_keys
+    }
+  end
+
+  defp validation_credential_rotation_counts(fixture) do
+    %{rows: [[credentials, audits, events, outbox, idempotency_keys]]} =
+      RedemptionsFixtures.scoped_query!(fixture, """
+      SELECT
+        (SELECT count(*) FROM validation_credentials),
+        (SELECT count(*) FROM tenant_audit_events
+           WHERE action IN (
+             'validation_credential.rotated',
+             'validation_credential.rotation_rejected'
+           )),
+        (SELECT count(*) FROM domain_events
+           WHERE event_type = 'validation_credential.rotated'),
+        (SELECT count(*) FROM outbox_messages
+           WHERE topic = 'redemptions.validation_credentials.rotated'),
+        (SELECT count(*) FROM tenant_idempotency_keys
+           WHERE scope = 'redemptions.rotate_validation_credential')
+      """)
+
+    %{
+      credentials: credentials,
+      audits: audits,
+      domain_events: events,
+      outbox_messages: outbox,
+      idempotency_keys: idempotency_keys
+    }
+  end
+
+  defp validation_credential_revocation_counts(fixture) do
+    %{rows: [[credentials, audits, events, outbox, idempotency_keys]]} =
+      RedemptionsFixtures.scoped_query!(fixture, """
+      SELECT
+        (SELECT count(*) FROM validation_credentials),
+        (SELECT count(*) FROM tenant_audit_events
+           WHERE action IN (
+             'validation_credential.revoked',
+             'validation_credential.revocation_rejected'
+           )),
+        (SELECT count(*) FROM domain_events
+           WHERE event_type = 'validation_credential.revoked'),
+        (SELECT count(*) FROM outbox_messages
+           WHERE topic = 'redemptions.validation_credentials.revoked'),
+        (SELECT count(*) FROM tenant_idempotency_keys
+           WHERE scope = 'redemptions.revoke_validation_credential')
+      """)
+
+    %{
+      credentials: credentials,
+      audits: audits,
+      domain_events: events,
+      outbox_messages: outbox,
+      idempotency_keys: idempotency_keys
+    }
+  end
+
+  defp validation_credential_lifecycle_counts(fixture) do
+    %{rows: [[credentials, audits, events, outbox, idempotency_keys]]} =
+      RedemptionsFixtures.scoped_query!(fixture, """
+      SELECT
+        (SELECT count(*) FROM validation_credentials),
+        (SELECT count(*) FROM tenant_audit_events
+           WHERE action IN (
+             'validation_credential.rotated',
+             'validation_credential.rotation_rejected',
+             'validation_credential.revoked',
+             'validation_credential.revocation_rejected'
+           )),
+        (SELECT count(*) FROM domain_events
+           WHERE event_type IN (
+             'validation_credential.rotated',
+             'validation_credential.revoked'
+           )),
+        (SELECT count(*) FROM outbox_messages
+           WHERE topic IN (
+             'redemptions.validation_credentials.rotated',
+             'redemptions.validation_credentials.revoked'
+           )),
+        (SELECT count(*) FROM tenant_idempotency_keys
+           WHERE scope IN (
+             'redemptions.rotate_validation_credential',
+             'redemptions.revoke_validation_credential'
+           ))
+      """)
+
+    %{
+      credentials: credentials,
+      audits: audits,
+      domain_events: events,
+      outbox_messages: outbox,
+      idempotency_keys: idempotency_keys
     }
   end
 
@@ -226,6 +778,12 @@ defmodule Clubeira.Directory.PartnerOnboardingConcurrencyTest do
       """)
 
     count
+  end
+
+  defp validation_secret_sha256 do
+    :crypto.strong_rand_bytes(32)
+    |> then(&:crypto.hash(:sha256, &1))
+    |> Base.url_encode64(padding: false)
   end
 
   defp run_concurrently(repo, operations) do

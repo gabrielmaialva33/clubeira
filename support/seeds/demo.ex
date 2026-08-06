@@ -14,6 +14,7 @@ defmodule Clubeira.Seeds.Demo do
   alias Clubeira.Seeds.Demo.Member
   alias Clubeira.Seeds.Demo.Moderator
   alias Clubeira.Seeds.Demo.Polo
+  alias Clubeira.Seeds.Demo.Profiles
 
   @spec run!() :: map()
   def run! do
@@ -89,6 +90,7 @@ defmodule Clubeira.Seeds.Demo do
       ]
     )
 
+    Profiles.run!()
     billing = Billing.run!()
     member = Member.run!(billing)
     moderator = Moderator.run!()
@@ -100,6 +102,8 @@ defmodule Clubeira.Seeds.Demo do
       organizations: 2,
       brands: 2,
       places: 3,
+      place_categories: 4,
+      place_profiles: 3,
       polos: 2,
       editions: 2,
       benefit_offers: 3,

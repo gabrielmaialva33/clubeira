@@ -23,6 +23,10 @@ defmodule Clubeira.SeedsTest do
   alias Clubeira.Directory.Organization
   alias Clubeira.Directory.OrganizationIdentifier
   alias Clubeira.Directory.Place
+  alias Clubeira.Directory.PlaceCategory
+  alias Clubeira.Directory.PoloPlaceOpeningPeriod
+  alias Clubeira.Directory.PoloPlaceProfile
+  alias Clubeira.Directory.PoloPlaceProfileCategory
   alias Clubeira.Events.DomainEvent
   alias Clubeira.Events.OutboxMessage
   alias Clubeira.Factory.Brazil
@@ -62,6 +66,7 @@ defmodule Clubeira.SeedsTest do
     assert Repo.aggregate(OrganizationIdentifier, :count) == 2
     assert Repo.aggregate(Brand, :count) == 2
     assert Repo.aggregate(Place, :count) == 3
+    assert Repo.aggregate(PlaceCategory, :count) == 4
     assert Repo.aggregate(PoloRoute, :count) == 2
     assert Repo.aggregate(User, :count) == 3
     assert Repo.aggregate(PasswordCredential, :count) == 3
@@ -87,6 +92,9 @@ defmodule Clubeira.SeedsTest do
       edition_places: 2,
       benefit_offers: 2,
       offer_places: 2,
+      place_profiles: 2,
+      profile_categories: 4,
+      opening_periods: 23,
       validation_points: 1,
       vouchers: 2
     )
@@ -96,6 +104,9 @@ defmodule Clubeira.SeedsTest do
       edition_places: 1,
       benefit_offers: 1,
       offer_places: 1,
+      place_profiles: 1,
+      profile_categories: 2,
+      opening_periods: 9,
       validation_points: 0,
       vouchers: 1
     )
@@ -106,6 +117,7 @@ defmodule Clubeira.SeedsTest do
     assert operator_count(Ids.fetch!(:polo_sobral), franchise_id) == 1
     assert operator_count(Ids.fetch!(:polo_londrina), franchise_id) == 1
     assert operator_count(Ids.fetch!(:polo_londrina), local_sobral_id) == 0
+    assert_seeded_place_profiles!()
 
     review = assert_member_api_scenario(first_result)
     assert_moderator_scenario(first_result, review)
@@ -141,6 +153,12 @@ defmodule Clubeira.SeedsTest do
       assert Repo.aggregate(ValidationPoint, :count) == expected[:validation_points]
       assert Repo.aggregate(ValidationCredential, :count) == expected[:validation_points]
       assert Repo.aggregate(BenefitOfferVersionPlace, :count) == expected[:offer_places]
+      assert Repo.aggregate(PoloPlaceProfile, :count) == expected[:place_profiles]
+
+      assert Repo.aggregate(PoloPlaceProfileCategory, :count) ==
+               expected[:profile_categories]
+
+      assert Repo.aggregate(PoloPlaceOpeningPeriod, :count) == expected[:opening_periods]
       assert Repo.aggregate(Order, :count) == 1
       assert Repo.aggregate(OrderItem, :count) == 1
       assert Repo.aggregate(PaymentIntent, :count) == 1
@@ -152,6 +170,54 @@ defmodule Clubeira.SeedsTest do
       assert Repo.aggregate(AccessContract, :count) == 1
       assert Repo.aggregate(EntitlementAllocation, :count) == expected[:vouchers]
     end)
+  end
+
+  defp assert_seeded_place_profiles! do
+    assert {:ok, sobral} = Directory.fetch_public("sobral")
+    assert {:ok, londrina} = Directory.fetch_public("londrina")
+
+    sobral_cafe = place_profile!(sobral, :place_franchise_sobral)
+    sobral_restaurant = place_profile!(sobral, :place_local_sobral)
+    londrina_cafe = place_profile!(londrina, :place_franchise_londrina)
+
+    assert sobral_cafe["contact"] == %{
+             "email" => "sobral@cafe-horizonte.example",
+             "phone" => "+5588999991001"
+           }
+
+    assert Enum.map(sobral_cafe["categories"], & &1["key"]) == ["cafe", "bakery"]
+    assert length(sobral_cafe["weekly_hours"]) == 7
+    assert Enum.map(sobral_cafe["special_hours"], & &1["kind"]) == ["closed", "custom"]
+
+    assert sobral_restaurant["contact"] == %{
+             "email" => "reservas@sabores-do-acarau.example",
+             "phone" => "+5588999991002"
+           }
+
+    assert Enum.map(sobral_restaurant["categories"], & &1["key"]) == [
+             "restaurant",
+             "regional-cuisine"
+           ]
+
+    assert length(sobral_restaurant["weekly_hours"]) == 12
+    assert length(sobral_restaurant["special_hours"]) == 2
+
+    assert londrina_cafe["contact"] == %{
+             "email" => "londrina@cafe-horizonte.example",
+             "phone" => "+5543999991003"
+           }
+
+    assert Enum.map(londrina_cafe["categories"], & &1["key"]) == ["cafe", "bakery"]
+    assert length(londrina_cafe["weekly_hours"]) == 7
+    assert length(londrina_cafe["special_hours"]) == 2
+  end
+
+  defp place_profile!(directory, place_id_name) do
+    place_id = Ids.fetch!(place_id_name)
+    place = Enum.find(directory.places, &(&1.place_id == place_id))
+    refute is_nil(place)
+    refute is_nil(place.profile)
+    place.profile
   end
 
   defp operator_count(polo_id, organization_id) do

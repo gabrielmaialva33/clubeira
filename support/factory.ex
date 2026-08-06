@@ -29,7 +29,11 @@ defmodule Clubeira.Factory do
   alias Clubeira.Directory.OrganizationIdentifier
   alias Clubeira.Directory.Place
   alias Clubeira.Directory.PlaceBrand
+  alias Clubeira.Directory.PlaceCategory
   alias Clubeira.Directory.PlaceOperator
+  alias Clubeira.Directory.PoloPlaceOpeningPeriod
+  alias Clubeira.Directory.PoloPlaceProfile
+  alias Clubeira.Directory.PoloPlaceProfileCategory
   alias Clubeira.Factory.Brazil
   alias Clubeira.Legal.Acceptance
   alias Clubeira.Legal.Document
@@ -174,6 +178,17 @@ defmodule Clubeira.Factory do
     }
   end
 
+  def place_category_factory do
+    number = sequence(:place_category, & &1)
+
+    %PlaceCategory{
+      key: "category-#{number}",
+      name: "Categoria #{number}",
+      status: "active",
+      display_order: number
+    }
+  end
+
   def brand_ownership_factory do
     %BrandOwnership{
       valid_during: tstz_range(@default_range_start),
@@ -251,6 +266,28 @@ defmodule Clubeira.Factory do
     %PoloPlace{
       participation_during: tstz_range(@default_range_start),
       status: "active"
+    }
+  end
+
+  def polo_place_profile_factory do
+    %PoloPlaceProfile{
+      public_email: unique_email(),
+      public_phone: "+5511999990000",
+      revision: 1
+    }
+  end
+
+  def polo_place_profile_category_factory do
+    %PoloPlaceProfileCategory{inserted_at: timestamp()}
+  end
+
+  def polo_place_opening_period_factory do
+    %PoloPlaceOpeningPeriod{
+      kind: "weekly",
+      weekday: 1,
+      opens_at: ~T[09:00:00],
+      closes_at: ~T[18:00:00],
+      closes_next_day: false
     }
   end
 
