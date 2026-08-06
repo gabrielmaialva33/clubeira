@@ -45,4 +45,11 @@ defmodule Clubeira.FactoryTest do
     assert Brazil.cnpj(1) == Brazil.cnpj(1)
     assert Brazil.cnpj(1) != Brazil.cnpj(2)
   end
+
+  test "commercial defaults do not advertise an unimplemented automatic renewal" do
+    offering = Factory.build(:product_offering_version)
+
+    assert offering.renewal_policy == "none"
+    refute offering.description =~ "Renovação"
+  end
 end

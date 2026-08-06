@@ -12,6 +12,7 @@ defmodule Clubeira.SeedsTest do
   alias Clubeira.Billing.PaymentProvider
   alias Clubeira.Billing.PaymentProviderEvent
   alias Clubeira.Billing.PoloMerchantAccount
+  alias Clubeira.Catalog
   alias Clubeira.Catalog.BenefitOffer
   alias Clubeira.Catalog.BenefitOfferVersionPlace
   alias Clubeira.Catalog.Edition
@@ -242,6 +243,10 @@ defmodule Clubeira.SeedsTest do
 
     assert {:ok, session} = Accounts.login("membro.demo@clubeira.local", password)
     assert {:ok, scope} = Accounts.fetch_scope_by_api_token(session.token)
+
+    assert {:ok, %{options: [%{renewal_policy: "none"}]}} =
+             Catalog.fetch_checkout_options("sobral")
+
     assert {:ok, subscriptions} = Subscriptions.list_for_account(scope)
     assert length(subscriptions) == 2
 
