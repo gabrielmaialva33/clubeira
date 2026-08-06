@@ -226,6 +226,21 @@ qualquer colisão de identidade desfaz todos os nós comerciais sem perder a
 resposta idempotente e a auditoria da rejeição. No sucesso, grafo, evento,
 outbox, auditoria e DTO `201` confirmam na mesma transação tenant-aware.
 
+`POST /api/v1/polos/:slug/backoffice/product-offerings/:product_offering_id/lifecycle-actions`
+controla novas vendas sem alterar as versões imutáveis do grafo. `pause` faz a
+identidade ativa passar a `paused`; `reactivate` é o retorno permitido para
+`active`; e `retire` encerra definitivamente uma identidade ativa ou pausada.
+Leitores públicos e checkout exigem status ativo, portanto pausa e aposentadoria
+cortam novas vendas imediatamente. Pedidos já aceitos preservam a referência à
+versão histórica e ainda podem ser liquidados.
+
+O comando exige `admin`, motivo e chave idempotente. Ele trava a identidade com
+`FOR UPDATE`, incrementa `revision` e usa essa revisão como versão do aggregate;
+duas transições concorrentes não podem publicar o mesmo número. Estado, audit,
+evento, outbox e resposta idempotente confirmam juntos. Uma transição inválida
+persiste a rejeição e seu replay estável sem emitir evento. O motivo informado
+pelo operador fica apenas na auditoria tenant.
+
 `GET /api/v1/polos/:slug/checkout-options` é a leitura pública comercial que
 completa essa vitrine. Ela pagina preços por UUIDv7 e devolve os pares
 `product_offering_version_id + offering_price_id` usados por

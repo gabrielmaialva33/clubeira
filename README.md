@@ -83,7 +83,7 @@ flowchart LR
 | 📜 **Assinatura** | planos, contratos, ciclos e alocações de benefício independentes por polo |
 | ✅ **Resgate** | enrollment sem persistir segredo, grant assinado e curto, lifecycle administrativo do ponto, rotação e revogação da credencial, consumo atômico com anti-replay, ledger, auditoria, evento e outbox |
 | ⭐ **UGC** | avaliações verificadas por resgate, fila de moderação autorizada por polo, decisão append-only e feed público só do que foi publicado |
-| 🧪 **Base** | 133 migrations, seeds determinísticas, factories, RLS forçado e testes de concorrência contra bancos isolados reais |
+| 🧪 **Base** | 134 migrations, seeds determinísticas, factories, RLS forçado e testes de concorrência contra bancos isolados reais |
 
 O fluxo de venda implementado no domínio é:
 
@@ -348,6 +348,7 @@ docker compose stop
 | `PUT` | `/api/v1/polos/:slug/backoffice/places/:place_id/profile` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/places/:place_id/benefit-offers` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/product-offerings` | 🛡️ |
+| `POST` | `/api/v1/polos/:slug/backoffice/product-offerings/:product_offering_id/lifecycle-actions` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/places/:place_id/validation-points` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/validation-points/:validation_point_id/lifecycle-actions` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/validation-credentials/:credential_id/rotations` | 🛡️ |
@@ -409,6 +410,13 @@ curl -sS -X POST \
   -H 'idempotency-key: clube-sobral-premium-001' \
   -H 'content-type: application/json' \
   -d '{"offering":{"code":"clube-sobral-premium","name":"Clube Sobral Premium","description":"Plano mensal com benefícios publicados pelo polo.","cycle":{"policy":"calendar","interval_unit":"month","interval_count":1},"effective_during":{"starts_at":"2026-08-01T00:00:00Z","ends_at":null}},"price":{"currency":"BRL","amount":"39.90"},"benefits":[{"benefit_offer_version_id":"<benefit_version_uuid>","allowance_per_cycle":2,"consumption_unit":"per_place"}]}'
+
+curl -sS -X POST \
+  http://localhost:4000/api/v1/polos/sobral/backoffice/product-offerings/<product_offering_uuid>/lifecycle-actions \
+  -H "authorization: Bearer $ADMIN_TOKEN" \
+  -H 'idempotency-key: pausa-clube-sobral-premium-001' \
+  -H 'content-type: application/json' \
+  -d '{"action":"pause","reason":"Revisão preventiva da configuração comercial"}'
 
 VALIDATION_SECRET="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')"
 VALIDATION_SECRET_SHA256="$(printf '%s=' "$VALIDATION_SECRET" | tr '_-' '/+' | openssl base64 -d -A | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=\n')"
@@ -511,6 +519,13 @@ a oferta direta, o preço recorrente, o pacote, o escopo e seus itens em versõe
 iniciais imutáveis. Todos os benefícios e lugares precisam cobrir o período
 completo da oferta; o grafo só aparece em `checkout-options` quando também é
 provisionável pelo fluxo real de liquidação.
+
+O lifecycle comercial aceita `pause`, `reactivate` e `retire`. A pausa corta
+imediatamente descoberta e novos checkouts, mas não invalida um pedido já
+criado; a liquidação continua usando sua versão histórica. Reativação devolve a
+identidade a `active`, sujeita à releitura normal de todo o grafo, e aposentadoria
+é terminal. Cada sucesso incrementa a revisão e grava audit, evento e outbox na
+mesma transação; o motivo operacional permanece somente na auditoria.
 
 O histórico de pedidos retorna somente os pedidos do ator naquele polo, do
 mais novo para o mais antigo, com os itens e valores históricos; ele usa
@@ -646,7 +661,7 @@ alterar a configuração versionada.
 | `credo --strict` | consistência e code smells |
 | `deps.audit` + `hex.audit` | CVE e pacotes retirados |
 | `sobelow --config` | análise estática de segurança Phoenix |
-| `test` | 356 testes, incluindo contratos de RLS e concorrência real |
+| `test` | 365 testes, incluindo contratos de RLS e concorrência real |
 
 ---
 
@@ -660,6 +675,7 @@ alterar a configuração versionada.
 | Perfil operacional do estabelecimento | ✅ |
 | Publicação administrativa de benefício v1 | ✅ |
 | Publicação administrativa de produto comercial v1 | ✅ |
+| Pausa, reativação e aposentadoria de produto comercial | ✅ |
 | Checkout autenticado e idempotente | ✅ |
 | Pix Mercado Pago (Orders API + webhook) | ✅ |
 | Contrato, ciclo e alocações | ✅ |
@@ -727,6 +743,12 @@ alterar a configuração versionada.
   derivados no servidor, versões de benefício precisam estar publicadas e
   cobrir toda a vigência, retry é exato e colisões concorrentes deixam um único
   grafo com rejeição auditada para o perdedor;
+- `POST /api/v1/polos/:polo_slug/backoffice/product-offerings/:product_offering_id/lifecycle-actions`
+  exige `admin`, motivo e `Idempotency-Key`; `pause` remove a oferta de novas
+  vendas, `reactivate` reabre sua identidade sob as validações normais do grafo
+  e `retire` é terminal, sem reescrever versões ou invalidar pedidos históricos;
+  transições concorrentes serializam sob lock, incrementam uma revisão
+  monotônica e confirmam audit, evento, outbox e replay na mesma transação;
 - `POST /api/v1/polos/:polo_slug/backoffice/places/:place_id/validation-points`
   exige `admin` e `Idempotency-Key`, relê a participação ativa e cria ponto mais
   credencial atomicamente; recebe somente o SHA-256 da chave gerada pelo cliente,

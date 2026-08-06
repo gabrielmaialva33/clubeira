@@ -122,6 +122,30 @@ decimal ou ordem dos benefícios equivalentes, devolvem o DTO original.
 Reutilizar a chave com conteúdo diferente retorna `idempotency_conflict`, e
 validação de payload ocorre antes da reserva.
 
+## Lifecycle administrativo de produtos comerciais
+
+Uma oferta publicada pode sair de novas vendas sem alterar pedidos, contratos
+ou versões históricas:
+
+```text
+POST /api/v1/polos/:slug/backoffice/product-offerings/:product_offering_id/lifecycle-actions
+Authorization: Bearer <admin-token>
+Idempotency-Key: <8-a-128-caracteres>
+```
+
+O corpo exige `action` (`pause`, `reactivate` ou `retire`) e `reason` com 3 a
+500 caracteres. `pause` aceita somente uma oferta ativa; `reactivate`, somente
+uma pausada; `retire`, uma ativa ou pausada. A aposentadoria é terminal. Polo e
+ator são derivados da rota e da sessão, e um ID de outro polo permanece `404`.
+
+O retorno `200` informa estado anterior, estado atual, revisão monotônica e
+timestamp do banco. Retry exato reproduz o mesmo DTO; reutilizar a chave com
+outro comando retorna `idempotency_conflict`. Uma transição inválida retorna
+`409` e também é reproduzível. Motivo fica somente na auditoria, nunca no evento
+ou na outbox. A trava da identidade serializa transições e novos checkouts:
+depois da pausa, `checkout-options` deixa de anunciá-la e novas ordens falham,
+enquanto uma ordem criada antes do corte continua liquidável.
+
 ## Chaves de identificadores
 
 O runtime cifra CNPJ e futuros identificadores com uma chave AES-256-GCM
