@@ -8,7 +8,7 @@
 [![OTP](https://img.shields.io/badge/OTP_29-A90533?style=for-the-badge&logo=erlang&logoColor=white)](https://www.erlang.org/)
 [![RLS](https://img.shields.io/badge/RLS-FORCED-16A34A?style=for-the-badge)](#-multi-tenancy)
 [![Tests](https://img.shields.io/badge/tests-346-6D28D9?style=for-the-badge)](./test)
-[![Migrations](https://img.shields.io/badge/migrations-133-F59E0B?style=for-the-badge)](./priv/repo/migrations)
+[![Migrations](https://img.shields.io/badge/migrations-135-F59E0B?style=for-the-badge)](./priv/repo/migrations)
 [![License](https://img.shields.io/badge/license-MIT-16A34A?style=for-the-badge)](./LICENSE)
 
 **[🏗️ Arquitetura](docs/architecture.md)** · **[🛠️ Desenvolvimento](docs/development.md)** · **[🤝 Contribuir](CONTRIBUTING.md)** · **[🔐 Segurança](SECURITY.md)**
@@ -75,15 +75,15 @@ flowchart LR
 
 | Domínio | Entregue |
 |:--|:--|
-| 🔐 **Identidade** | cadastro atômico com aceite da versão legal vigente, Argon2id, sessão bearer opaca e revogável, rate limit por global/IP/identidade |
+| 🔐 **Identidade** | cadastro atômico com aceite legal, confirmação de e-mail por token opaco, Argon2id, sessão bearer revogável e rate limit por global/IP/identidade |
 | 🗺️ **Descoberta** | diretório público com perfil, contato, categorias e horários do parceiro, catálogo comercial e opções de checkout — tudo paginado por cursor |
 | 🏪 **Parceiros** | onboarding administrativo idempotente e publicação autenticada do perfil operacional, ambos com auditoria, evento e outbox atômicos |
-| 🛒 **Venda** | checkout idempotente, histórico paginado de pedidos, Pix via Mercado Pago com webhook HMAC que relê a order no PSP antes de liquidar |
+| 🛒 **Venda** | checkout idempotente, histórico do membro e feed financeiro administrativo paginados, Pix via Mercado Pago e reembolso integral; webhooks HMAC sempre releem a order no PSP |
 | 🏦 **Recebimento** | contas globais vinculadas por vigência a cada polo, com integridade referencial entre tenant e conta |
 | 📜 **Assinatura** | planos, contratos, ciclos e alocações de benefício independentes por polo |
 | ✅ **Resgate** | enrollment sem persistir segredo, grant assinado e curto, lifecycle administrativo do ponto, rotação e revogação da credencial, consumo atômico com anti-replay, ledger, auditoria, evento e outbox |
 | ⭐ **UGC** | avaliações verificadas por resgate, fila de moderação autorizada por polo, decisão append-only e feed público só do que foi publicado |
-| 🧪 **Base** | 134 migrations, seeds determinísticas, factories, RLS forçado e testes de concorrência contra bancos isolados reais |
+| 🧪 **Base** | 137 migrations, seeds determinísticas, factories, RLS forçado e testes de concorrência contra bancos isolados reais |
 
 O fluxo de venda implementado no domínio é:
 
@@ -94,13 +94,17 @@ checkout autenticado
   -> pagamento e pedido liquidado
   -> contrato e ciclo de benefício
   -> alocações de vouchers
+  -> reembolso integral opcional
+  -> cancelamento do contrato/ciclo e revogação do saldo restante
 ```
 
 A liquidação persiste esse resultado de forma atômica e aceita reprocessamento
 seguro. A primeira borda real de PSP usa a Orders API do Mercado Pago para Pix;
 payload bruto termina no adaptador e o core recebe somente uma captura
-normalizada depois da assinatura e do estado remoto serem verificados. Cartão,
-reembolso e chargeback continuam fatias separadas. A API online de resgate já
+normalizada depois da assinatura e do estado remoto serem verificados. O
+reembolso integral reserva identidade local antes do I/O e só revoga direitos
+após confirmação do PSP. Cartão, reembolso parcial e chargeback continuam
+fatias separadas. A API online de resgate já
 entrega o grant que um cliente pode renderizar como QR; placard estático,
 operação offline e o componente visual de leitura continuam bordas próprias.
 
@@ -274,9 +278,12 @@ persiste somente SHA-256 do bearer opaco. Recuperação de senha também usa 32
 bytes aleatórios e grava apenas o digest em `user_password_reset_tokens`; o
 token expira, é de uso único e uma nova solicitação revoga a anterior. O
 consumo troca a credencial, revoga todas as sessões, consome o token e audita a
-operação na mesma transação. Cadastro, login e as duas bordas de recuperação
-têm limites locais por instância para tráfego global, IP e identidade, além de
-um teto fail-fast para operações Argon2 concorrentes. Um limitador no ingress
+operação na mesma transação. A confirmação de e-mail repete o mesmo padrão de
+32 bytes + digest em `user_email_verification_tokens`; resend autenticado revoga
+a credencial anterior, e confirmações concorrentes ou repetidas geram um único
+fato auditável. Cadastro, login, verificação e as duas bordas de recuperação têm
+limites locais por instância para tráfego global, IP e identidade, além de um
+teto fail-fast para operações Argon2 concorrentes. Um limitador no ingress
 continua obrigatório para impor o teto do cluster. Credenciais temporárias e
 sessões terminais são removidas após a retenção configurada, 30 dias por padrão.
 
@@ -326,6 +333,8 @@ docker compose stop
 | `GET` | `/api/v1/legal/registration` | 🌐 |
 | `POST` | `/api/v1/auth/registrations` | 🌐 |
 | `POST` | `/api/v1/auth/sessions` | 🌐 |
+| `POST` | `/api/v1/auth/email-verifications` | 🌐 |
+| `POST` | `/api/v1/auth/email-verification-requests` | 🔑 |
 | `POST` | `/api/v1/auth/password-reset-requests` | 🌐 |
 | `POST` | `/api/v1/auth/password-resets` | 🌐 |
 | `DELETE` | `/api/v1/auth/session` | 🔑 |
@@ -349,6 +358,8 @@ docker compose stop
 | `POST` | `/api/v1/polos/:slug/backoffice/places/:place_id/benefit-offers` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/product-offerings` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/product-offerings/:product_offering_id/lifecycle-actions` | 🛡️ |
+| `GET` | `/api/v1/polos/:slug/backoffice/payments` | 🛡️ |
+| `POST` | `/api/v1/polos/:slug/backoffice/payments/:payment_id/refunds` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/places/:place_id/validation-points` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/validation-points/:validation_point_id/lifecycle-actions` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/validation-credentials/:credential_id/rotations` | 🛡️ |
@@ -367,6 +378,13 @@ curl -sS 'http://localhost:4000/api/v1/legal/registration?locale=pt-BR'
 curl -sS -X POST http://localhost:4000/api/v1/auth/registrations \
   -H 'content-type: application/json' \
   -d '{"email":"novo@example.test","password":"uma-senha-com-15-chars","legal_document_version_ids":["<legal_version_uuid>"]}'
+
+curl -i -sS -X POST http://localhost:4000/api/v1/auth/email-verifications \
+  -H 'content-type: application/json' \
+  -d '{"token":"<email_verification_token>"}'
+
+curl -i -sS -X POST http://localhost:4000/api/v1/auth/email-verification-requests \
+  -H "authorization: Bearer $TOKEN"
 
 curl -sS http://localhost:4000/api/v1/auth/sessions \
   -H 'content-type: application/json' \
@@ -417,6 +435,17 @@ curl -sS -X POST \
   -H 'idempotency-key: pausa-clube-sobral-premium-001' \
   -H 'content-type: application/json' \
   -d '{"action":"pause","reason":"Revisão preventiva da configuração comercial"}'
+
+curl -sS \
+  'http://localhost:4000/api/v1/polos/sobral/backoffice/payments?status=captured&limit=20' \
+  -H "authorization: Bearer $ADMIN_TOKEN"
+
+curl -sS -X POST \
+  http://localhost:4000/api/v1/polos/sobral/backoffice/payments/<payment_uuid>/refunds \
+  -H "authorization: Bearer $ADMIN_TOKEN" \
+  -H 'idempotency-key: reembolso-atendimento-001' \
+  -H 'content-type: application/json' \
+  -d '{"reason":"Cancelamento confirmado pelo atendimento"}'
 
 VALIDATION_SECRET="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')"
 VALIDATION_SECRET_SHA256="$(printf '%s=' "$VALIDATION_SECRET" | tr '_-' '/+' | openssl base64 -d -A | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=\n')"
@@ -555,6 +584,7 @@ avaliado, inclui também o aggregate de review.
 %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#6D28D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#F59E0B', 'lineColor': '#F59E0B'}}}%%
 sequenceDiagram
     participant M as Membro
+    participant O as Operador
     participant A as Clubeira
     participant MP as Mercado Pago
 
@@ -568,6 +598,11 @@ sequenceDiagram
     A->>MP: GET /v1/orders/:id (a fonte da verdade)
     MP-->>A: processed/accredited
     A->>A: payment + order + contrato + ciclo + alocações<br/>+ audit + evento + outbox — mesma transação
+    O->>A: POST /payments/:id/refunds (Idempotency-Key)
+    A->>A: reserva refund e libera locks
+    A->>MP: POST /v1/orders/:id/refund<br/>(X-Idempotency-Key = uuid do refund)
+    MP-->>A: reembolso integral confirmado
+    A->>A: refund + payment/order + cancelamento + revogação do saldo<br/>+ ledger + audit + eventos + outbox — mesma transação
 ```
 
 O início do pagamento aceita hoje somente `pix`. A resposta contém uma ação
@@ -577,6 +612,15 @@ o UUID interno do intent como `X-Idempotency-Key` no Mercado Pago. O webhook
 assinado relê `GET /v1/orders/:id`, provisiona contrato, ciclo e vouchers apenas
 para uma captura `processed/accredited`, fecha intents expirados e reconcilia
 notificações repetidas sem duplicar pagamento ou direito.
+
+O reembolso disponível é integral e administrativo. A API deriva valor, moeda,
+conta e referências do pagamento capturado; o cliente envia somente motivo e
+`Idempotency-Key`. A reserva local acontece antes do POST ao PSP. Timeout é
+retomado com o UUID do mesmo refund e o webhook também relê a order para fechar
+uma resposta perdida. A conclusão preserva consumo histórico, cancela contrato
+e ciclos ativos e lança `refund_revocation` apenas para o saldo ainda disponível.
+Reembolso parcial fica rejeitado por desenho até existir uma política explícita
+para direitos já consumidos.
 
 ### ✅ Resgate online
 
@@ -661,7 +705,7 @@ alterar a configuração versionada.
 | `credo --strict` | consistência e code smells |
 | `deps.audit` + `hex.audit` | CVE e pacotes retirados |
 | `sobelow --config` | análise estática de segurança Phoenix |
-| `test` | 365 testes, incluindo contratos de RLS e concorrência real |
+| `test` | 375 testes, incluindo contratos de RLS e concorrência real |
 
 ---
 
@@ -678,6 +722,8 @@ alterar a configuração versionada.
 | Pausa, reativação e aposentadoria de produto comercial | ✅ |
 | Checkout autenticado e idempotente | ✅ |
 | Pix Mercado Pago (Orders API + webhook) | ✅ |
+| Reembolso integral Pix + reconciliação por webhook | ✅ |
+| Feed financeiro administrativo por polo | ✅ |
 | Contrato, ciclo e alocações | ✅ |
 | Resgate online autenticado | ✅ |
 | Provisionamento de ponto de validação API | ✅ |
@@ -687,8 +733,8 @@ alterar a configuração versionada.
 | Avaliações verificadas + moderação | ✅ |
 | Outbox com HMAC, retry e dead-letter | ✅ |
 | Recuperação de senha por e-mail | ✅ |
-| Verificação de e-mail | ⏳ |
-| Cartão, reembolso e chargeback | ⏳ |
+| Verificação de e-mail + reenvio autenticado | ✅ |
+| Cartão, reembolso parcial e chargeback | ⏳ |
 | Renovação automática | ⏳ |
 | QR estático, placard e modo offline | ⏳ |
 | Mídia, resposta e denúncia em avaliações | ⏳ |
@@ -697,8 +743,12 @@ alterar a configuração versionada.
 <summary><strong>📋 Limites atuais, na íntegra</strong></summary>
 
 - `POST /api/v1/auth/registrations` cria atomicamente a conta e uma sessão
-  utilizável no checkout depois do aceite legal exato; verificação de email e
-  blocklist local de senhas comprometidas ainda são bordas próprias;
+  utilizável no checkout depois do aceite legal exato; depois do commit emite
+  por e-mail uma prova opaca, sem bloquear o cadastro se o mailer falhar;
+- `POST /api/v1/auth/email-verifications` consome essa prova de forma atômica e
+  idempotente, enquanto `POST /api/v1/auth/email-verification-requests` exige a
+  sessão da própria conta, revoga o token anterior e reenvia; somente SHA-256 é
+  persistido e `email_verified_at` passa a integrar as respostas de sessão;
 - `POST /api/v1/auth/password-reset-requests` responde sempre `202` para não
   revelar contas, entrega por e-mail um token opaco de 30 minutos e revoga a
   solicitação anterior; `POST /api/v1/auth/password-resets` consome o token uma
@@ -708,7 +758,14 @@ alterar a configuração versionada.
 - `POST /api/v1/polos/:polo_slug/orders/:order_id/payment-intents` inicia Pix
   somente para o comprador autenticado e exige `Idempotency-Key`;
 - `POST /api/v1/webhooks/mercado-pago/:merchant_account_id` autentica a
-  assinatura do tópico Order e confirma o estado pela API do provedor;
+  assinatura do tópico Order e confirma captura ou reembolso pela API do
+  provedor;
+- `GET /api/v1/polos/:polo_slug/backoffice/payments` exige `admin`, pagina por
+  `inserted_at + id` e filtra por status ou número exato do pedido; retorna IDs
+  e estados operacionais sem motivo, chave idempotente ou referência externa;
+- `POST /api/v1/polos/:polo_slug/backoffice/payments/:payment_id/refunds`
+  exige `admin`, motivo e `Idempotency-Key`, executa somente estorno integral e
+  nunca aceita valor, conta ou referência externa do cliente;
 - `GET /api/v1/polos/:polo_slug/me/orders` lista somente os pedidos do membro
   autenticado no polo, com paginação keyset e itens históricos;
 - `GET /api/v1/polos/:polo_slug/checkout-options` expõe versões comerciais e
@@ -799,8 +856,9 @@ alterar a configuração versionada.
   próprias para não reescrever configuração histórica;
 - vincular uma organização já existente a uma nova unidade ou polo exige uma
   borda própria, com autorização explícita sobre essa identidade global;
-- renovação automática, reembolso e chargeback ainda não fazem parte do fluxo
-  operacional; por isso factories e seeds anunciam `renewal_policy = none`.
+- renovação automática, cartão, reembolso parcial e chargeback ainda não fazem
+  parte do fluxo operacional; por isso factories e seeds anunciam
+  `renewal_policy = none`.
 
 </details>
 

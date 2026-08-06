@@ -259,9 +259,19 @@ expõe o aceite global ao próprio actor. Senhas ficam na relação 1:1
 `user_password_credentials`, nunca em `users`, e são derivadas com Argon2id.
 Sessões usam 32 bytes aleatórios; somente o digest SHA-256 é persistido em
 `user_sessions`, permitindo lookup indexado, expiração e revogação sem tornar
-um vazamento de banco equivalente a roubo imediato dos bearers ativos. Até a
-confirmação de email existir, o cadastro ativa a identidade imediatamente e
-essa limitação permanece explícita na API.
+um vazamento de banco equivalente a roubo imediato dos bearers ativos. O
+cadastro continua não bloqueante: ativa a identidade e, depois do commit, envia
+uma confirmação; a resposta de sessão expõe `email_verified_at` para políticas
+de produto posteriores sem fingir que verificação já é autorização.
+
+`user_email_verification_tokens` é global e guarda somente o SHA-256 de 32 bytes
+aleatórios. Existe no máximo uma prova aberta por usuário; resend exige a sessão
+da própria conta, trava o usuário e revoga a anterior. O consumo público prova
+posse do token, trava usuário e credencial nessa ordem, usa o relógio
+transacional do PostgreSQL e grava `users.email_verified_at`, consumo e
+auditoria global atomicamente. Replay do mesmo token é sucesso idempotente e
+corridas produzem um único evento. Falha de entrega revoga a prova e emite
+telemetria sem e-mail ou token; o cadastro já confirmado não é revertido.
 
 `user_password_reset_tokens` também é global e guarda somente o SHA-256 de 32
 bytes aleatórios. Existe no máximo uma credencial aberta por usuário; uma nova
@@ -286,8 +296,8 @@ context abre primeiro `Clubeira.Tenancy.ActorScope`; cada resultado é reaberto
 com `Clubeira.Tenancy.Scope` usando o mesmo ator e `request_id`. Trocar ator,
 request ou polo dentro de um escopo existente falha fechado.
 
-Os endpoints de cadastro, login, solicitação e consumo de recuperação são
-protegidos antes do Argon2 por buckets independentes para cada ação, nas
+Os endpoints de cadastro, login, verificação de e-mail, solicitação e consumo
+de recuperação são protegidos por buckets independentes para cada ação, nas
 dimensões global, IP e identidade normalizada ou fingerprint do token. Os
 buckets específicos são debitados antes do global,
 evitando que um único peer consuma o orçamento compartilhado depois de já ter
@@ -308,7 +318,7 @@ como identidade forense. Criação/revogação de sessão e troca de senha geram
 telemetria sem e-mail, fingerprint de identidade ou IP, evitando transformar
 tráfego não autenticado em crescimento ilimitado da auditoria imutável.
 
-Sessões expiradas ou revogadas e credenciais de recuperação terminais são
+Sessões expiradas ou revogadas e credenciais temporárias terminais são
 apagadas por um job idempotente depois da janela de retenção. Cada nó pode
 executar a limpeza sem coordenação exclusiva. O padrão é manter 30 dias após
 expiração, consumo ou revogação e pode ser reduzido conforme a política LGPD;
@@ -318,6 +328,10 @@ As bordas iniciais são:
 
 - `POST /api/v1/auth/registrations` — cria conta e primeira sessão atomicamente;
 - `POST /api/v1/auth/sessions` — cria uma sessão opaca;
+- `POST /api/v1/auth/email-verifications` — confirma posse do e-mail com token
+  opaco e replay idempotente;
+- `POST /api/v1/auth/email-verification-requests` — reenvia a prova somente
+  para a conta autenticada ainda não verificada;
 - `POST /api/v1/auth/password-reset-requests` — solicita recuperação sem
   revelar se a conta existe;
 - `POST /api/v1/auth/password-resets` — troca a senha com token de uso único e
@@ -394,8 +408,40 @@ essa transição também é auditada e publicada atomicamente.
 
 O adaptador persiste somente IDs externos e estado sanitizado. E-mail do
 pagador e conteúdo integral do QR não entram em provider events, auditoria nem
-outbox. Reembolso, chargeback, cartão e renovação automática continuam bordas
-próprias, sem alterar o contrato interno de captura.
+outbox.
+
+O reembolso integral é uma segunda fronteira, independente da captura.
+`Clubeira.Billing.refund_payment/3` exige administrador do polo e deriva do
+banco pagamento, valor, moeda, conta e referências externas. A primeira
+transação trava o pagamento e reserva um `refund`; só depois do commit o
+adaptador chama `POST /v1/orders/:id/refund`, usando o UUID do refund como
+`X-Idempotency-Key`. Um timeout deixa essa reserva retomável, portanto o retry
+nunca inventa uma segunda identidade remota nem segura lock durante I/O.
+
+Uma resposta normalizada ou o webhook HMAC relido em `GET /v1/orders/:id`
+entra em `RefundSettler.reconcile/4`. A conclusão trava novamente o grafo e
+valida polo, order, payment, conta, valor e moeda. Na mesma transação ela marca
+refund, payment e order, cancela contrato e ciclos abertos, zera apenas unidades
+ainda disponíveis com ledger append-only `refund_revocation`, registra o evento
+imutável do contrato, auditoria, eventos de domínio, outbox e provider event.
+Consumos anteriores permanecem intocados. Um reembolso iniciado diretamente no
+PSP também é importado pelo webhook com ator nulo e evidência externa
+sanitizada.
+
+O operador descobre o identificador interno por
+`GET /api/v1/polos/:slug/backoffice/payments`. O read model relê a capability
+`manage_billing` dentro da transação tenant-aware, junta payment, intent, order,
+provedor e o refund mais recente sem confiar em IDs do cliente e pagina por
+`payments.inserted_at + id`. Esse relógio transacional ordena a chegada local;
+`captured_at` continua sendo evidência temporal do PSP. Há índices distintos
+para o feed geral, o filtro por status e a seleção do refund mais recente. O DTO
+expõe IDs e estados necessários ao suporte, mas mantém motivo, falha,
+idempotência e referências externas fora da API.
+
+Reembolso parcial não é aproximado por redução de saldo: ele permanece fora do
+contrato até existir política de produto para benefício já consumido. Chargeback,
+cartão e renovação automática continuam bordas próprias; chargeback não é
+declarado operacional enquanto o único meio suportado for Pix.
 
 O histórico de resgates usa keyset decrescente sobre
 `redemption_attempts.requested_at + id`. Esse é também o índice composto por

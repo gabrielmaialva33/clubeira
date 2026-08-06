@@ -46,6 +46,9 @@ abstração nova. Não mova regra de negócio para controller, LiveView ou seed.
 - Descoberta global autenticada usa `Clubeira.Tenancy.ActorScope` e
   `Clubeira.Repo.transact_as_actor/2`; `user_contract_polo_routes` é somente uma
   projeção de roteamento, nunca autorização nem fonte de saldo/status.
+- Sessões, recuperação de senha e confirmação de e-mail são globais. Tokens
+  crus saem somente pela borda apropriada; PostgreSQL guarda SHA-256, lifecycle
+  terminal e no máximo uma credencial aberta por usuário e finalidade.
 - A role web é `clubeira_app`, sem superuser, ownership ou `BYPASSRLS`.
   Migrations e seeds usam `clubeira_migrator`. Não contorne RLS em runtime.
 - Use `Clubeira.Schema` e UUIDv7 para novas entidades. Períodos temporais usam
@@ -75,9 +78,15 @@ cliente como prova de permissão.
 - `Clubeira.Redemptions.confirm/2` recebe uma confirmação previamente
   autenticada e consome o entitlement atomicamente, com idempotência e proteção
   contra replay.
-- QR, prova do ponto de validação, publicador da outbox, renovações, reembolsos
-  e chargebacks ainda são bordas próprias. Não simule essas integrações dentro
-  do core nem declare uma borda futura como pronta.
+- `Clubeira.Billing.refund_payment/3` reserva um reembolso integral antes do
+  I/O; somente resposta normalizada ou webhook autenticado e relido no PSP pode
+  concluir a revogação. Reembolso parcial não possui semântica implícita.
+- `Clubeira.Billing.list_backoffice_payments/2` é o read model financeiro do
+  polo: exige a capability `manage_billing`, usa keyset por relógio transacional
+  e não expõe motivo, idempotência ou referências externas do PSP.
+- QR, prova do ponto de validação, renovações, reembolsos parciais e chargebacks
+  ainda são bordas próprias. Não simule essas integrações dentro do core nem
+  declare uma borda futura como pronta.
 - Eventos de domínio e auditoria carregam IDs internos e o mínimo de dados.
   Nunca inclua bearer, senha, CPF, contato cifrado ou payload sensível completo.
 

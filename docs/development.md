@@ -206,6 +206,37 @@ e a validação oficial de [notificações Order](https://www.mercadopago.com.br
 Use o simulador do painel para provar `200`; uma captura real de sandbox ainda
 deve ser validada com credenciais próprias antes do deploy.
 
+O estorno operacional é integral e parte de um `payment_id` interno já
+capturado. Descubra esse ID no feed tenant-aware; `status` aceita os estados de
+`payments`, `order_number` faz busca exata e `after` continua a paginação:
+
+```sh
+curl -sS \
+  "http://localhost:4000/api/v1/polos/sobral/backoffice/payments?status=captured&limit=20" \
+  -H "authorization: Bearer $ADMIN_TOKEN"
+```
+
+O feed não retorna motivo, chave idempotente ou referências externas. Com o
+`payment_id` e o mesmo bearer de `admin` do polo:
+
+```sh
+curl -sS -X POST \
+  "http://localhost:4000/api/v1/polos/sobral/backoffice/payments/<payment_uuid>/refunds" \
+  -H "authorization: Bearer $ADMIN_TOKEN" \
+  -H 'idempotency-key: refund-sandbox-001' \
+  -H 'content-type: application/json' \
+  -d '{"reason":"Validação de estorno no sandbox"}'
+```
+
+Não envie valor ou referência do Mercado Pago: a aplicação deriva ambos do
+banco. Em timeout, repita exatamente a mesma chave e motivo. A reserva local
+reutiliza o mesmo UUID no `X-Idempotency-Key` do PSP, e uma notificação Order
+assinada também reconcilia o resultado. Uma chave igual com motivo diferente
+retorna conflito; uma rejeição definitiva fica estável e não altera a venda.
+Para validar a jornada completa, confirme no banco que `payments` e `orders`
+ficaram `refunded`, contrato/ciclo ficaram `cancelled` e somente o saldo
+remanescente recebeu lançamentos `refund_revocation`.
+
 ## Resgate online autenticado
 
 O cliente gera e conserva localmente 32 bytes aleatórios para identificar sua
@@ -419,6 +450,14 @@ Os defaults são conservadores e todos os valores abaixo são validados no boot:
 | `REGISTRATION_RATE_GLOBAL_PER_SECOND` | `10` | cadastros admitidos por instância e segundo |
 | `REGISTRATION_RATE_IP_PER_MINUTE` | `5` | cadastros por peer e minuto |
 | `REGISTRATION_RATE_IDENTITY_PER_15_MINUTES` | `3` | cadastros por identidade e 15 minutos |
+| `EMAIL_VERIFICATION_RATE_GLOBAL_PER_SECOND` | `20` | reenvios autenticados por instância e segundo |
+| `EMAIL_VERIFICATION_RATE_IP_PER_MINUTE` | `10` | reenvios por peer e minuto |
+| `EMAIL_VERIFICATION_RATE_IDENTITY_PER_15_MINUTES` | `3` | reenvios por conta e 15 minutos |
+| `EMAIL_VERIFICATION_CONFIRM_RATE_GLOBAL_PER_SECOND` | `40` | confirmações por instância e segundo |
+| `EMAIL_VERIFICATION_CONFIRM_RATE_IP_PER_MINUTE` | `20` | confirmações por peer e minuto |
+| `EMAIL_VERIFICATION_CONFIRM_RATE_TOKEN_PER_15_MINUTES` | `10` | confirmações por fingerprint de token e 15 minutos |
+| `EMAIL_VERIFICATION_TOKEN_TTL_HOURS` | `24` | validade da prova, entre 1 e 168 horas |
+| `EMAIL_VERIFICATION_URL` | obrigatória | URL HTTPS da tela que recebe `?token=...` |
 | `PASSWORD_RESET_RATE_GLOBAL_PER_SECOND` | `20` | solicitações de recuperação por instância e segundo |
 | `PASSWORD_RESET_RATE_IP_PER_MINUTE` | `10` | solicitações por peer e minuto |
 | `PASSWORD_RESET_RATE_IDENTITY_PER_15_MINUTES` | `3` | solicitações por identidade e 15 minutos |
@@ -431,14 +470,14 @@ Os defaults são conservadores e todos os valores abaixo são validados no boot:
 | `MAILER_FROM_EMAIL` | obrigatória | remetente verificado usado pelo Clubeira |
 | `RESEND_API_KEY` | obrigatória | credencial do provider, nunca persistida |
 | `REDEMPTION_GRANT_MAX_AGE_SECONDS` | `120` | validade do grant assinado, entre 30 e 600 segundos |
-| `SESSION_RETENTION_DAYS` | `30` | retenção de sessões e tokens de recuperação terminais |
+| `SESSION_RETENTION_DAYS` | `30` | retenção de sessões e tokens temporários terminais |
 
 Os buckets em ETS e o gate de senha são locais à instância. Em múltiplas
 réplicas, configure também o rate limit no load balancer/API gateway e calibre
 Argon2 com a CPU e memória reais antes do deploy. `429` inclui `Retry-After`.
 Não derive IP de `x-forwarded-for` sem uma cadeia de proxies confiável.
 
-Em desenvolvimento, solicitações de recuperação aparecem em
+Em desenvolvimento, confirmações de e-mail e solicitações de recuperação aparecem em
 `http://localhost:4000/dev/mailbox`. Em produção, configure
 `MAILER_PROVIDER=resend`, um remetente já verificado e a chave via secret
 manager; ausência ou valor inválido impede o boot. A resposta pública continua
