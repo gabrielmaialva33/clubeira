@@ -86,6 +86,38 @@ defmodule Clubeira.Billing.DatabaseContractTest do
       """)
   end
 
+  test "full refunds preserve tenant identity and arbitrate one financial reversal" do
+    constraints = constraint_definitions()
+    indexes = index_definitions()
+
+    assert constraints["refunds_payment_fkey"] =~ "FOREIGN KEY (payment_id, polo_id)"
+    assert constraints["refunds_payment_fkey"] =~ "REFERENCES payments(id, polo_id)"
+    assert constraints["refunds_resolution_check"] =~ "provider_reference IS NOT NULL"
+    assert constraints["payments_refunded_at_check"] =~ "refunded_at IS NOT NULL"
+
+    assert constraints["entitlement_ledger_entries_kind_check"] =~ "refund_revocation"
+    assert constraints["entitlement_ledger_entries_kind_check"] =~ "delta_units < 0"
+
+    assert indexes["refunds_actor_idempotency_uidx"] =~
+             "(polo_id, requested_by_user_id, idempotency_key)"
+
+    assert indexes["refunds_live_payment_uidx"] =~ "(polo_id, payment_id)"
+    assert indexes["refunds_live_payment_uidx"] =~ "requested"
+    assert indexes["refunds_succeeded_payment_uidx"] =~ "status = 'succeeded'"
+  end
+
+  test "backoffice payment feeds have indexes matching both keyset query shapes" do
+    indexes = index_definitions()
+
+    assert indexes["payments_backoffice_feed_idx"] =~ "(polo_id, inserted_at, id)"
+
+    assert indexes["payments_backoffice_status_feed_idx"] =~
+             "(polo_id, status, inserted_at, id)"
+
+    assert indexes["refunds_backoffice_payment_feed_idx"] =~
+             "(polo_id, payment_id, inserted_at, id)"
+  end
+
   defp constraint_definitions do
     %{rows: rows} =
       Repo.query!("""
@@ -99,9 +131,13 @@ defmodule Clubeira.Billing.DatabaseContractTest do
         'payment_intents_polo_merchant_account_fkey',
         'payment_intents_payment_method_check',
         'payment_intents_next_action_check',
+        'payments_refunded_at_check',
         'payments_intent_fkey',
+        'refunds_payment_fkey',
+        'refunds_resolution_check',
         'benefit_cycles_package_assignment_fkey',
-        'entitlement_allocations_package_item_fkey'
+        'entitlement_allocations_package_item_fkey',
+        'entitlement_ledger_entries_kind_check'
       )
       """)
 
@@ -117,7 +153,13 @@ defmodule Clubeira.Billing.DatabaseContractTest do
         AND indexname IN (
           'orders_actor_idempotency_uidx',
           'access_contracts_order_item_uidx',
-          'payment_intents_live_order_uidx'
+          'payment_intents_live_order_uidx',
+          'payments_backoffice_feed_idx',
+          'payments_backoffice_status_feed_idx',
+          'refunds_backoffice_payment_feed_idx',
+          'refunds_actor_idempotency_uidx',
+          'refunds_live_payment_uidx',
+          'refunds_succeeded_payment_uidx'
         )
       """)
 
