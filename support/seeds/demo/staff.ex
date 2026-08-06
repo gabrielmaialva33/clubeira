@@ -9,7 +9,7 @@ defmodule Clubeira.Seeds.Demo.Staff do
   alias Clubeira.Seeds.Writer
 
   @range_start ~U[2026-01-01 00:00:00Z]
-  @user_fields ~w(email status disabled_at updated_at)a
+  @user_fields ~w(email status email_verified_at disabled_at updated_at)a
 
   @spec seed!(keyword()) :: map()
   def seed!(options) do
@@ -27,7 +27,12 @@ defmodule Clubeira.Seeds.Demo.Staff do
     user =
       Writer.upsert!(
         :user,
-        %{id: Keyword.fetch!(options, :user_id), email: email, status: "active"},
+        %{
+          id: Keyword.fetch!(options, :user_id),
+          email: email,
+          status: "active",
+          email_verified_at: @range_start
+        },
         @user_fields
       )
 

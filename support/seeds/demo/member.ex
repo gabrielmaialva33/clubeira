@@ -20,7 +20,7 @@ defmodule Clubeira.Seeds.Demo.Member do
 
   @default_member_email "membro.demo@clubeira.local"
   @default_password "clubeira-demo-local"
-  @user_fields ~w(email status disabled_at updated_at)a
+  @user_fields ~w(email status email_verified_at disabled_at updated_at)a
   @access_product_fields ~w(polo_id code name status updated_at)a
 
   @product_offering_fields ~w(
@@ -107,7 +107,12 @@ defmodule Clubeira.Seeds.Demo.Member do
     user =
       Writer.upsert!(
         :user,
-        %{id: id(:member_user), email: member_email, status: "active"},
+        %{
+          id: id(:member_user),
+          email: member_email,
+          status: "active",
+          email_verified_at: ~U[2026-01-01 00:00:00Z]
+        },
         @user_fields
       )
 

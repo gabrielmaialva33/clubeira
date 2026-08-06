@@ -42,6 +42,14 @@ defmodule ClubeiraWeb.Router do
     plug ClubeiraWeb.Plugs.CredentialRateLimit, action: :password_reset
   end
 
+  pipeline :email_verification_api do
+    plug ClubeiraWeb.Plugs.CredentialRateLimit, action: :email_verification
+  end
+
+  pipeline :email_verification_request_api do
+    plug ClubeiraWeb.Plugs.CredentialRateLimit, action: :email_verification_request
+  end
+
   scope "/", ClubeiraWeb do
     pipe_through :browser
 
@@ -76,6 +84,18 @@ defmodule ClubeiraWeb.Router do
     pipe_through [:api, :password_reset_api]
 
     post "/auth/password-resets", PasswordResetController, :create
+  end
+
+  scope "/api/v1", ClubeiraWeb do
+    pipe_through [:api, :email_verification_api]
+
+    post "/auth/email-verifications", EmailVerificationController, :create
+  end
+
+  scope "/api/v1", ClubeiraWeb do
+    pipe_through [:api, :authenticated_api, :email_verification_request_api]
+
+    post "/auth/email-verification-requests", EmailVerificationRequestController, :create
   end
 
   scope "/api/v1", ClubeiraWeb do
@@ -116,6 +136,12 @@ defmodule ClubeiraWeb.Router do
 
     post "/polos/:polo_slug/backoffice/product-offerings/:product_offering_id/lifecycle-actions",
          BackofficeProductOfferingLifecycleController,
+         :create
+
+    get "/polos/:polo_slug/backoffice/payments", BackofficePaymentController, :index
+
+    post "/polos/:polo_slug/backoffice/payments/:payment_id/refunds",
+         BackofficePaymentRefundController,
          :create
 
     post "/polos/:polo_slug/backoffice/places/:place_id/validation-points",

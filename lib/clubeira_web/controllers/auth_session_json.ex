@@ -9,9 +9,13 @@ defmodule ClubeiraWeb.AuthSessionJSON do
         expires_at: session.expires_at,
         user: %{
           id: session.user.id,
-          email: session.user.email
+          email: session.user.email,
+          email_verified_at: datetime_to_string(session.user.email_verified_at)
         }
       }
     }
   end
+
+  defp datetime_to_string(nil), do: nil
+  defp datetime_to_string(value), do: DateTime.to_iso8601(value)
 end

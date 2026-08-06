@@ -10,7 +10,14 @@ defmodule ClubeiraWeb.Plugs.CredentialRateLimit do
 
   @behaviour Plug
 
-  @actions [:login, :registration, :password_reset_request, :password_reset]
+  @actions [
+    :email_verification,
+    :email_verification_request,
+    :login,
+    :registration,
+    :password_reset_request,
+    :password_reset
+  ]
 
   @impl true
   def init(options) do
@@ -74,9 +81,17 @@ defmodule ClubeiraWeb.Plugs.CredentialRateLimit do
     fingerprint(:erlang.term_to_binary({:ipv6_64, first, second, third, fourth}))
   end
 
-  defp credential_identity(%Plug.Conn{body_params: %{"token" => token}}, :password_reset)
-       when is_binary(token) and byte_size(token) <= 128,
+  defp credential_identity(%Plug.Conn{body_params: %{"token" => token}}, action)
+       when action in [:email_verification, :password_reset] and is_binary(token) and
+              byte_size(token) <= 128,
        do: token
+
+  defp credential_identity(
+         %Plug.Conn{assigns: %{current_account_scope: %{user: %{id: user_id}}}},
+         :email_verification_request
+       )
+       when is_binary(user_id),
+       do: user_id
 
   defp credential_identity(%Plug.Conn{body_params: %{"email" => email}}, _action)
        when is_binary(email) do

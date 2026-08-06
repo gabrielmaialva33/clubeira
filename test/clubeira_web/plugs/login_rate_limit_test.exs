@@ -99,6 +99,29 @@ defmodule ClubeiraWeb.Plugs.LoginRateLimitTest do
     assert Enum.all?(reset_keys, &(elem(&1, 0) == :password_reset))
   end
 
+  test "email verification hashes account and token into independent limiter namespaces" do
+    user_id = Ecto.UUID.generate()
+    token = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+
+    request_keys =
+      user_id
+      |> verification_request_conn()
+      |> captured_keys(:email_verification_request)
+
+    verification_keys = captured_keys(reset_conn(token), :email_verification)
+
+    assert {:email_verification_request, :identity, user_fingerprint} =
+             Enum.at(request_keys, 1)
+
+    assert user_fingerprint == :crypto.hash(:sha256, user_id)
+
+    assert {:email_verification, :identity, token_fingerprint} =
+             Enum.at(verification_keys, 1)
+
+    assert token_fingerprint == :crypto.hash(:sha256, token)
+    refute inspect(verification_keys) =~ token
+  end
+
   test "the supervised Hammer limiter enforces a real bucket" do
     key = {:test_login_limit, System.unique_integer([:positive, :monotonic])}
     assert {:allow, 1} = LoginRateLimiter.hit(key, 60_000, 1)
@@ -149,12 +172,19 @@ defmodule ClubeiraWeb.Plugs.LoginRateLimitTest do
     |> Map.put(:body_params, %{"token" => token})
   end
 
+  defp verification_request_conn(user_id) do
+    conn(:post, "/api/v1/auth/email-verification-requests")
+    |> assign(:current_account_scope, %{user: %{id: user_id}})
+  end
+
   defp config(limiter \\ CaptureLimiter) do
     [
       limiter: limiter,
       limits: [
         login: @limits,
         registration: @limits,
+        email_verification_request: @limits,
+        email_verification: @limits,
         password_reset_request: @limits,
         password_reset: @limits
       ]
