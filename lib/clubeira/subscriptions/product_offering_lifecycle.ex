@@ -106,6 +106,20 @@ defmodule Clubeira.Subscriptions.ProductOfferingLifecycle do
     {:ok, update_status!(repo, offering, "paused", now)}
   end
 
+  defp transition_offering(
+         repo,
+         %ProductOffering{status: "paused"} = offering,
+         "reactivate",
+         now
+       ) do
+    {:ok, update_status!(repo, offering, "active", now)}
+  end
+
+  defp transition_offering(repo, %ProductOffering{status: status} = offering, "retire", now)
+       when status in ["active", "paused"] do
+    {:ok, update_status!(repo, offering, "retired", now)}
+  end
+
   defp transition_offering(_repo, _offering, _action, _now),
     do: {:error, :invalid_product_offering_transition}
 
@@ -138,7 +152,7 @@ defmodule Clubeira.Subscriptions.ProductOfferingLifecycle do
   end
 
   defp record_transition!(repo, scope, previous, offering, request, now) do
-    event_name = "paused"
+    event_name = event_name(request.action)
 
     payload = %{
       "product_offering_id" => offering.id,
@@ -170,6 +184,10 @@ defmodule Clubeira.Subscriptions.ProductOfferingLifecycle do
       occurred_at: now
     })
   end
+
+  defp event_name("pause"), do: "paused"
+  defp event_name("reactivate"), do: "reactivated"
+  defp event_name("retire"), do: "retired"
 
   defp reject!(repo, scope, offering, request, idempotency_id, reason, now) do
     Idempotency.fail!(

@@ -26,7 +26,7 @@ defmodule Clubeira.Subscriptions.ProductOfferingLifecycleRequest do
     |> update_change(:action, &normalize_action/1)
     |> update_change(:reason, &normalize_reason/1)
     |> validate_required([:action, :reason, :idempotency_key])
-    |> validate_inclusion(:action, ["pause"])
+    |> validate_inclusion(:action, ~w(pause reactivate retire))
     |> validate_length(:reason, min: 3, max: 500)
     |> validate_length(:idempotency_key, min: 8, max: 128)
     |> validate_format(:idempotency_key, ~r/^[A-Za-z0-9._:-]+$/)
