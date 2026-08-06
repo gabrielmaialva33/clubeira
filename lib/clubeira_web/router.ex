@@ -114,6 +114,10 @@ defmodule ClubeiraWeb.Router do
          BackofficeProductOfferingController,
          :create
 
+    post "/polos/:polo_slug/backoffice/product-offerings/:product_offering_id/lifecycle-actions",
+         BackofficeProductOfferingLifecycleController,
+         :create
+
     post "/polos/:polo_slug/backoffice/places/:place_id/validation-points",
          BackofficeValidationPointController,
          :create
