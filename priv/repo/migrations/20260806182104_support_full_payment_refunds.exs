@@ -2,6 +2,14 @@ defmodule Clubeira.Repo.Migrations.SupportFullPaymentRefunds do
   use Ecto.Migration
 
   def up do
+    alter table(:payments) do
+      add :refunded_at, :timestamptz
+    end
+
+    create constraint(:payments, :payments_refunded_at_check,
+             check: "status <> 'refunded' OR refunded_at IS NOT NULL"
+           )
+
     drop unique_index(:refunds, [:payment_id, :provider_reference],
            name: :refunds_payment_id_provider_reference_index
          )
@@ -94,9 +102,7 @@ defmodule Clubeira.Repo.Migrations.SupportFullPaymentRefunds do
     drop constraint(:refunds, :refunds_idempotency_key_check)
     drop constraint(:refunds, :refunds_request_identity_check)
 
-    drop unique_index(:refunds, [:polo_id, :payment_id],
-           name: :refunds_succeeded_payment_uidx
-         )
+    drop unique_index(:refunds, [:polo_id, :payment_id], name: :refunds_succeeded_payment_uidx)
 
     drop unique_index(:refunds, [:polo_id, :payment_id], name: :refunds_live_payment_uidx)
 
@@ -108,7 +114,9 @@ defmodule Clubeira.Repo.Migrations.SupportFullPaymentRefunds do
            name: :refunds_payment_provider_reference_uidx
          )
 
-    execute("UPDATE refunds SET provider_reference = 'local:' || id::text WHERE provider_reference IS NULL")
+    execute(
+      "UPDATE refunds SET provider_reference = 'local:' || id::text WHERE provider_reference IS NULL"
+    )
 
     alter table(:refunds) do
       modify :provider_reference, :text, null: false
@@ -122,5 +130,8 @@ defmodule Clubeira.Repo.Migrations.SupportFullPaymentRefunds do
     create unique_index(:refunds, [:payment_id, :provider_reference],
              name: :refunds_payment_id_provider_reference_index
            )
+
+    execute("ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_refunded_at_check")
+    execute("ALTER TABLE payments DROP COLUMN IF EXISTS refunded_at")
   end
 end
