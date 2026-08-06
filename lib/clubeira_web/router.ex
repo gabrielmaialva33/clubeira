@@ -106,8 +106,16 @@ defmodule ClubeiraWeb.Router do
         BackofficePlaceProfileController,
         :update
 
+    post "/polos/:polo_slug/backoffice/places/:place_id/benefit-offers",
+         BackofficeBenefitOfferController,
+         :create
+
     post "/polos/:polo_slug/backoffice/places/:place_id/validation-points",
          BackofficeValidationPointController,
+         :create
+
+    post "/polos/:polo_slug/backoffice/validation-points/:validation_point_id/lifecycle-actions",
+         BackofficeValidationPointLifecycleController,
          :create
 
     post "/polos/:polo_slug/backoffice/validation-credentials/:credential_id/rotations",
