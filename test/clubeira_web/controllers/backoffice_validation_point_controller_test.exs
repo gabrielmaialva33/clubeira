@@ -66,6 +66,46 @@ defmodule ClubeiraWeb.BackofficeValidationPointControllerTest do
     refute inspect(provisioned) =~ validation_secret
     refute inspect(provisioned) =~ secret_sha256
 
+    assert %{
+             "data" => validation_points,
+             "meta" => %{
+               "count" => 2,
+               "page" => %{"limit" => 20, "has_more" => false, "next_cursor" => nil}
+             }
+           } =
+             conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{admin_token}")
+             |> get(backoffice_validation_points_path(fixture))
+             |> json_response(200)
+
+    assert %{
+             "id" => ^validation_point_id,
+             "polo_place_id" => ^polo_place_id,
+             "name" => "Caixa do balcão",
+             "kind" => "api",
+             "status" => "active",
+             "revision" => 1,
+             "place" => %{
+               "id" => ^place_id,
+               "name" => place_name,
+               "slug" => place_slug
+             },
+             "credential" => %{
+               "id" => ^credential_id,
+               "version" => 1,
+               "kind" => "api_key",
+               "status" => "active",
+               "valid_from" => ^valid_from,
+               "expires_at" => ^expires_at
+             }
+           } = Enum.find(validation_points, &(&1["id"] == validation_point_id))
+
+    assert is_binary(place_name)
+    assert is_binary(place_slug)
+    refute inspect(validation_points) =~ validation_secret
+    refute inspect(validation_points) =~ secret_sha256
+
     member_token = authenticate!(fixture.ids.user)
     installation_token = random_token()
 
@@ -514,6 +554,96 @@ defmodule ClubeiraWeb.BackofficeValidationPointControllerTest do
     end
   end
 
+  test "validation point inventory is tenant-safe, filterable, and keyset paginated", %{
+    conn: conn
+  } do
+    fixture = RedemptionsFixtures.create!()
+    other_polo = RedemptionsFixtures.create!()
+    admin_scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    admin_token = authenticate!(admin_scope.actor_user_id)
+    moderator_scope = ReviewsFixtures.grant_moderator!(fixture)
+    moderator_token = authenticate!(moderator_scope.actor_user_id)
+    {_secret, secret_sha256} = validation_material()
+
+    assert %{"data" => %{"id" => newest_point_id}} =
+             provision(
+               conn,
+               validation_points_path(fixture),
+               admin_token,
+               "validation-point-feed-001",
+               %{
+                 "name" => "Caixa mais recente",
+                 "credential" => %{
+                   "secret_sha256" => secret_sha256,
+                   "expires_at" => fixture.now |> DateTime.add(90, :day) |> DateTime.to_iso8601()
+                 }
+               }
+             )
+
+    path = backoffice_validation_points_path(fixture)
+
+    assert %{
+             "data" => [%{"id" => ^newest_point_id}],
+             "meta" => %{
+               "count" => 1,
+               "page" => %{"limit" => 1, "has_more" => true, "next_cursor" => cursor}
+             }
+           } =
+             conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{admin_token}")
+             |> get(path <> "?limit=1&status=active")
+             |> json_response(200)
+
+    assert is_binary(cursor)
+    refute cursor =~ newest_point_id
+
+    assert %{
+             "data" => [%{"id" => original_point_id, "credential" => nil}],
+             "meta" => %{
+               "count" => 1,
+               "page" => %{"limit" => 1, "has_more" => false, "next_cursor" => nil}
+             }
+           } =
+             conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{admin_token}")
+             |> get(path <> "?limit=1&status=active&after=#{cursor}")
+             |> json_response(200)
+
+    assert original_point_id == fixture.ids.validation_point
+    refute original_point_id == other_polo.ids.validation_point
+
+    place_query = URI.encode_query(%{"place_id" => fixture.ids.place})
+
+    assert %{"meta" => %{"count" => 2}} =
+             conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{admin_token}")
+             |> get(path <> "?#{place_query}")
+             |> json_response(200)
+
+    assert conn
+           |> recycle()
+           |> put_req_header("authorization", "Bearer #{moderator_token}")
+           |> get(path)
+           |> json_response(403) == %{"errors" => %{"detail" => "Forbidden"}}
+
+    assert conn
+           |> recycle()
+           |> put_req_header("authorization", "Bearer #{admin_token}")
+           |> get(path <> "?after=not-a-cursor")
+           |> json_response(400) == %{"errors" => %{"detail" => "Bad Request"}}
+
+    assert conn
+           |> recycle()
+           |> put_req_header("authorization", "Bearer #{admin_token}")
+           |> get(path <> "?status=unknown")
+           |> json_response(422) == %{
+             "errors" => %{"detail" => "Unprocessable Content"}
+           }
+  end
+
   defp authenticate!(user_id) do
     user = Repo.get!(User, user_id)
     assert {:ok, _credential} = Accounts.set_password(user, @password)
@@ -536,6 +666,10 @@ defmodule ClubeiraWeb.BackofficeValidationPointControllerTest do
 
   defp validation_points_path(fixture) do
     "/api/v1/polos/#{fixture.polo_slug}/backoffice/places/#{fixture.ids.place}/validation-points"
+  end
+
+  defp backoffice_validation_points_path(fixture) do
+    "/api/v1/polos/#{fixture.polo_slug}/backoffice/validation-points"
   end
 
   defp provision(conn, path, token, idempotency_key, request) do

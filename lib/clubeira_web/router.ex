@@ -145,6 +145,10 @@ defmodule ClubeiraWeb.Router do
          BackofficePaymentRefundController,
          :create
 
+    get "/polos/:polo_slug/backoffice/validation-points",
+        BackofficeValidationPointController,
+        :index
+
     post "/polos/:polo_slug/backoffice/places/:place_id/validation-points",
          BackofficeValidationPointController,
          :create

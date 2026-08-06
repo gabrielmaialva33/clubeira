@@ -56,6 +56,26 @@ defmodule ClubeiraWeb.BackofficeValidationCredentialRotationControllerTest do
     assert {:ok, ^new_credential_id} = Ecto.UUID.cast(new_credential_id)
     assert {:ok, _valid_from, 0} = DateTime.from_iso8601(valid_from)
 
+    assert %{
+             "data" => [
+               %{
+                 "id" => ^validation_point_id,
+                 "credential" => %{
+                   "id" => ^new_credential_id,
+                   "version" => 2,
+                   "status" => "active"
+                 }
+               }
+             ]
+           } =
+             conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{admin_token}")
+             |> get(
+               "/api/v1/polos/#{fixture.polo_slug}/backoffice/validation-points?place_id=#{fixture.ids.place}"
+             )
+             |> json_response(200)
+
     grant = issue_grant!(conn, fixture)
 
     old_credential_response =

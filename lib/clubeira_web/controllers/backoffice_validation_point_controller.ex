@@ -1,11 +1,46 @@
 defmodule ClubeiraWeb.BackofficeValidationPointController do
   use ClubeiraWeb, :controller
 
+  require Logger
+
   alias Clubeira.Polos
   alias Clubeira.Redemptions
   alias Clubeira.Tenancy.Scope
   alias ClubeiraWeb.ErrorJSON
   alias Plug.Conn.Status
+
+  @query_fields ~w(after limit place_id status)
+
+  def index(conn, %{"polo_slug" => polo_slug} = params) do
+    with {:ok, route} <- Polos.resolve_route(polo_slug),
+         {:ok, result} <-
+           Redemptions.list_validation_points(
+             scope(conn, route.polo_id),
+             Map.take(params, @query_fields)
+           ) do
+      render(conn, :index,
+        validation_points: result.validation_points,
+        page: result.page
+      )
+    else
+      {:error, :polo_not_found} ->
+        render_error(conn, :not_found)
+
+      {:error, :partner_admin_required} ->
+        render_error(conn, :forbidden)
+
+      {:error, :invalid_pagination} ->
+        render_error(conn, :bad_request)
+
+      {:error, reason}
+      when reason in [:invalid_place_id, :invalid_validation_point_status] ->
+        render_error(conn, :unprocessable_entity)
+
+      {:error, reason} ->
+        Logger.error("could not list validation points: #{inspect(reason)}")
+        render_error(conn, :service_unavailable)
+    end
+  end
 
   def create(conn, %{"polo_slug" => polo_slug, "place_id" => place_id} = params) do
     with {:ok, idempotency_key} <- fetch_idempotency_key(conn),
