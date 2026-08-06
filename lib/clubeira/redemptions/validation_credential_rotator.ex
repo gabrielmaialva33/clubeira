@@ -14,11 +14,11 @@ defmodule Clubeira.Redemptions.ValidationCredentialRotator do
   alias Clubeira.Redemptions.ValidationCredential
   alias Clubeira.Redemptions.ValidationCredentialRotationRequest
   alias Clubeira.Redemptions.ValidationPoint
+  alias Clubeira.Redemptions.ValidationPointLifecycleLock
   alias Clubeira.Repo
   alias Clubeira.Tenancy.Scope
 
   @idempotency_scope "redemptions.rotate_validation_credential"
-  @lifecycle_lock_prefix "validation-credential-lifecycle:"
   @maximum_credential_lifetime_seconds 365 * 24 * 60 * 60
   @replay_reasons %{
     "credential_already_registered" => :credential_already_registered,
@@ -83,8 +83,8 @@ defmodule Clubeira.Redemptions.ValidationCredentialRotator do
 
   defp rotate_new(repo, scope, credential_id, request, idempotency_id) do
     with {:ok, target} <- fetch_target_credential(repo, scope, credential_id),
-         :ok <- lock_rotation(repo, target.validation_point_id),
-         {:ok, point} <- lock_active_point(repo, scope, target.validation_point_id),
+         :ok <- ValidationPointLifecycleLock.acquire!(repo, target.validation_point_id),
+         {:ok, point} <- lock_rotatable_point(repo, scope, target.validation_point_id),
          :ok <- ensure_active_participation(repo, point),
          now = transaction_time(repo),
          {:ok, current} <- lock_current_credential(repo, scope, point.id),
@@ -155,27 +155,21 @@ defmodule Clubeira.Redemptions.ValidationCredentialRotator do
     end
   end
 
-  defp lock_active_point(repo, scope, validation_point_id) do
+  defp lock_rotatable_point(repo, scope, validation_point_id) do
     point =
       ValidationPoint
       |> where(
         [point],
         point.id == ^validation_point_id and point.polo_id == ^scope.polo_id and
-          point.kind == "api" and point.status == "active"
+          point.kind == "api" and point.status in ["active", "suspended"]
       )
-      |> lock("FOR SHARE")
+      |> lock("FOR UPDATE")
       |> repo.one()
 
     case point do
       %ValidationPoint{} -> {:ok, point}
       nil -> {:error, :validation_point_not_found}
     end
-  end
-
-  defp lock_rotation(repo, validation_point_id) do
-    lock_key = @lifecycle_lock_prefix <> validation_point_id
-    repo.query!("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [lock_key])
-    :ok
   end
 
   defp ensure_active_participation(repo, point) do
@@ -304,6 +298,7 @@ defmodule Clubeira.Redemptions.ValidationCredentialRotator do
   end
 
   defp complete_rotation!(repo, scope, point, replaced, credential, idempotency_id, now) do
+    point = bump_point_revision!(repo, point, now)
     result = response_data(point, replaced, credential)
 
     record_rotation!(repo, scope, point, replaced, credential, now)
@@ -318,6 +313,12 @@ defmodule Clubeira.Redemptions.ValidationCredentialRotator do
     )
 
     {:accepted, result}
+  end
+
+  defp bump_point_revision!(repo, point, now) do
+    point
+    |> Ecto.Changeset.change(revision: point.revision + 1, updated_at: now)
+    |> repo.update!()
   end
 
   defp record_rotation!(repo, scope, point, replaced, credential, now) do
@@ -336,7 +337,7 @@ defmodule Clubeira.Redemptions.ValidationCredentialRotator do
       polo_id: scope.polo_id,
       aggregate_type: "validation_point",
       aggregate_id: point.id,
-      aggregate_version: credential.version,
+      aggregate_version: point.revision,
       event_type: "validation_credential.rotated",
       topic: "redemptions.validation_credentials.rotated",
       message_key: point.id,

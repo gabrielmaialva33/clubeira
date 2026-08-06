@@ -24,6 +24,7 @@ defmodule Clubeira.Redemptions do
   alias Clubeira.Redemptions.RedemptionReader
   alias Clubeira.Redemptions.ValidationCredentialRevoker
   alias Clubeira.Redemptions.ValidationCredentialRotator
+  alias Clubeira.Redemptions.ValidationPointLifecycle
   alias Clubeira.Redemptions.ValidationPointProvisioner
   alias Clubeira.Repo
   alias Clubeira.Tenancy.Scope
@@ -78,6 +79,15 @@ defmodule Clubeira.Redemptions do
   defdelegate provision_validation_point(scope, place_id, attributes),
     to: ValidationPointProvisioner,
     as: :provision
+
+  @doc """
+  Applies an authorized lifecycle action to a validation point.
+  """
+  @spec transition_validation_point(Scope.t(), Ecto.UUID.t(), map()) ::
+          {:ok, ValidationPointLifecycle.result()} | {:error, term()}
+  defdelegate transition_validation_point(scope, point_id, attributes),
+    to: ValidationPointLifecycle,
+    as: :transition
 
   @doc """
   Replaces the current API validation credential with a new immutable version.

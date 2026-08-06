@@ -12,11 +12,11 @@ defmodule Clubeira.Redemptions.ValidationCredentialRevoker do
   alias Clubeira.Redemptions.ValidationCredential
   alias Clubeira.Redemptions.ValidationCredentialRevocationRequest
   alias Clubeira.Redemptions.ValidationPoint
+  alias Clubeira.Redemptions.ValidationPointLifecycleLock
   alias Clubeira.Repo
   alias Clubeira.Tenancy.Scope
 
   @idempotency_scope "redemptions.revoke_validation_credential"
-  @lifecycle_lock_prefix "validation-credential-lifecycle:"
   @replay_reasons %{
     "validation_credential_revoked" => :validation_credential_revoked,
     "validation_credential_stale" => :validation_credential_stale,
@@ -80,7 +80,7 @@ defmodule Clubeira.Redemptions.ValidationCredentialRevoker do
 
   defp revoke_new(repo, scope, credential_id, idempotency_id) do
     with {:ok, target} <- fetch_target_credential(repo, scope, credential_id),
-         :ok <- lock_lifecycle(repo, target.validation_point_id),
+         :ok <- ValidationPointLifecycleLock.acquire!(repo, target.validation_point_id),
          {:ok, point} <- lock_point(repo, scope, target.validation_point_id),
          now = transaction_time(repo),
          {:ok, current} <- lock_current_credential(repo, scope, point.id),
@@ -106,12 +106,6 @@ defmodule Clubeira.Redemptions.ValidationCredentialRevoker do
       %ValidationCredential{} -> {:ok, credential}
       nil -> {:error, :validation_credential_not_found}
     end
-  end
-
-  defp lock_lifecycle(repo, validation_point_id) do
-    lock_key = @lifecycle_lock_prefix <> validation_point_id
-    repo.query!("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [lock_key])
-    :ok
   end
 
   defp lock_point(repo, scope, validation_point_id) do
