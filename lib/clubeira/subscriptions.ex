@@ -27,6 +27,7 @@ defmodule Clubeira.Subscriptions do
   alias Clubeira.Subscriptions.EntitlementScopePlace
   alias Clubeira.Subscriptions.ProductOfferingLifecycle
   alias Clubeira.Subscriptions.ProductOfferingPublisher
+  alias Clubeira.Subscriptions.ProductOfferingReader
   alias Clubeira.Subscriptions.ProductOfferingVersion
   alias Clubeira.Subscriptions.UserContractPoloRoute
   alias Clubeira.Tenancy.ActorScope
@@ -46,6 +47,13 @@ defmodule Clubeira.Subscriptions do
   defdelegate publish_product_offering(scope, attributes),
     to: ProductOfferingPublisher,
     as: :publish
+
+  @doc """
+  Lists commercial offering identities and their latest immutable configuration.
+  """
+  @spec list_product_offerings(TenantScope.t(), map()) ::
+          {:ok, %{product_offerings: [map()], page: page()}} | {:error, term()}
+  defdelegate list_product_offerings(scope, params), to: ProductOfferingReader, as: :list
 
   @doc """
   Applies an authorized lifecycle action to a commercial offering.
