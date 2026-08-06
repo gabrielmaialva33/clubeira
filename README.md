@@ -7,8 +7,8 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL_18-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![OTP](https://img.shields.io/badge/OTP_29-A90533?style=for-the-badge&logo=erlang&logoColor=white)](https://www.erlang.org/)
 [![RLS](https://img.shields.io/badge/RLS-FORCED-16A34A?style=for-the-badge)](#-multi-tenancy)
-[![Tests](https://img.shields.io/badge/tests-319-6D28D9?style=for-the-badge)](./test)
-[![Migrations](https://img.shields.io/badge/migrations-132-F59E0B?style=for-the-badge)](./priv/repo/migrations)
+[![Tests](https://img.shields.io/badge/tests-346-6D28D9?style=for-the-badge)](./test)
+[![Migrations](https://img.shields.io/badge/migrations-133-F59E0B?style=for-the-badge)](./priv/repo/migrations)
 [![License](https://img.shields.io/badge/license-MIT-16A34A?style=for-the-badge)](./LICENSE)
 
 **[🏗️ Arquitetura](docs/architecture.md)** · **[🛠️ Desenvolvimento](docs/development.md)** · **[🤝 Contribuir](CONTRIBUTING.md)** · **[🔐 Segurança](SECURITY.md)**
@@ -81,9 +81,9 @@ flowchart LR
 | 🛒 **Venda** | checkout idempotente, histórico paginado de pedidos, Pix via Mercado Pago com webhook HMAC que relê a order no PSP antes de liquidar |
 | 🏦 **Recebimento** | contas globais vinculadas por vigência a cada polo, com integridade referencial entre tenant e conta |
 | 📜 **Assinatura** | planos, contratos, ciclos e alocações de benefício independentes por polo |
-| ✅ **Resgate** | enrollment sem persistir segredo, grant assinado e curto, provisionamento, rotação e revogação da credencial do ponto, consumo atômico com anti-replay, ledger, auditoria, evento e outbox |
+| ✅ **Resgate** | enrollment sem persistir segredo, grant assinado e curto, lifecycle administrativo do ponto, rotação e revogação da credencial, consumo atômico com anti-replay, ledger, auditoria, evento e outbox |
 | ⭐ **UGC** | avaliações verificadas por resgate, fila de moderação autorizada por polo, decisão append-only e feed público só do que foi publicado |
-| 🧪 **Base** | 132 migrations, seeds determinísticas, factories, RLS forçado e testes de concorrência contra bancos isolados reais |
+| 🧪 **Base** | 133 migrations, seeds determinísticas, factories, RLS forçado e testes de concorrência contra bancos isolados reais |
 
 O fluxo de venda implementado no domínio é:
 
@@ -346,7 +346,9 @@ docker compose stop
 | `POST` | `/api/v1/polos/:slug/places/:place_id/reviews` | 🔑 |
 | `POST` | `/api/v1/polos/:slug/backoffice/partners` | 🛡️ |
 | `PUT` | `/api/v1/polos/:slug/backoffice/places/:place_id/profile` | 🛡️ |
+| `POST` | `/api/v1/polos/:slug/backoffice/places/:place_id/benefit-offers` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/places/:place_id/validation-points` | 🛡️ |
+| `POST` | `/api/v1/polos/:slug/backoffice/validation-points/:validation_point_id/lifecycle-actions` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/validation-credentials/:credential_id/rotations` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/validation-credentials/:credential_id/revocations` | 🛡️ |
 | `GET` | `/api/v1/polos/:slug/backoffice/reviews` | 🛡️ |
@@ -393,6 +395,13 @@ curl -sS -X PUT \
   -H 'content-type: application/json' \
   -d '{"contact":{"email":"reservas@bistro.example","phone":"(88) 99999-0101"},"category_keys":["restaurant","regional-cuisine"],"weekly_hours":[{"weekday":1,"opens_at":"11:30","closes_at":"15:00"},{"weekday":1,"opens_at":"18:00","closes_at":"23:00"}],"special_hours":[{"date":"2026-12-25","kind":"closed"}]}'
 
+curl -sS -X POST \
+  http://localhost:4000/api/v1/polos/sobral/backoffice/places/<place_uuid>/benefit-offers \
+  -H "authorization: Bearer $ADMIN_TOKEN" \
+  -H 'idempotency-key: cafe-cortesia-sobral-001' \
+  -H 'content-type: application/json' \
+  -d '{"offer":{"code":"cafe-cortesia","name":"Café cortesia","benefit_kind":"discount_percentage"},"version":{"title":"15% no café da manhã","description":"Desconto no consumo do café da manhã.","terms":"Um uso por ciclo, de segunda a sexta.","redemption_instructions":"Apresente o voucher antes de pedir a conta.","percentage_value":"15.0000","effective_during":{"starts_at":"2026-08-01T00:00:00Z","ends_at":null}}}'
+
 VALIDATION_SECRET="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')"
 VALIDATION_SECRET_SHA256="$(printf '%s=' "$VALIDATION_SECRET" | tr '_-' '/+' | openssl base64 -d -A | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=\n')"
 VALIDATION_EXPIRES_AT="$(date -u -d '+90 days' +%Y-%m-%dT%H:%M:%SZ)"
@@ -413,6 +422,13 @@ curl -sS -X POST \
   -H 'idempotency-key: rotacao-caixa-bistro-sobral-001' \
   -H 'content-type: application/json' \
   -d "{\"credential\":{\"secret_sha256\":\"$NEXT_VALIDATION_SECRET_SHA256\",\"expires_at\":\"$VALIDATION_EXPIRES_AT\"}}"
+
+curl -sS -X POST \
+  http://localhost:4000/api/v1/polos/sobral/backoffice/validation-points/<validation_point_uuid>/lifecycle-actions \
+  -H "authorization: Bearer $ADMIN_TOKEN" \
+  -H 'idempotency-key: suspensao-caixa-bistro-sobral-001' \
+  -H 'content-type: application/json' \
+  -d '{"action":"suspend","reason":"Manutenção emergencial do terminal"}'
 
 curl -sS -X POST \
   http://localhost:4000/api/v1/polos/sobral/backoffice/validation-credentials/<current_credential_uuid>/revocations \
@@ -570,6 +586,10 @@ chave vencedora. Digest duplicado também restaura a credencial corrente antes d
 conflito auditado. Chave e digest novos continuam fora da resposta, auditoria,
 evento, outbox e idempotência.
 
+A rotação também permanece disponível com o ponto suspenso, permitindo instalar
+uma chave nova antes da reativação. O ponto continua sem autenticar até receber
+`reactivate`; uma credencial explicitamente revogada continua terminal.
+
 A revogação administrativa usa o mesmo ID corrente como precondição, encerra a
 vigência sem criar substituta e bloqueia a autenticação imediatamente. Ela
 continua disponível quando o ponto já está suspenso, para funcionar como
@@ -577,6 +597,15 @@ kill-switch operacional. Retry exato devolve o mesmo DTO; alvo substituído ou
 já revogado produz um único `409` idempotente e auditado. Rotação e revogação
 compartilham a trava por ponto: sob concorrência há um único vencedor, e uma
 revogação explícita é terminal — a rotação não pode reativá-la.
+
+O lifecycle administrativo do ponto API aceita `suspend`, `reactivate` e `retire`
+com motivo obrigatório e `Idempotency-Key`. Suspensão corta a autenticação sem
+alterar a credencial e pode ser revertida somente enquanto participação, lugar
+e credencial corrente continuam ativos. `retire` é terminal e revoga a
+credencial corrente na mesma transação. Todas essas operações compartilham a
+trava por ponto com rotação e revogação; uma revisão monotônica ordena o stream
+do agregado sem colisões. O motivo operacional fica apenas na auditoria tenant,
+nunca no evento ou na outbox.
 
 ---
 
@@ -602,7 +631,7 @@ alterar a configuração versionada.
 | `credo --strict` | consistência e code smells |
 | `deps.audit` + `hex.audit` | CVE e pacotes retirados |
 | `sobelow --config` | análise estática de segurança Phoenix |
-| `test` | 319 testes, incluindo contratos de RLS e concorrência real |
+| `test` | 346 testes, incluindo contratos de RLS e concorrência real |
 
 ---
 
@@ -614,6 +643,7 @@ alterar a configuração versionada.
 | Cadastro, sessão e aceite legal | ✅ |
 | Catálogo, diretório e checkout-options públicos | ✅ |
 | Perfil operacional do estabelecimento | ✅ |
+| Publicação administrativa de benefício v1 | ✅ |
 | Checkout autenticado e idempotente | ✅ |
 | Pix Mercado Pago (Orders API + webhook) | ✅ |
 | Contrato, ciclo e alocações | ✅ |
@@ -621,6 +651,7 @@ alterar a configuração versionada.
 | Provisionamento de ponto de validação API | ✅ |
 | Rotação versionada da credencial de validação | ✅ |
 | Revogação administrativa da credencial | ✅ |
+| Suspensão, reativação e aposentadoria do ponto API | ✅ |
 | Avaliações verificadas + moderação | ✅ |
 | Outbox com HMAC, retry e dead-letter | ✅ |
 | Recuperação de senha por e-mail | ✅ |
@@ -666,6 +697,13 @@ alterar a configuração versionada.
   participação ativa e incrementa sua revisão; FKs compostas, RLS e constraints
   de exclusão impedem mistura de polos e sobreposição de horários, enquanto
   contato permanece fora de audit, evento e outbox;
+- `POST /api/v1/polos/:polo_slug/backoffice/places/:place_id/benefit-offers`
+  exige `admin` e `Idempotency-Key`, relê lugar e participação ativos e cria a
+  identidade da oferta, sua versão imutável `1` publicada e o vínculo com o
+  estabelecimento na mesma transação; tipos e escalas monetárias são validados
+  na borda e novamente no banco, retry devolve o DTO original e códigos
+  concorrentes produzem um único vencedor com conflito auditado; header
+  idempotente ausente ou ambíguo falha com `400` e código estável;
 - `POST /api/v1/polos/:polo_slug/backoffice/places/:place_id/validation-points`
   exige `admin` e `Idempotency-Key`, relê a participação ativa e cria ponto mais
   credencial atomicamente; recebe somente o SHA-256 da chave gerada pelo cliente,
@@ -679,6 +717,10 @@ alterar a configuração versionada.
   encerra a versão corrente sem substituição e corta sua autenticação; funciona
   mesmo com o ponto suspenso, tem replay exato e serializa com rotação para que
   uma revogação explícita nunca seja reativada;
+- `POST /api/v1/polos/:polo_slug/backoffice/validation-points/:validation_point_id/lifecycle-actions`
+  suspende, reativa ou aposenta o ponto API sob `admin`, motivo obrigatório e
+  idempotência; reativação relê participação e credencial ativas, enquanto
+  aposentadoria é terminal e revoga a credencial corrente atomicamente;
 - `POST /api/v1/polos/:polo_slug/places/:place_id/reviews` cria uma avaliação
   verificada para o membro autenticado; o resgate informado é somente evidência
   e sua autoria, polo e lugar são revalidados sob RLS;
@@ -706,12 +748,13 @@ alterar a configuração versionada.
 - a taxonomia global é curada por migration/seed e ainda não possui API de
   administração; fotos do estabelecimento continuam uma fatia própria com sua
   futura borda de armazenamento;
-- suspensão e aposentadoria administrativa do ponto de validação continuam uma
-  fatia própria; uma versão histórica nunca tem seu hash substituído;
+- ofertas de benefício já podem nascer pela API, mas pacotes, itens, planos e
+  preços ainda são definidos por factory/seed; publicar essa cadeia comercial é
+  a próxima fronteira necessária para vender uma configuração nova sem SQL;
 - vincular uma organização já existente a uma nova unidade ou polo exige uma
   borda própria, com autorização explícita sobre essa identidade global;
 - renovação automática, reembolso e chargeback ainda não fazem parte do fluxo
-  operacional.
+  operacional; por isso factories e seeds anunciam `renewal_policy = none`.
 
 </details>
 

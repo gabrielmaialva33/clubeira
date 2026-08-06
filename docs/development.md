@@ -43,6 +43,8 @@ As assinaturas demo passam pelos comandos reais `Billing.place_order/2` e
 `Billing.settle_payment/2`: pedido, intent, pagamento, evento do provedor,
 contrato, ciclo, alocações, auditoria, eventos e outbox nascem pela mesma
 fronteira transacional usada pela aplicação, em vez de serem montados à mão.
+As ofertas comerciais demo usam `renewal_policy = none`; renovação automática
+não é anunciada antes de existir seu comando e sua rotina operacional.
 O backoffice usa `moderador.demo@clubeira.local` com a senha local
 `clubeira-moderador-local`; substitua por `CLUBEIRA_DEMO_MODERATOR_EMAIL` e
 `CLUBEIRA_DEMO_MODERATOR_PASSWORD` em ambientes compartilhados. Esse usuário
@@ -63,6 +65,33 @@ somente para uso local.
 Factories vivem em `support/factory.ex` e são compiladas apenas em `dev` e
 `test`. Dados estruturais das seeds sempre recebem IDs e valores estáveis;
 Faker fica restrito a texto de apresentação irrelevante para a regra testada.
+
+## Publicação administrativa de benefícios
+
+Um admin do polo pode publicar uma oferta inicial sem acessar SQL:
+
+```text
+POST /api/v1/polos/:slug/backoffice/places/:place_id/benefit-offers
+Authorization: Bearer <admin-token>
+Idempotency-Key: <8-a-128-caracteres>
+```
+
+O corpo separa os campos estáveis em `offer` e o conteúdo imutável em
+`version`. `effective_during.starts_at` é obrigatório e
+`effective_during.ends_at` pode ser `null`; o intervalo é `[starts_at, ends_at)`.
+Use strings decimais para preservar escala: percentual admite quatro casas e
+valor em moeda, duas. `discount_percentage` aceita somente `percentage_value`,
+`discount_amount` exige `amount_value + currency`, e benefícios não monetários
+não aceitam esses campos.
+
+O endpoint devolve `201`, persiste a resposta para replay exato e a oferta
+aparece no catálogo público quando o período informado já está vigente. Código
+já usado retorna `409` com `benefit_offer_code_conflict`; reutilizar a mesma
+chave com outro corpo retorna `idempotency_conflict`. Lugar inativo ou de outro
+polo falha como `404`, sem reservar a chave nem criar dados parciais. Header
+`Idempotency-Key` ausente ou ambíguo retorna `400` com
+`invalid_idempotency_key`; payload ou chave malformados retornam `422` antes da
+reserva.
 
 ## Chaves de identificadores
 
@@ -133,17 +162,20 @@ somente SHA-256. O fluxo operacional é:
 1. o operador gera outra chave de 32 bytes e registra somente seu SHA-256 em
    `POST /api/v1/polos/:slug/backoffice/places/:place_id/validation-points`, com
    bearer de admin e `Idempotency-Key`;
-2. quando necessário, troca a chave em
+2. pausa, retoma ou aposenta o ponto em
+   `POST /api/v1/polos/:slug/backoffice/validation-points/:validation_point_id/lifecycle-actions`,
+   enviando `action`, `reason` e `Idempotency-Key`;
+3. quando necessário, troca a chave em
    `POST /api/v1/polos/:slug/backoffice/validation-credentials/:credential_id/rotations`,
    enviando o digest novo e mirando o ID da versão corrente;
-3. em incidente ou desativação, encerra a chave sem substituí-la em
+4. em incidente ou desativação, encerra a chave sem substituí-la em
    `POST /api/v1/polos/:slug/backoffice/validation-credentials/:credential_id/revocations`,
    também com o ID corrente e `Idempotency-Key`;
-4. `POST /api/v1/polos/:slug/me/redemption-devices`, com bearer do membro;
-5. `POST /api/v1/polos/:slug/me/redemption-grants`, com alocação e o mesmo
+5. `POST /api/v1/polos/:slug/me/redemption-devices`, com bearer do membro;
+6. `POST /api/v1/polos/:slug/me/redemption-grants`, com alocação e o mesmo
    segredo de instalação;
-6. transporte de `data.grant` para o app do estabelecimento;
-7. `POST /api/v1/polos/:slug/redemptions`, com
+7. transporte de `data.grant` para o app do estabelecimento;
+8. `POST /api/v1/polos/:slug/redemptions`, com
    `Authorization: Validation <chave>` e `Idempotency-Key`.
 
 Grant e chave de validação são credenciais e não entram em log, audit, evento
@@ -162,6 +194,20 @@ revogação explícita nunca pode ser renovada. O grant expira em 120 segundos p
 padrão. O endpoint final rejeita polo
 divergente, assinatura alterada, chave revogada/expirada e replay de nonce antes
 de qualquer segundo consumo.
+
+O lifecycle exige um motivo de 3 a 500 caracteres. `suspend` preserva a
+credencial, mas corta sua autenticação imediatamente; `reactivate` só retorna o
+ponto a `active` se lugar, participação e credencial corrente ainda estiverem
+ativos; `retire` é terminal e revoga a credencial corrente atomicamente. Retry
+exato devolve o mesmo DTO e transições inválidas retornam um único `409`
+auditado. Motivos operacionais ficam apenas na auditoria tenant. Lifecycle,
+rotação e revogação usam a mesma trava por ponto e uma revisão monotônica para
+ordenar os eventos concorrentes.
+
+A rotação aceita ponto API ativo ou suspenso. Isso permite substituir uma chave
+expirada durante manutenção sem reabrir o terminal antes da hora; somente
+`reactivate` volta a autorizar resgates. Ponto aposentado e credencial
+explicitamente revogada continuam terminais.
 
 ## Publicador da outbox
 

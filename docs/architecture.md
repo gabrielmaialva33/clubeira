@@ -185,6 +185,23 @@ publicados e são avaliados junto de contrato, ciclo e saldo na tentativa de
 resgate. Quando o produto precisar exibir “disponível agora”, isso será um
 campo derivado explícito, sem mudar silenciosamente o significado do catálogo.
 
+### Publicação administrativa de benefício
+
+`POST /api/v1/polos/:slug/backoffice/places/:place_id/benefit-offers` é a
+primeira fronteira de escrita do catálogo. O comando exige uma membership
+`admin` ativa no polo roteado, relê lugar e participação vigentes dentro da RLS
+e publica atomicamente `benefit_offer` ativo, versão imutável `1` e seu vínculo
+com `polo_place`. Polo, ator, revisão e IDs relacionais nunca vêm do payload.
+
+O período efetivo é um `tstzrange` semiaberto. Percentual aceita até quatro
+casas, valor monetário até duas e moeda é normalizada para um código alfabético
+de três letras; o request repete as guardas dos triggers para devolver `422` em
+vez de depender de erro SQL. Código duplicado usa savepoint e vira conflito
+persistido. A chave idempotente guarda o DTO `201`; retries exatos, inclusive
+concorrentes, retornam o mesmo resultado, enquanto duas chaves para o mesmo
+código deixam um único vencedor. Oferta, versão, vínculo, audit, evento e outbox
+nascem ou falham juntos.
+
 `GET /api/v1/polos/:slug/checkout-options` é a leitura pública comercial que
 completa essa vitrine. Ela pagina preços por UUIDv7 e devolve os pares
 `product_offering_version_id + offering_price_id` usados por
@@ -461,6 +478,10 @@ de digest são idempotentes e auditados, e qualquer falha restaura a credencial
 que autenticava antes do comando. Sucesso grava nova versão, auditoria, evento,
 outbox e DTO seguro na mesma transação sob RLS.
 
+Um ponto API suspenso também pode rotacionar sua credencial para preparar o
+retorno operacional; a autenticação continua bloqueada pelo status do ponto até
+a reativação. Ponto aposentado permanece fora dessa borda.
+
 `POST /api/v1/polos/:slug/backoffice/validation-credentials/:credential_id/revocations`
 é o kill-switch sem substituição. O ID corrente também funciona como
 precondição otimista; a transação fecha sua vigência, marca a versão como
@@ -472,15 +493,27 @@ lock por ponto, então uma corrida possui um único vencedor linearizável. Uma
 revogação explícita é terminal e não pode ser usada como base para criar uma
 nova versão; somente expiração natural admite renovação.
 
+`POST /api/v1/polos/:slug/backoffice/validation-points/:validation_point_id/lifecycle-actions`
+aplica `suspend`, `reactivate` ou `retire` ao ponto API com capacidade
+`manage_partners`, motivo obrigatório e replay idempotente. Suspensão bloqueia
+autenticação sem
+reescrever ou encerrar a credencial. Reativação exige participação, lugar e
+credencial corrente ativos; uma revogação explícita continua terminal.
+Aposentadoria aceita ponto ativo ou suspenso, é irreversível e revoga a
+credencial corrente na mesma transação. Status do ponto, credencial, auditoria,
+eventos, outbox e resposta idempotente permanecem atômicos sob RLS. O motivo
+fica somente na auditoria tenant. Rotação, revogação e lifecycle compartilham o
+mesmo advisory lock por ponto e incrementam `validation_points.revision`, que
+ordena sem colisão as versões do stream `validation_point`.
+
 Autenticação do ponto e `Clubeira.Redemptions.confirm/2` executam na mesma
 transação. O scope começa como serviço do polo e ganha o actor somente depois
 da verificação do grant assinado. O nonce recebe advisory lock transacional:
 retry com a mesma idempotency key devolve o resgate original; o mesmo grant com
 outra chave é registrado como replay negado sem consumir novamente. Renderização
 visual do QR, placard estático, attestation de hardware e modo offline são
-evoluções da borda, sem alterar o contrato interno já autenticado. Suspensão e
-aposentadoria do ponto permanecem transições próprias; nenhuma delas reescreve
-o hash de uma credencial histórica.
+evoluções da borda, sem alterar o contrato interno já autenticado. Nenhuma
+transição administrativa reescreve o hash de uma credencial histórica.
 
 ## Normalização e histórico
 
