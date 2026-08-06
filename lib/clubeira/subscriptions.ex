@@ -25,6 +25,7 @@ defmodule Clubeira.Subscriptions do
   alias Clubeira.Subscriptions.CycleEntitlementSubject
   alias Clubeira.Subscriptions.EntitlementAllocation
   alias Clubeira.Subscriptions.EntitlementScopePlace
+  alias Clubeira.Subscriptions.ProductOfferingPublisher
   alias Clubeira.Subscriptions.ProductOfferingVersion
   alias Clubeira.Subscriptions.UserContractPoloRoute
   alias Clubeira.Tenancy.ActorScope
@@ -35,6 +36,15 @@ defmodule Clubeira.Subscriptions do
 
   @type list_error :: :polo_not_found | term()
   @type page :: %{limit: pos_integer(), has_more: boolean(), next_cursor: String.t() | nil}
+
+  @doc """
+  Publishes an initial direct subscription offering backed by published benefits.
+  """
+  @spec publish_product_offering(TenantScope.t(), map()) ::
+          {:ok, ProductOfferingPublisher.result()} | {:error, term()}
+  defdelegate publish_product_offering(scope, attributes),
+    to: ProductOfferingPublisher,
+    as: :publish
 
   @spec list_for_account(AccountScope.t()) :: {:ok, [map()]} | {:error, term()}
   def list_for_account(%AccountScope{} = account_scope) do
