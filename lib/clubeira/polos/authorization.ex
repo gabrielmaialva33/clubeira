@@ -13,11 +13,12 @@ defmodule Clubeira.Polos.Authorization do
   alias Clubeira.Tenancy.Scope
 
   @capability_roles %{
+    manage_billing: ["admin"],
     manage_partners: ["admin"],
     moderate_reviews: ["admin", "review_moderator"]
   }
 
-  @type capability :: :manage_partners | :moderate_reviews
+  @type capability :: :manage_billing | :manage_partners | :moderate_reviews
 
   @spec authorize(module(), Scope.t(), capability(), DateTime.t()) ::
           :ok | {:error, :moderator_required | :partner_admin_required}
@@ -60,9 +61,13 @@ defmodule Clubeira.Polos.Authorization do
   def authorize(_repo, %Scope{}, :manage_partners, _now),
     do: {:error, :partner_admin_required}
 
+  def authorize(_repo, %Scope{}, :manage_billing, _now),
+    do: {:error, :billing_admin_required}
+
   def authorize(_repo, %Scope{}, :moderate_reviews, _now),
     do: {:error, :moderator_required}
 
   defp authorization_error(:manage_partners), do: :partner_admin_required
+  defp authorization_error(:manage_billing), do: :billing_admin_required
   defp authorization_error(:moderate_reviews), do: :moderator_required
 end
