@@ -886,6 +886,107 @@ defmodule Clubeira.Directory.PartnerOnboardingConcurrencyTest do
            }
   end
 
+  test "concurrent retries pause one product offering and replay the committed transition", %{
+    repo: repo
+  } do
+    fixture = RedemptionsFixtures.create!()
+    scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    before = product_offering_lifecycle_counts(fixture)
+
+    request = %{
+      action: "pause",
+      reason: "Interrupção comercial concorrente",
+      idempotency_key: "product-offering-concurrent-pause-retry"
+    }
+
+    assert [{:ok, first}, {:ok, second}] =
+             run_concurrently(repo, [
+               fn ->
+                 Subscriptions.transition_product_offering(
+                   scope,
+                   fixture.ids.product_offering,
+                   request
+                 )
+               end,
+               fn ->
+                 Subscriptions.transition_product_offering(
+                   scope,
+                   fixture.ids.product_offering,
+                   request
+                 )
+               end
+             ])
+
+    assert first == second
+    assert first["status"] == "paused"
+    assert first["revision"] == 2
+
+    assert count_deltas(before, product_offering_lifecycle_counts(fixture)) == %{
+             audits: 1,
+             domain_events: 1,
+             idempotency_keys: 1,
+             outbox_messages: 1
+           }
+  end
+
+  test "concurrent distinct pause keys serialize one transition and one stable rejection", %{
+    repo: repo
+  } do
+    fixture = RedemptionsFixtures.create!()
+    scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    before = product_offering_lifecycle_counts(fixture)
+
+    results =
+      run_concurrently(repo, [
+        fn ->
+          Subscriptions.transition_product_offering(
+            scope,
+            fixture.ids.product_offering,
+            %{
+              action: "pause",
+              reason: "Primeira solicitação concorrente",
+              idempotency_key: "product-offering-concurrent-pause-first"
+            }
+          )
+        end,
+        fn ->
+          Subscriptions.transition_product_offering(
+            scope,
+            fixture.ids.product_offering,
+            %{
+              action: "pause",
+              reason: "Segunda solicitação concorrente",
+              idempotency_key: "product-offering-concurrent-pause-second"
+            }
+          )
+        end
+      ])
+
+    assert Enum.count(results, &match?({:ok, %{"status" => "paused", "revision" => 2}}, &1)) ==
+             1
+
+    assert Enum.count(results, &match?({:error, :invalid_product_offering_transition}, &1)) ==
+             1
+
+    assert count_deltas(before, product_offering_lifecycle_counts(fixture)) == %{
+             audits: 2,
+             domain_events: 1,
+             idempotency_keys: 2,
+             outbox_messages: 1
+           }
+
+    assert %{rows: [["paused", 2]]} =
+             RedemptionsFixtures.scoped_query!(
+               fixture,
+               """
+               SELECT status, revision
+               FROM product_offerings
+               WHERE id = $1
+               """,
+               [fixture.ids.product_offering]
+             )
+  end
+
   defp onboarding_request(suffix, cnpj, idempotency_key) do
     %{
       organization: %{
@@ -1055,6 +1156,41 @@ defmodule Clubeira.Directory.PartnerOnboardingConcurrencyTest do
       entitlement_scope_places: entitlement_scope_places,
       benefit_package_items: benefit_package_items,
       package_assignments: package_assignments,
+      audits: audits,
+      domain_events: events,
+      outbox_messages: outbox,
+      idempotency_keys: idempotency_keys
+    }
+  end
+
+  defp product_offering_lifecycle_counts(fixture) do
+    %{rows: [[audits, events, outbox, idempotency_keys]]} =
+      RedemptionsFixtures.scoped_query!(fixture, """
+      SELECT
+        (SELECT count(*) FROM tenant_audit_events
+           WHERE action IN (
+             'product_offering.paused',
+             'product_offering.reactivated',
+             'product_offering.retired',
+             'product_offering.transition_rejected'
+           )),
+        (SELECT count(*) FROM domain_events
+           WHERE event_type IN (
+             'product_offering.paused',
+             'product_offering.reactivated',
+             'product_offering.retired'
+           )),
+        (SELECT count(*) FROM outbox_messages
+           WHERE topic IN (
+             'subscriptions.product_offerings.paused',
+             'subscriptions.product_offerings.reactivated',
+             'subscriptions.product_offerings.retired'
+           )),
+        (SELECT count(*) FROM tenant_idempotency_keys
+           WHERE scope = 'subscriptions.transition_product_offering')
+      """)
+
+    %{
       audits: audits,
       domain_events: events,
       outbox_messages: outbox,
