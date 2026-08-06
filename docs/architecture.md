@@ -93,7 +93,10 @@ com lote e finalidade auditáveis.
 está ativa no polo roteado. A página é fechada por `place_id` dentro da RLS
 antes de consultar endereço, marcas e organizações operadoras globais. Isso
 evita que joins N:N cortem filhos de um parceiro e impede que IDs de outro polo
-sejam usados como ponto de partida para descoberta.
+sejam usados como ponto de partida para descoberta. Depois de fechar a página,
+a leitura carrega em lotes o perfil publicado de cada participação, suas
+categorias e períodos; uma participação sem publicação retorna `profile: null`,
+sem N+1 e sem desaparecer do diretório.
 
 Lugar, marca e organização são identidades globais e históricas; suspensão ou
 encerramento não apaga essas linhas. A leitura pública filtra participação,
@@ -133,9 +136,39 @@ o mesmo status `409` entregue pela API, sem deixar organização, endereço ou
 lugar órfão. Ambos expõem o código genérico `partner_conflict`, evitando usar a
 API como oráculo de CNPJ; conflito de chave expõe `idempotency_conflict`, e uma
 reserva ainda em processamento expõe `request_in_progress` com `Retry-After`.
-Categorias, horários, contatos e mídia ainda não fazem parte dessa borda; serão
-tabelas e APIs próprias, sem sobrescrever o histórico de participação já
-publicado.
+O onboarding não publica implicitamente um perfil: essa segunda ação exige o
+contrato completo e sua própria chave idempotente. Mídia também permanece uma
+borda independente, pois upload, moderação e armazenamento têm ciclo operacional
+diferente da identidade comercial.
+
+### Perfil operacional do estabelecimento
+
+`PUT /api/v1/polos/:slug/backoffice/places/:place_id/profile` relê a role
+`admin`, o polo e uma participação ativa, e então substitui contato, categorias,
+semana de funcionamento e exceções na mesma transação. A participação é travada
+antes da reserva idempotente: retries concorrentes devolvem a resposta original,
+enquanto chaves distintas serializam revisões completas sem misturar filhos de
+duas versões. Publicação inicial e atualização gravam auditoria, evento de
+domínio, outbox e resposta `200` idempotente atomicamente.
+
+`place_categories` é uma taxonomia global curada; o perfil não cria categorias
+livres. `polo_place_profiles`, sua relação N:N de categorias e
+`polo_place_opening_periods` são tenant-aware, usam `FORCE RLS` e preservam
+`polo_id` nas FKs compostas. Constraints de exclusão impedem sobreposição tanto
+na semana cíclica, inclusive domingo para segunda, quanto entre exceções que
+atravessam meia-noite. A validação da borda repete essas regras para devolver
+`422` antes de depender do erro do banco.
+
+Horários usam `time` e datas locais, interpretados no fuso IANA do lugar; dias
+seguem ISO de `1` para segunda a `7` para domingo. Exceções `closed` cobrem o dia
+local inteiro e exceções `custom` substituem a janela daquela data. Contato é
+publicado na resposta do diretório, mas não é copiado para audit, evento ou
+outbox, que carregam somente IDs, revisão e contagens.
+
+O aggregate pertence ao `polo_place_id`, não à identidade global do lugar. Se
+uma participação terminar e outra começar, o novo vínculo precisa ser publicado
+explicitamente; o sistema não reaproveita silenciosamente um perfil histórico.
+A administração da taxonomia e fotos continuam fatias próprias.
 
 ## Catálogo público
 
@@ -237,7 +270,7 @@ As bordas iniciais são:
 - `GET /api/v1/polos/:slug/checkout-options` — lista as combinações comerciais
   públicas atualmente provisionáveis para o polo;
 - `GET /api/v1/polos/:slug/places` — pagina o diretório comercial público do
-  polo com endereço, marcas e operadores ativos;
+  polo com endereço, marcas, operadores e eventual perfil publicado;
 - `POST /api/v1/polos/:slug/orders` — cria um pedido idempotente com ator e
   polo derivados da sessão e da rota, enquanto preço e moeda são relidos no
   tenant;
@@ -405,13 +438,49 @@ o banco guarda somente seu SHA-256, indexado e único. Status, vigência e ponto
 ativo são conferidos sob RLS, e `validation_point_id` é derivado da credencial,
 nunca do corpo externo.
 
+`POST /api/v1/polos/:slug/backoffice/places/:place_id/validation-points` fecha o
+provisionamento inicial dessa credencial. Um admin do polo registra somente uma
+participação e um lugar ativos. O cliente gera a chave aleatória, conserva seu
+valor e envia apenas o SHA-256 base64url; o comando cria ponto `api` e versão 1
+`api_key` com validade explícita de no máximo 365 dias. Ponto, credencial,
+auditoria, evento, outbox e resposta idempotente são gravados atomicamente sob
+RLS. Digest duplicado usa savepoint para produzir conflito auditado sem deixar
+agregado provisório. O DTO seguro fica na idempotência para que retries sejam
+exatos mesmo após uma mudança de status; chave e digest não entram em resposta,
+auditoria, evento ou outbox.
+
+`POST /api/v1/polos/:slug/backoffice/validation-credentials/:credential_id/rotations`
+faz a troca imediata da chave sem editar material histórico. O ID na rota é uma
+precondição otimista: sob advisory lock por ponto, somente a versão corrente
+pode ser substituída. A vigência anterior termina no mesmo instante em que a
+nova `version + 1` começa, mantendo intervalos `[início, fim)` sem sobreposição;
+uma versão já vencida é marcada `expired` e também pode ser renovada. Duas
+rotações concorrentes sobre o mesmo ID produzem um vencedor e um conflito
+`validation_credential_stale`, não duas chaves instaláveis. Conflitos stale ou
+de digest são idempotentes e auditados, e qualquer falha restaura a credencial
+que autenticava antes do comando. Sucesso grava nova versão, auditoria, evento,
+outbox e DTO seguro na mesma transação sob RLS.
+
+`POST /api/v1/polos/:slug/backoffice/validation-credentials/:credential_id/revocations`
+é o kill-switch sem substituição. O ID corrente também funciona como
+precondição otimista; a transação fecha sua vigência, marca a versão como
+`revoked` e grava auditoria, evento, outbox e resposta idempotente sem expor
+chave ou digest. O comando continua disponível com o ponto suspenso. Repetição
+exata reproduz o DTO; alvo stale, já revogado ou indisponível vira uma única
+rejeição idempotente e auditada. Revogação e rotação compartilham o advisory
+lock por ponto, então uma corrida possui um único vencedor linearizável. Uma
+revogação explícita é terminal e não pode ser usada como base para criar uma
+nova versão; somente expiração natural admite renovação.
+
 Autenticação do ponto e `Clubeira.Redemptions.confirm/2` executam na mesma
 transação. O scope começa como serviço do polo e ganha o actor somente depois
 da verificação do grant assinado. O nonce recebe advisory lock transacional:
 retry com a mesma idempotency key devolve o resgate original; o mesmo grant com
 outra chave é registrado como replay negado sem consumir novamente. Renderização
 visual do QR, placard estático, attestation de hardware e modo offline são
-evoluções da borda, sem alterar o contrato interno já autenticado.
+evoluções da borda, sem alterar o contrato interno já autenticado. Suspensão e
+aposentadoria do ponto permanecem transições próprias; nenhuma delas reescreve
+o hash de uma credencial histórica.
 
 ## Normalização e histórico
 
@@ -421,6 +490,9 @@ evoluções da borda, sem alterar o contrato interno já autenticado.
   para a versão efetiva no momento da operação.
 - Períodos usam `tstzrange` semiaberto `[início, fim)` e constraints de
   exclusão onde sobreposição seria inválida.
+- Horários operacionais usam relógio e data locais vinculados ao fuso do lugar;
+  exclusões protegem a semana cíclica e exceções de calendário que atravessam
+  meia-noite.
 - Duas versões `published` da mesma oferta não podem ter períodos efetivos
   sobrepostos. Rascunhos podem coexistir até o momento da publicação.
 - `benefit_kind` torna-se imutável após a primeira versão. Triggers de banco

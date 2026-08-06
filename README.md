@@ -7,8 +7,8 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL_18-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![OTP](https://img.shields.io/badge/OTP_29-A90533?style=for-the-badge&logo=erlang&logoColor=white)](https://www.erlang.org/)
 [![RLS](https://img.shields.io/badge/RLS-FORCED-16A34A?style=for-the-badge)](#-multi-tenancy)
-[![Tests](https://img.shields.io/badge/tests-270-6D28D9?style=for-the-badge)](./test)
-[![Migrations](https://img.shields.io/badge/migrations-123-F59E0B?style=for-the-badge)](./priv/repo/migrations)
+[![Tests](https://img.shields.io/badge/tests-319-6D28D9?style=for-the-badge)](./test)
+[![Migrations](https://img.shields.io/badge/migrations-132-F59E0B?style=for-the-badge)](./priv/repo/migrations)
 [![License](https://img.shields.io/badge/license-MIT-16A34A?style=for-the-badge)](./LICENSE)
 
 **[🏗️ Arquitetura](docs/architecture.md)** · **[🛠️ Desenvolvimento](docs/development.md)** · **[🤝 Contribuir](CONTRIBUTING.md)** · **[🔐 Segurança](SECURITY.md)**
@@ -76,14 +76,14 @@ flowchart LR
 | Domínio | Entregue |
 |:--|:--|
 | 🔐 **Identidade** | cadastro atômico com aceite da versão legal vigente, Argon2id, sessão bearer opaca e revogável, rate limit por global/IP/identidade |
-| 🗺️ **Descoberta** | diretório público de parceiros, catálogo comercial, opções de checkout — tudo paginado por cursor |
-| 🏪 **Parceiros** | onboarding administrativo idempotente com CNPJ criptografado, endereço, operador e participação no polo publicados atomicamente |
+| 🗺️ **Descoberta** | diretório público com perfil, contato, categorias e horários do parceiro, catálogo comercial e opções de checkout — tudo paginado por cursor |
+| 🏪 **Parceiros** | onboarding administrativo idempotente e publicação autenticada do perfil operacional, ambos com auditoria, evento e outbox atômicos |
 | 🛒 **Venda** | checkout idempotente, histórico paginado de pedidos, Pix via Mercado Pago com webhook HMAC que relê a order no PSP antes de liquidar |
 | 🏦 **Recebimento** | contas globais vinculadas por vigência a cada polo, com integridade referencial entre tenant e conta |
 | 📜 **Assinatura** | planos, contratos, ciclos e alocações de benefício independentes por polo |
-| ✅ **Resgate** | enrollment sem persistir segredo, grant assinado e curto, autenticação do ponto de validação, consumo atômico com anti-replay, ledger, auditoria, evento e outbox |
+| ✅ **Resgate** | enrollment sem persistir segredo, grant assinado e curto, provisionamento, rotação e revogação da credencial do ponto, consumo atômico com anti-replay, ledger, auditoria, evento e outbox |
 | ⭐ **UGC** | avaliações verificadas por resgate, fila de moderação autorizada por polo, decisão append-only e feed público só do que foi publicado |
-| 🧪 **Base** | 123 migrations, seeds determinísticas, factories, RLS forçado e testes de concorrência contra bancos isolados reais |
+| 🧪 **Base** | 132 migrations, seeds determinísticas, factories, RLS forçado e testes de concorrência contra bancos isolados reais |
 
 O fluxo de venda implementado no domínio é:
 
@@ -151,7 +151,8 @@ aleatórios em base64url sem padding via `CLUBEIRA_DEMO_VALIDATION_SECRET` em
 qualquer ambiente compartilhado. Para testar o sandbox Pix, defina também
 `CLUBEIRA_DEMO_EMAIL` com o e-mail do usuário de teste do Mercado Pago antes de
 rodar as seeds. O mesmo membro possui contratos independentes em Sobral e
-Londrina.
+Londrina. Os três estabelecimentos demo já possuem perfil público completo,
+com taxonomia curada, contato, semana de funcionamento e exceções de calendário.
 
 </details>
 
@@ -344,6 +345,10 @@ docker compose stop
 | `GET` | `/api/v1/polos/:slug/me/redemptions` | 🔑 |
 | `POST` | `/api/v1/polos/:slug/places/:place_id/reviews` | 🔑 |
 | `POST` | `/api/v1/polos/:slug/backoffice/partners` | 🛡️ |
+| `PUT` | `/api/v1/polos/:slug/backoffice/places/:place_id/profile` | 🛡️ |
+| `POST` | `/api/v1/polos/:slug/backoffice/places/:place_id/validation-points` | 🛡️ |
+| `POST` | `/api/v1/polos/:slug/backoffice/validation-credentials/:credential_id/rotations` | 🛡️ |
+| `POST` | `/api/v1/polos/:slug/backoffice/validation-credentials/:credential_id/revocations` | 🛡️ |
 | `GET` | `/api/v1/polos/:slug/backoffice/reviews` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/reviews/:review_id/moderation-actions` | 🛡️ |
 
@@ -381,6 +386,39 @@ curl -sS -X POST http://localhost:4000/api/v1/polos/sobral/backoffice/partners \
   -H 'content-type: application/json' \
   -d '{"organization":{"legal_name":"Bistrô da Serra Ltda.","trade_name":"Bistrô da Serra","cnpj":"12.ABC.345/01DE-35"},"place":{"name":"Bistrô da Serra Centro","slug":"bistro-da-serra-centro","address":{"postal_code":"62010-000","street":"Rua das Flores","number":"42","district":"Centro"}}}'
 
+curl -sS -X PUT \
+  http://localhost:4000/api/v1/polos/sobral/backoffice/places/<place_uuid>/profile \
+  -H "authorization: Bearer $ADMIN_TOKEN" \
+  -H 'idempotency-key: perfil-bistro-sobral-001' \
+  -H 'content-type: application/json' \
+  -d '{"contact":{"email":"reservas@bistro.example","phone":"(88) 99999-0101"},"category_keys":["restaurant","regional-cuisine"],"weekly_hours":[{"weekday":1,"opens_at":"11:30","closes_at":"15:00"},{"weekday":1,"opens_at":"18:00","closes_at":"23:00"}],"special_hours":[{"date":"2026-12-25","kind":"closed"}]}'
+
+VALIDATION_SECRET="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')"
+VALIDATION_SECRET_SHA256="$(printf '%s=' "$VALIDATION_SECRET" | tr '_-' '/+' | openssl base64 -d -A | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=\n')"
+VALIDATION_EXPIRES_AT="$(date -u -d '+90 days' +%Y-%m-%dT%H:%M:%SZ)"
+
+curl -sS -X POST \
+  http://localhost:4000/api/v1/polos/sobral/backoffice/places/<place_uuid>/validation-points \
+  -H "authorization: Bearer $ADMIN_TOKEN" \
+  -H 'idempotency-key: caixa-bistro-sobral-001' \
+  -H 'content-type: application/json' \
+  -d "{\"name\":\"Caixa principal\",\"credential\":{\"secret_sha256\":\"$VALIDATION_SECRET_SHA256\",\"expires_at\":\"$VALIDATION_EXPIRES_AT\"}}"
+
+NEXT_VALIDATION_SECRET="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')"
+NEXT_VALIDATION_SECRET_SHA256="$(printf '%s=' "$NEXT_VALIDATION_SECRET" | tr '_-' '/+' | openssl base64 -d -A | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=\n')"
+
+curl -sS -X POST \
+  http://localhost:4000/api/v1/polos/sobral/backoffice/validation-credentials/<current_credential_uuid>/rotations \
+  -H "authorization: Bearer $ADMIN_TOKEN" \
+  -H 'idempotency-key: rotacao-caixa-bistro-sobral-001' \
+  -H 'content-type: application/json' \
+  -d "{\"credential\":{\"secret_sha256\":\"$NEXT_VALIDATION_SECRET_SHA256\",\"expires_at\":\"$VALIDATION_EXPIRES_AT\"}}"
+
+curl -sS -X POST \
+  http://localhost:4000/api/v1/polos/sobral/backoffice/validation-credentials/<current_credential_uuid>/revocations \
+  -H "authorization: Bearer $ADMIN_TOKEN" \
+  -H 'idempotency-key: revogacao-caixa-bistro-sobral-001'
+
 curl -sS http://localhost:4000/api/v1/polos/sobral/me/vouchers \
   -H "authorization: Bearer $TOKEN"
 
@@ -397,7 +435,7 @@ curl -sS -X POST http://localhost:4000/api/v1/polos/sobral/me/redemption-grants 
   -d "{\"entitlement_allocation_id\":\"<allocation_uuid>\",\"installation_token\":\"$INSTALLATION_TOKEN\"}"
 
 curl -sS -X POST http://localhost:4000/api/v1/polos/sobral/redemptions \
-  -H 'authorization: Validation M-bCcLGupP8XuBxzemHd-4JumJf6trsiQpinEl30xwg' \
+  -H "authorization: Validation $VALIDATION_SECRET" \
   -H 'idempotency-key: merchant-redemption-001' \
   -H 'content-type: application/json' \
   -d '{"grant":"<signed_grant>"}'
@@ -447,7 +485,10 @@ O histórico de pedidos retorna somente os pedidos do ator naquele polo, do
 mais novo para o mais antigo, com os itens e valores históricos; ele usa
 `?limit=20&after=...` e limita cada página a `100` pedidos. O diretório público
 usa a mesma paginação para listar somente participações, lugares, marcas e
-operadores ativos, incluindo endereço e coordenadas quando cadastradas. Após um
+operadores ativos, incluindo endereço, coordenadas e o perfil publicado quando
+cadastrados. O perfil é uma substituição completa: dias seguem ISO `1` (segunda)
+a `7` (domingo), telefone é normalizado para E.164 e exceções usam `closed` ou
+`custom`. Após um
 resgate confirmado, o membro pode enviar uma avaliação de `1` a `5` estrelas
 com texto não vazio. A API prova no banco que o resgate pertence ao ator, polo
 e lugar da rota, cria a avaliação como `pending` e exige `Idempotency-Key`;
@@ -511,6 +552,32 @@ cliente. A confirmação deriva esse ponto de uma credencial ativa, executa a
 autenticação e `Clubeira.Redemptions.confirm/2` na mesma transação e mantém o
 replay idempotente.
 
+O backoffice registra um ponto `api` somente para uma participação ativa. O
+cliente gera e conserva a chave de 32 bytes e envia ao provisionamento apenas
+seu SHA-256 em base64url; a resposta, auditoria, evento, outbox e idempotência
+nunca carregam chave ou digest. A primeira credencial recebe vigência explícita
+de até 365 dias. Retry exato reproduz o DTO original mesmo se o ponto mudar de
+estado depois; digest já registrado retorna conflito estável sem deixar ponto
+órfão.
+
+A rotação mira na URL a credencial que o operador acredita ser a atual. O
+comando fecha sua vigência no relógio transacional, preserva hash e versão
+históricos e cria a próxima versão com o mesmo instante inicial. A chave antiga
+deixa de autenticar imediatamente; se já estava vencida, recebe estado
+`expired` antes da renovação. Retry exato reproduz a resposta original, enquanto
+um alvo já substituído retorna `validation_credential_stale` e não derruba a
+chave vencedora. Digest duplicado também restaura a credencial corrente antes do
+conflito auditado. Chave e digest novos continuam fora da resposta, auditoria,
+evento, outbox e idempotência.
+
+A revogação administrativa usa o mesmo ID corrente como precondição, encerra a
+vigência sem criar substituta e bloqueia a autenticação imediatamente. Ela
+continua disponível quando o ponto já está suspenso, para funcionar como
+kill-switch operacional. Retry exato devolve o mesmo DTO; alvo substituído ou
+já revogado produz um único `409` idempotente e auditado. Rotação e revogação
+compartilham a trava por ponto: sob concorrência há um único vencedor, e uma
+revogação explícita é terminal — a rotação não pode reativá-la.
+
 ---
 
 ## 🧪 Qualidade
@@ -535,7 +602,7 @@ alterar a configuração versionada.
 | `credo --strict` | consistência e code smells |
 | `deps.audit` + `hex.audit` | CVE e pacotes retirados |
 | `sobelow --config` | análise estática de segurança Phoenix |
-| `test` | 270 testes, incluindo contratos de RLS e concorrência real |
+| `test` | 319 testes, incluindo contratos de RLS e concorrência real |
 
 ---
 
@@ -546,10 +613,14 @@ alterar a configuração versionada.
 | Schema normalizado + RLS forçado | ✅ |
 | Cadastro, sessão e aceite legal | ✅ |
 | Catálogo, diretório e checkout-options públicos | ✅ |
+| Perfil operacional do estabelecimento | ✅ |
 | Checkout autenticado e idempotente | ✅ |
 | Pix Mercado Pago (Orders API + webhook) | ✅ |
 | Contrato, ciclo e alocações | ✅ |
 | Resgate online autenticado | ✅ |
+| Provisionamento de ponto de validação API | ✅ |
+| Rotação versionada da credencial de validação | ✅ |
+| Revogação administrativa da credencial | ✅ |
 | Avaliações verificadas + moderação | ✅ |
 | Outbox com HMAC, retry e dead-letter | ✅ |
 | Recuperação de senha por e-mail | ✅ |
@@ -581,14 +652,33 @@ alterar a configuração versionada.
   preços vigentes; a escrita continua relendo preço, moeda e elegibilidade
   dentro da transação;
 - `GET /api/v1/polos/:polo_slug/places` lista a identidade comercial pública
-  dos parceiros ativos do polo; desativação os remove da descoberta sem apagar
-  referências históricas;
+  dos parceiros ativos do polo e inclui o perfil publicado com contato,
+  categorias, horários semanais e exceções; desativação os remove da descoberta
+  sem apagar referências históricas;
 - `POST /api/v1/polos/:polo_slug/backoffice/partners` exige bearer com role
   `admin`, aceita CNPJ numérico ou alfanumérico e cria uma nova organização,
   identificador cifrado, endereço, lugar, operador e participação ativa na
   mesma transação idempotente; cidade, timezone, polo e ator são derivados no
   servidor, e o CNPJ não entra em resposta, audit, evento ou outbox; um CNPJ
   ativo já cadastrado produz conflito auditado, sem vinculação automática;
+- `PUT /api/v1/polos/:polo_slug/backoffice/places/:place_id/profile` exige
+  bearer com role `admin` e `Idempotency-Key`, substitui atomicamente o perfil da
+  participação ativa e incrementa sua revisão; FKs compostas, RLS e constraints
+  de exclusão impedem mistura de polos e sobreposição de horários, enquanto
+  contato permanece fora de audit, evento e outbox;
+- `POST /api/v1/polos/:polo_slug/backoffice/places/:place_id/validation-points`
+  exige `admin` e `Idempotency-Key`, relê a participação ativa e cria ponto mais
+  credencial atomicamente; recebe somente o SHA-256 da chave gerada pelo cliente,
+  impõe validade máxima de 365 dias e não expõe material de credencial em
+  resposta, auditoria, evento ou outbox;
+- `POST /api/v1/polos/:polo_slug/backoffice/validation-credentials/:credential_id/rotations`
+  usa a credencial atual como precondição otimista, revoga ou encerra a versão
+  anterior e cria `version + 1` sem sobreposição; retry é exato e concorrentes
+  distintos produzem um vencedor e um conflito `stale` auditado;
+- `POST /api/v1/polos/:polo_slug/backoffice/validation-credentials/:credential_id/revocations`
+  encerra a versão corrente sem substituição e corta sua autenticação; funciona
+  mesmo com o ponto suspenso, tem replay exato e serializa com rotação para que
+  uma revogação explícita nunca seja reativada;
 - `POST /api/v1/polos/:polo_slug/places/:place_id/reviews` cria uma avaliação
   verificada para o membro autenticado; o resgate informado é somente evidência
   e sua autoria, polo e lugar são revalidados sob RLS;
@@ -613,8 +703,11 @@ alterar a configuração versionada.
   recuperável e dead-letter;
 - edição, mídia, respostas, denúncias e ações pós-publicação de avaliações
   continuam como fatias próprias;
-- categorias, horários, contato e fotos do estabelecimento continuam como a
-  próxima evolução do cadastro do parceiro;
+- a taxonomia global é curada por migration/seed e ainda não possui API de
+  administração; fotos do estabelecimento continuam uma fatia própria com sua
+  futura borda de armazenamento;
+- suspensão e aposentadoria administrativa do ponto de validação continuam uma
+  fatia própria; uma versão histórica nunca tem seu hash substituído;
 - vincular uma organização já existente a uma nova unidade ou polo exige uma
   borda própria, com autorização explícita sobre essa identidade global;
 - renovação automática, reembolso e chargeback ainda não fazem parte do fluxo

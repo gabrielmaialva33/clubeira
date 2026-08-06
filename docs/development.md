@@ -33,7 +33,11 @@ O alias executa, nesta ordem: dependências, container saudável, criação do
 banco, migrations, seeds, instalação e build dos assets. As seeds são
 determinísticas e idempotentes: representam Sobral, Londrina, uma franquia nos
 dois polos, um parceiro local apenas em Sobral e um membro com assinatura e
-ciclo independentes nos dois polos. A senha local padrão é
+ciclo independentes nos dois polos. Os três estabelecimentos já saem publicados
+no diretório com categorias globais curadas, contato público, semana completa e
+exceções de Natal e Réveillon. IDs de perfil e período são estáveis; cada rerun
+substitui os filhos desse cenário dentro da transação tenant, sem acumular
+horários ou categorias. A senha local padrão é
 `clubeira-demo-local`; use `CLUBEIRA_DEMO_PASSWORD` para substituí-la.
 As assinaturas demo passam pelos comandos reais `Billing.place_order/2` e
 `Billing.settle_payment/2`: pedido, intent, pagamento, evento do provedor,
@@ -46,8 +50,9 @@ recebe o papel `review_moderator` nos dois polos sem qualquer bypass de RLS.
 O cadastro de parceiros usa uma identidade separada:
 `admin.demo@clubeira.local` com `clubeira-admin-local`, configuráveis por
 `CLUBEIRA_DEMO_ADMIN_EMAIL` e `CLUBEIRA_DEMO_ADMIN_PASSWORD`. Ela recebe apenas
-o role key `admin` nos mesmos polos. As organizações demo têm CNPJs fictícios
-válidos e cifrados; nenhum documento real pertence às fixtures.
+o role key `admin` nos mesmos polos e pode exercitar tanto o onboarding quanto a
+publicação `PUT` do perfil. As organizações demo têm CNPJs fictícios válidos e
+cifrados; nenhum documento real pertence às fixtures.
 As seeds também criam o provedor `mercado_pago`, uma conta global
 `mercado-pago-demo` e vínculos primários com os dois polos. A saída da seed
 mostra o UUID usado na URL do webhook. Sobral recebe ainda um ponto de
@@ -125,19 +130,38 @@ O cliente gera e conserva localmente 32 bytes aleatórios para identificar sua
 instalação. A API recebe a forma base64url sem padding, mas o PostgreSQL guarda
 somente SHA-256. O fluxo operacional é:
 
-1. `POST /api/v1/polos/:slug/me/redemption-devices`, com bearer do membro;
-2. `POST /api/v1/polos/:slug/me/redemption-grants`, com alocação e o mesmo
+1. o operador gera outra chave de 32 bytes e registra somente seu SHA-256 em
+   `POST /api/v1/polos/:slug/backoffice/places/:place_id/validation-points`, com
+   bearer de admin e `Idempotency-Key`;
+2. quando necessário, troca a chave em
+   `POST /api/v1/polos/:slug/backoffice/validation-credentials/:credential_id/rotations`,
+   enviando o digest novo e mirando o ID da versão corrente;
+3. em incidente ou desativação, encerra a chave sem substituí-la em
+   `POST /api/v1/polos/:slug/backoffice/validation-credentials/:credential_id/revocations`,
+   também com o ID corrente e `Idempotency-Key`;
+4. `POST /api/v1/polos/:slug/me/redemption-devices`, com bearer do membro;
+5. `POST /api/v1/polos/:slug/me/redemption-grants`, com alocação e o mesmo
    segredo de instalação;
-3. transporte de `data.grant` para o app do estabelecimento;
-4. `POST /api/v1/polos/:slug/redemptions`, com
+6. transporte de `data.grant` para o app do estabelecimento;
+7. `POST /api/v1/polos/:slug/redemptions`, com
    `Authorization: Validation <chave>` e `Idempotency-Key`.
 
 Grant e chave de validação são credenciais e não entram em log, audit, evento
-ou fixture persistida. A chave de produção deve ser provisionada por versão e
-rotacionada criando nova `validation_credential`; não substitua o hash de uma
-versão histórica. O grant expira em 120 segundos por padrão. O endpoint final
-rejeita polo divergente, assinatura alterada, chave revogada/expirada e replay
-de nonce antes de qualquer segundo consumo.
+ou fixture persistida. O provisionamento recebe o SHA-256 base64url, não a chave,
+e exige expiração futura de no máximo 365 dias. O cliente deve gerar a chave com
+CSPRNG, guardá-la em secret storage e calcular o digest sobre os 32 bytes crus.
+A rotação exige o ID devolvido pela criação ou pela rotação anterior, fecha a
+vigência da versão corrente e cria `version + 1`; não substitui hash histórico.
+Instale a nova chave somente depois de receber `201`: o corte é imediato e a
+anterior deixa de autenticar. Um retry exato devolve o mesmo DTO; alvo stale ou
+digest duplicado retornam `409` sem alterar a chave vencedora. A revogação
+encerra a versão corrente mesmo se o ponto já estiver suspenso e responde
+`200`; retry exato é seguro, enquanto alvo stale ou já revogado retorna `409`
+auditado. Rotação e revogação são serializadas pela mesma trava, e uma
+revogação explícita nunca pode ser renovada. O grant expira em 120 segundos por
+padrão. O endpoint final rejeita polo
+divergente, assinatura alterada, chave revogada/expirada e replay de nonce antes
+de qualquer segundo consumo.
 
 ## Publicador da outbox
 
