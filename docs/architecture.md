@@ -241,6 +241,14 @@ evento, outbox e resposta idempotente confirmam juntos. Uma transição inválid
 persiste a rejeição e seu replay estável sem emitir evento. O motivo informado
 pelo operador fica apenas na auditoria tenant.
 
+`GET /api/v1/polos/:slug/backoffice/product-offerings` mantém o lifecycle
+operável mesmo depois que uma identidade deixa a vitrine pública. O read model
+exige `manage_partners`, roda sob RLS e pagina identidades por
+`product_offerings.inserted_at + id`, aceitando filtros exatos de status e
+código. A página é fechada antes de buscar a versão mais recente e seus preços,
+evitando que joins cortem filhos ou distorçam o cursor; versões históricas não
+são reinterpretadas nem editadas por essa leitura.
+
 `GET /api/v1/polos/:slug/checkout-options` é a leitura pública comercial que
 completa essa vitrine. Ela pagina preços por UUIDv7 e devolve os pares
 `product_offering_version_id + offering_price_id` usados por
@@ -337,6 +345,8 @@ As bordas iniciais são:
 - `POST /api/v1/auth/password-resets` — troca a senha com token de uso único e
   revoga todas as sessões;
 - `DELETE /api/v1/auth/session` — revoga a sessão corrente;
+- `GET /api/v1/me` — relê identidade, verificação de e-mail e validade da
+  sessão autenticada;
 - `GET /api/v1/polos/:slug/checkout-options` — lista as combinações comerciais
   públicas atualmente provisionáveis para o polo;
 - `GET /api/v1/polos/:slug/places` — pagina o diretório comercial público do
@@ -550,6 +560,13 @@ RLS. Digest duplicado usa savepoint para produzir conflito auditado sem deixar
 agregado provisório. O DTO seguro fica na idempotência para que retries sejam
 exatos mesmo após uma mudança de status; chave e digest não entram em resposta,
 auditoria, evento ou outbox.
+
+`GET /api/v1/polos/:slug/backoffice/validation-points` é o inventário
+operacional tenant-aware desse agregado. A leitura exige `manage_partners`, roda
+sob RLS e pagina por `validation_points.inserted_at + id`, com filtros de status
+e lugar sustentados por índices próprios. Cada item agrega somente a versão de
+credencial mais recente para permitir lifecycle, rotação e revogação; chave e
+digest permanecem fora do read model e do cursor opaco.
 
 `POST /api/v1/polos/:slug/backoffice/validation-credentials/:credential_id/rotations`
 faz a troca imediata da chave sem editar material histórico. O ID na rota é uma

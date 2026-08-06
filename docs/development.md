@@ -122,6 +122,18 @@ decimal ou ordem dos benefícios equivalentes, devolvem o DTO original.
 Reutilizar a chave com conteúdo diferente retorna `idempotency_conflict`, e
 validação de payload ocorre antes da reserva.
 
+O inventário autenticado permite recuperar a identidade mesmo depois que ela
+sai da vitrine pública:
+
+```text
+GET /api/v1/polos/:slug/backoffice/product-offerings?status=paused&limit=20
+Authorization: Bearer <admin-token>
+```
+
+Ele aceita `status`, código exato, `limit` e cursor `after`, e devolve a versão
+mais recente com todos os seus preços. Assim o operador consegue pausar,
+reativar ou aposentar sem guardar UUID fora do sistema nem consultar SQL.
+
 ## Lifecycle administrativo de produtos comerciais
 
 Uma oferta publicada pode sair de novas vendas sem alterar pedidos, contratos
@@ -243,23 +255,28 @@ O cliente gera e conserva localmente 32 bytes aleatórios para identificar sua
 instalação. A API recebe a forma base64url sem padding, mas o PostgreSQL guarda
 somente SHA-256. O fluxo operacional é:
 
-1. o operador gera outra chave de 32 bytes e registra somente seu SHA-256 em
+1. o operador consulta
+   `GET /api/v1/polos/:slug/backoffice/validation-points` para redescobrir pontos
+   e a versão corrente de cada credencial, com filtros opcionais `status`,
+   `place_id`, `limit` e `after`; a resposta nunca contém chave ou digest;
+2. quando ainda não existe um ponto, gera outra chave de 32 bytes e registra
+   somente seu SHA-256 em
    `POST /api/v1/polos/:slug/backoffice/places/:place_id/validation-points`, com
    bearer de admin e `Idempotency-Key`;
-2. pausa, retoma ou aposenta o ponto em
+3. pausa, retoma ou aposenta o ponto em
    `POST /api/v1/polos/:slug/backoffice/validation-points/:validation_point_id/lifecycle-actions`,
    enviando `action`, `reason` e `Idempotency-Key`;
-3. quando necessário, troca a chave em
+4. quando necessário, troca a chave em
    `POST /api/v1/polos/:slug/backoffice/validation-credentials/:credential_id/rotations`,
    enviando o digest novo e mirando o ID da versão corrente;
-4. em incidente ou desativação, encerra a chave sem substituí-la em
+5. em incidente ou desativação, encerra a chave sem substituí-la em
    `POST /api/v1/polos/:slug/backoffice/validation-credentials/:credential_id/revocations`,
    também com o ID corrente e `Idempotency-Key`;
-5. `POST /api/v1/polos/:slug/me/redemption-devices`, com bearer do membro;
-6. `POST /api/v1/polos/:slug/me/redemption-grants`, com alocação e o mesmo
+6. `POST /api/v1/polos/:slug/me/redemption-devices`, com bearer do membro;
+7. `POST /api/v1/polos/:slug/me/redemption-grants`, com alocação e o mesmo
    segredo de instalação;
-7. transporte de `data.grant` para o app do estabelecimento;
-8. `POST /api/v1/polos/:slug/redemptions`, com
+8. transporte de `data.grant` para o app do estabelecimento;
+9. `POST /api/v1/polos/:slug/redemptions`, com
    `Authorization: Validation <chave>` e `Idempotency-Key`.
 
 Grant e chave de validação são credenciais e não entram em log, audit, evento

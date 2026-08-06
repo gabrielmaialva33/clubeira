@@ -84,6 +84,12 @@ cliente como prova de permissão.
 - `Clubeira.Billing.list_backoffice_payments/2` é o read model financeiro do
   polo: exige a capability `manage_billing`, usa keyset por relógio transacional
   e não expõe motivo, idempotência ou referências externas do PSP.
+- `Clubeira.Subscriptions.list_product_offerings/2` mantém o lifecycle comercial
+  operável fora da vitrine pública: exige `manage_partners`, pagina identidades
+  antes de agregar a última versão e seus preços e nunca reinterpreta histórico.
+- `Clubeira.Redemptions.list_validation_points/2` é o inventário operacional do
+  polo: exige `manage_partners`, roda sob RLS e nunca expõe chave ou digest de
+  credencial.
 - QR, prova do ponto de validação, renovações, reembolsos parciais e chargebacks
   ainda são bordas próprias. Não simule essas integrações dentro do core nem
   declare uma borda futura como pronta.

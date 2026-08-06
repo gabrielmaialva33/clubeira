@@ -83,7 +83,7 @@ flowchart LR
 | 📜 **Assinatura** | planos, contratos, ciclos e alocações de benefício independentes por polo |
 | ✅ **Resgate** | enrollment sem persistir segredo, grant assinado e curto, lifecycle administrativo do ponto, rotação e revogação da credencial, consumo atômico com anti-replay, ledger, auditoria, evento e outbox |
 | ⭐ **UGC** | avaliações verificadas por resgate, fila de moderação autorizada por polo, decisão append-only e feed público só do que foi publicado |
-| 🧪 **Base** | 137 migrations, seeds determinísticas, factories, RLS forçado e testes de concorrência contra bancos isolados reais |
+| 🧪 **Base** | 139 migrations, seeds determinísticas, factories, RLS forçado e testes de concorrência contra bancos isolados reais |
 
 O fluxo de venda implementado no domínio é:
 
@@ -338,6 +338,7 @@ docker compose stop
 | `POST` | `/api/v1/auth/password-reset-requests` | 🌐 |
 | `POST` | `/api/v1/auth/password-resets` | 🌐 |
 | `DELETE` | `/api/v1/auth/session` | 🔑 |
+| `GET` | `/api/v1/me` | 🔑 |
 | `GET` | `/api/v1/polos/:slug/catalog` | 🌐 |
 | `GET` | `/api/v1/polos/:slug/checkout-options` | 🌐 |
 | `GET` | `/api/v1/polos/:slug/places` | 🌐 |
@@ -356,10 +357,12 @@ docker compose stop
 | `POST` | `/api/v1/polos/:slug/backoffice/partners` | 🛡️ |
 | `PUT` | `/api/v1/polos/:slug/backoffice/places/:place_id/profile` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/places/:place_id/benefit-offers` | 🛡️ |
+| `GET` | `/api/v1/polos/:slug/backoffice/product-offerings` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/product-offerings` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/product-offerings/:product_offering_id/lifecycle-actions` | 🛡️ |
 | `GET` | `/api/v1/polos/:slug/backoffice/payments` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/payments/:payment_id/refunds` | 🛡️ |
+| `GET` | `/api/v1/polos/:slug/backoffice/validation-points` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/places/:place_id/validation-points` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/validation-points/:validation_point_id/lifecycle-actions` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/validation-credentials/:credential_id/rotations` | 🛡️ |
@@ -389,6 +392,9 @@ curl -i -sS -X POST http://localhost:4000/api/v1/auth/email-verification-request
 curl -sS http://localhost:4000/api/v1/auth/sessions \
   -H 'content-type: application/json' \
   -d '{"email":"membro.demo@clubeira.local","password":"clubeira-demo-local"}'
+
+curl -sS http://localhost:4000/api/v1/me \
+  -H "authorization: Bearer $TOKEN"
 
 curl -i -sS -X POST http://localhost:4000/api/v1/auth/password-reset-requests \
   -H 'content-type: application/json' \
@@ -429,6 +435,10 @@ curl -sS -X POST \
   -H 'content-type: application/json' \
   -d '{"offering":{"code":"clube-sobral-premium","name":"Clube Sobral Premium","description":"Plano mensal com benefícios publicados pelo polo.","cycle":{"policy":"calendar","interval_unit":"month","interval_count":1},"effective_during":{"starts_at":"2026-08-01T00:00:00Z","ends_at":null}},"price":{"currency":"BRL","amount":"39.90"},"benefits":[{"benefit_offer_version_id":"<benefit_version_uuid>","allowance_per_cycle":2,"consumption_unit":"per_place"}]}'
 
+curl -sS \
+  'http://localhost:4000/api/v1/polos/sobral/backoffice/product-offerings?status=paused&limit=20' \
+  -H "authorization: Bearer $ADMIN_TOKEN"
+
 curl -sS -X POST \
   http://localhost:4000/api/v1/polos/sobral/backoffice/product-offerings/<product_offering_uuid>/lifecycle-actions \
   -H "authorization: Bearer $ADMIN_TOKEN" \
@@ -446,6 +456,10 @@ curl -sS -X POST \
   -H 'idempotency-key: reembolso-atendimento-001' \
   -H 'content-type: application/json' \
   -d '{"reason":"Cancelamento confirmado pelo atendimento"}'
+
+curl -sS \
+  'http://localhost:4000/api/v1/polos/sobral/backoffice/validation-points?status=active&limit=20' \
+  -H "authorization: Bearer $ADMIN_TOKEN"
 
 VALIDATION_SECRET="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')"
 VALIDATION_SECRET_SHA256="$(printf '%s=' "$VALIDATION_SECRET" | tr '_-' '/+' | openssl base64 -d -A | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=\n')"
@@ -705,7 +719,7 @@ alterar a configuração versionada.
 | `credo --strict` | consistência e code smells |
 | `deps.audit` + `hex.audit` | CVE e pacotes retirados |
 | `sobelow --config` | análise estática de segurança Phoenix |
-| `test` | 375 testes, incluindo contratos de RLS e concorrência real |
+| `test` | 393 testes, incluindo contratos de RLS e concorrência real |
 
 ---
 
@@ -719,6 +733,7 @@ alterar a configuração versionada.
 | Perfil operacional do estabelecimento | ✅ |
 | Publicação administrativa de benefício v1 | ✅ |
 | Publicação administrativa de produto comercial v1 | ✅ |
+| Inventário administrativo de ofertas comerciais | ✅ |
 | Pausa, reativação e aposentadoria de produto comercial | ✅ |
 | Checkout autenticado e idempotente | ✅ |
 | Pix Mercado Pago (Orders API + webhook) | ✅ |
@@ -727,6 +742,7 @@ alterar a configuração versionada.
 | Contrato, ciclo e alocações | ✅ |
 | Resgate online autenticado | ✅ |
 | Provisionamento de ponto de validação API | ✅ |
+| Inventário administrativo de pontos e credenciais | ✅ |
 | Rotação versionada da credencial de validação | ✅ |
 | Revogação administrativa da credencial | ✅ |
 | Suspensão, reativação e aposentadoria do ponto API | ✅ |
@@ -749,6 +765,9 @@ alterar a configuração versionada.
   idempotente, enquanto `POST /api/v1/auth/email-verification-requests` exige a
   sessão da própria conta, revoga o token anterior e reenvia; somente SHA-256 é
   persistido e `email_verified_at` passa a integrar as respostas de sessão;
+- `GET /api/v1/me` relê a conta autenticada e devolve identidade, estado da
+  verificação de e-mail e expiração da sessão sem depender do DTO antigo do
+  login;
 - `POST /api/v1/auth/password-reset-requests` responde sempre `202` para não
   revelar contas, entrega por e-mail um token opaco de 30 minutos e revoga a
   solicitação anterior; `POST /api/v1/auth/password-resets` consome o token uma
@@ -800,6 +819,10 @@ alterar a configuração versionada.
   derivados no servidor, versões de benefício precisam estar publicadas e
   cobrir toda a vigência, retry é exato e colisões concorrentes deixam um único
   grafo com rejeição auditada para o perdedor;
+- `GET /api/v1/polos/:polo_slug/backoffice/product-offerings` exige `admin`,
+  inclui identidades ativas, pausadas, aposentadas ou em rascunho e pagina por
+  `inserted_at + id`; cada item agrega a versão mais recente e todos os seus
+  preços, com filtros exatos de status e código;
 - `POST /api/v1/polos/:polo_slug/backoffice/product-offerings/:product_offering_id/lifecycle-actions`
   exige `admin`, motivo e `Idempotency-Key`; `pause` remove a oferta de novas
   vendas, `reactivate` reabre sua identidade sob as validações normais do grafo
@@ -811,6 +834,10 @@ alterar a configuração versionada.
   credencial atomicamente; recebe somente o SHA-256 da chave gerada pelo cliente,
   impõe validade máxima de 365 dias e não expõe material de credencial em
   resposta, auditoria, evento ou outbox;
+- `GET /api/v1/polos/:polo_slug/backoffice/validation-points` exige `admin`,
+  pagina por `inserted_at + id` e filtra por status ou lugar; devolve o ponto e
+  os metadados da versão de credencial mais recente, mas nunca a chave ou seu
+  digest;
 - `POST /api/v1/polos/:polo_slug/backoffice/validation-credentials/:credential_id/rotations`
   usa a credencial atual como precondição otimista, revoga ou encerra a versão
   anterior e cria `version + 1` sem sobreposição; retry é exato e concorrentes
