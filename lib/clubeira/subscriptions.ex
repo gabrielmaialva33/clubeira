@@ -25,6 +25,7 @@ defmodule Clubeira.Subscriptions do
   alias Clubeira.Subscriptions.CycleEntitlementSubject
   alias Clubeira.Subscriptions.EntitlementAllocation
   alias Clubeira.Subscriptions.EntitlementScopePlace
+  alias Clubeira.Subscriptions.ProductOfferingLifecycle
   alias Clubeira.Subscriptions.ProductOfferingPublisher
   alias Clubeira.Subscriptions.ProductOfferingVersion
   alias Clubeira.Subscriptions.UserContractPoloRoute
@@ -45,6 +46,15 @@ defmodule Clubeira.Subscriptions do
   defdelegate publish_product_offering(scope, attributes),
     to: ProductOfferingPublisher,
     as: :publish
+
+  @doc """
+  Applies an authorized lifecycle action to a commercial offering.
+  """
+  @spec transition_product_offering(TenantScope.t(), Ecto.UUID.t(), map()) ::
+          {:ok, ProductOfferingLifecycle.result()} | {:error, term()}
+  defdelegate transition_product_offering(scope, offering_id, attributes),
+    to: ProductOfferingLifecycle,
+    as: :transition
 
   @spec list_for_account(AccountScope.t()) :: {:ok, [map()]} | {:error, term()}
   def list_for_account(%AccountScope{} = account_scope) do
