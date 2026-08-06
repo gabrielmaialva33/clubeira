@@ -53,6 +53,16 @@ config :clubeira, ClubeiraWeb.Plugs.CredentialRateLimit,
       ip: [scale_ms: 60_000, limit: 10_000],
       identity: [scale_ms: 900_000, limit: 10_000]
     ],
+    email_verification_request: [
+      global: [scale_ms: 1_000, limit: 10_000],
+      ip: [scale_ms: 60_000, limit: 10_000],
+      identity: [scale_ms: 900_000, limit: 10_000]
+    ],
+    email_verification: [
+      global: [scale_ms: 1_000, limit: 10_000],
+      ip: [scale_ms: 60_000, limit: 10_000],
+      identity: [scale_ms: 900_000, limit: 10_000]
+    ],
     password_reset_request: [
       global: [scale_ms: 1_000, limit: 10_000],
       ip: [scale_ms: 60_000, limit: 10_000],

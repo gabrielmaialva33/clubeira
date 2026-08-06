@@ -31,6 +31,11 @@ config :clubeira, Clubeira.Accounts.PasswordRecovery,
   reset_url: "http://localhost:4000/reset-password",
   from: {"Clubeira", "no-reply@clubeira.local"}
 
+config :clubeira, Clubeira.Accounts.EmailVerification,
+  token_ttl_seconds: 24 * 60 * 60,
+  verification_url: "http://localhost:4000/verify-email",
+  from: {"Clubeira", "no-reply@clubeira.local"}
+
 config :clubeira, Clubeira.Outbox.Worker,
   enabled: false,
   initial_delay_ms: 1_000,
@@ -55,6 +60,16 @@ config :clubeira, ClubeiraWeb.Plugs.CredentialRateLimit,
       global: [scale_ms: 1_000, limit: 10],
       ip: [scale_ms: 60_000, limit: 5],
       identity: [scale_ms: 900_000, limit: 3]
+    ],
+    email_verification_request: [
+      global: [scale_ms: 1_000, limit: 20],
+      ip: [scale_ms: 60_000, limit: 10],
+      identity: [scale_ms: 900_000, limit: 3]
+    ],
+    email_verification: [
+      global: [scale_ms: 1_000, limit: 40],
+      ip: [scale_ms: 60_000, limit: 20],
+      identity: [scale_ms: 900_000, limit: 10]
     ],
     password_reset_request: [
       global: [scale_ms: 1_000, limit: 20],

@@ -127,6 +127,54 @@ if config_env() == :prod do
           limit: integer_in_range!.("REGISTRATION_RATE_IDENTITY_PER_15_MINUTES", 3, 1..10_000)
         ]
       ],
+      email_verification_request: [
+        global: [
+          scale_ms: 1_000,
+          limit: integer_in_range!.("EMAIL_VERIFICATION_RATE_GLOBAL_PER_SECOND", 20, 1..10_000)
+        ],
+        ip: [
+          scale_ms: 60_000,
+          limit: integer_in_range!.("EMAIL_VERIFICATION_RATE_IP_PER_MINUTE", 10, 1..10_000)
+        ],
+        identity: [
+          scale_ms: 900_000,
+          limit:
+            integer_in_range!.(
+              "EMAIL_VERIFICATION_RATE_IDENTITY_PER_15_MINUTES",
+              3,
+              1..10_000
+            )
+        ]
+      ],
+      email_verification: [
+        global: [
+          scale_ms: 1_000,
+          limit:
+            integer_in_range!.(
+              "EMAIL_VERIFICATION_CONFIRM_RATE_GLOBAL_PER_SECOND",
+              40,
+              1..10_000
+            )
+        ],
+        ip: [
+          scale_ms: 60_000,
+          limit:
+            integer_in_range!.(
+              "EMAIL_VERIFICATION_CONFIRM_RATE_IP_PER_MINUTE",
+              20,
+              1..10_000
+            )
+        ],
+        identity: [
+          scale_ms: 900_000,
+          limit:
+            integer_in_range!.(
+              "EMAIL_VERIFICATION_CONFIRM_RATE_TOKEN_PER_15_MINUTES",
+              10,
+              1..10_000
+            )
+        ]
+      ],
       password_reset_request: [
         global: [
           scale_ms: 1_000,
@@ -182,6 +230,7 @@ if config_env() == :prod do
       lookup_key: base64url_key!.("IDENTIFIER_LOOKUP_KEY_BASE64")
 
     password_reset_url = required_env!.("PASSWORD_RESET_URL")
+    email_verification_url = required_env!.("EMAIL_VERIFICATION_URL")
     mailer_from_email = required_env!.("MAILER_FROM_EMAIL")
 
     unless match?(
@@ -192,6 +241,14 @@ if config_env() == :prod do
       raise "PASSWORD_RESET_URL must be an absolute HTTPS URL without credentials or a fragment"
     end
 
+    unless match?(
+             {:ok, %URI{scheme: "https", host: host, userinfo: nil, fragment: nil}}
+             when is_binary(host) and host != "",
+             URI.new(email_verification_url)
+           ) do
+      raise "EMAIL_VERIFICATION_URL must be an absolute HTTPS URL without credentials or a fragment"
+    end
+
     unless Regex.match?(~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/u, mailer_from_email) do
       raise "MAILER_FROM_EMAIL must be an email address"
     end
@@ -199,6 +256,12 @@ if config_env() == :prod do
     config :clubeira, Clubeira.Accounts.PasswordRecovery,
       token_ttl_seconds: integer_in_range!.("PASSWORD_RESET_TOKEN_TTL_MINUTES", 30, 5..120) * 60,
       reset_url: password_reset_url,
+      from: {"Clubeira", mailer_from_email}
+
+    config :clubeira, Clubeira.Accounts.EmailVerification,
+      token_ttl_seconds:
+        integer_in_range!.("EMAIL_VERIFICATION_TOKEN_TTL_HOURS", 24, 1..168) * 60 * 60,
+      verification_url: email_verification_url,
       from: {"Clubeira", mailer_from_email}
 
     case required_env!.("MAILER_PROVIDER") do

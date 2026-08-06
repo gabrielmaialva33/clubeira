@@ -13,6 +13,7 @@ defmodule Clubeira.Accounts.User do
   schema "users" do
     field :email, :string
     field :status, :string
+    field :email_verified_at, :utc_datetime_usec
     field :authenticated_at, :utc_datetime_usec
     field :disabled_at, :utc_datetime_usec
 
@@ -23,6 +24,7 @@ defmodule Clubeira.Accounts.User do
           id: Ecto.UUID.t(),
           email: String.t(),
           status: String.t(),
+          email_verified_at: DateTime.t() | nil,
           authenticated_at: DateTime.t() | nil,
           disabled_at: DateTime.t() | nil,
           inserted_at: DateTime.t(),

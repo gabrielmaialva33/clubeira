@@ -8,6 +8,9 @@ defmodule Clubeira.Accounts do
 
   import Ecto.Query
 
+  require Logger
+
+  alias Clubeira.Accounts.EmailVerification
   alias Clubeira.Accounts.PasswordCredential
   alias Clubeira.Accounts.PasswordRecovery
   alias Clubeira.Accounts.Registration
@@ -55,7 +58,9 @@ defmodule Clubeira.Accounts do
              "pt-BR"
            ),
          {:ok, password_hash} <- hash_password(registration.password) do
-      persist_registration(registration, password_hash, context)
+      registration
+      |> persist_registration(password_hash, context)
+      |> request_registration_email_verification(context)
     end
   end
 
@@ -100,6 +105,19 @@ defmodule Clubeira.Accounts do
   @spec reset_password(String.t(), term(), RequestContext.t()) ::
           :ok | {:error, PasswordRecovery.reset_error()}
   defdelegate reset_password(token, password, context), to: PasswordRecovery, as: :reset
+
+  @doc """
+  Issues a new email ownership proof for an authenticated, unverified account.
+  """
+  @spec request_email_verification(User.t(), RequestContext.t()) :: :ok | {:error, term()}
+  defdelegate request_email_verification(user, context), to: EmailVerification, as: :request
+
+  @doc """
+  Confirms email ownership through an opaque, single-use credential.
+  """
+  @spec verify_email(String.t(), RequestContext.t()) ::
+          :ok | {:error, EmailVerification.verification_error()}
+  defdelegate verify_email(token, context), to: EmailVerification, as: :verify
 
   @spec set_password(User.t(), String.t()) ::
           {:ok, PasswordCredential.t()} | {:error, Ecto.Changeset.t() | :rate_limited}
@@ -351,6 +369,39 @@ defmodule Clubeira.Accounts do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  defp request_registration_email_verification(
+         {:ok, %{user: %User{} = user}} = registration_result,
+         context
+       ) do
+    case EmailVerification.request(user, context) do
+      :ok ->
+        registration_result
+
+      {:error, reason} ->
+        report_registration_verification_failure(user.id, reason)
+        registration_result
+    end
+  rescue
+    error ->
+      report_registration_verification_failure(user.id, error)
+      registration_result
+  end
+
+  defp request_registration_email_verification(registration_result, _context),
+    do: registration_result
+
+  defp report_registration_verification_failure(user_id, reason) do
+    :telemetry.execute(
+      [:clubeira, :accounts, :registration_email_verification_failed],
+      %{count: 1},
+      %{user_id: user_id}
+    )
+
+    Logger.error(
+      "email verification issuance after registration failed user_id=#{user_id} reason=#{inspect(reason)}"
+    )
   end
 
   defp new_session_material do

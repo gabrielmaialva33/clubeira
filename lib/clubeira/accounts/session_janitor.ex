@@ -10,6 +10,7 @@ defmodule Clubeira.Accounts.SessionJanitor do
   require Logger
 
   alias Clubeira.Accounts
+  alias Clubeira.Accounts.EmailVerification
   alias Clubeira.Accounts.PasswordRecovery
 
   @spec start_link(keyword()) :: GenServer.on_start()
@@ -40,6 +41,7 @@ defmodule Clubeira.Accounts.SessionJanitor do
     cutoff = DateTime.add(DateTime.utc_now(:microsecond), -retention_seconds, :second)
     deleted_session_count = Accounts.purge_stale_sessions(cutoff)
     deleted_reset_token_count = PasswordRecovery.purge_stale_tokens(cutoff)
+    deleted_verification_token_count = EmailVerification.purge_stale_tokens(cutoff)
 
     :telemetry.execute(
       [:clubeira, :accounts, :sessions_purged],
@@ -50,6 +52,12 @@ defmodule Clubeira.Accounts.SessionJanitor do
     :telemetry.execute(
       [:clubeira, :accounts, :password_reset_tokens_purged],
       %{count: deleted_reset_token_count},
+      %{}
+    )
+
+    :telemetry.execute(
+      [:clubeira, :accounts, :email_verification_tokens_purged],
+      %{count: deleted_verification_token_count},
       %{}
     )
   rescue

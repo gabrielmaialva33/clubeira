@@ -4,6 +4,7 @@ defmodule Clubeira.Accounts.PasswordRecoveryConcurrencyTest do
   import Ecto.Query
 
   alias Clubeira.Accounts
+  alias Clubeira.Accounts.EmailVerificationToken
   alias Clubeira.Accounts.PasswordCredential
   alias Clubeira.Accounts.PasswordResetToken
   alias Clubeira.Accounts.RequestContext
@@ -105,6 +106,39 @@ defmodule Clubeira.Accounts.PasswordRecoveryConcurrencyTest do
                where:
                  event.action == "authentication.password_reset.completed" and
                    event.resource_id == ^user.id
+             ),
+             :count
+           ) == 1
+  end
+
+  test "concurrent email verification is idempotent and emits one audit event", %{repo: repo} do
+    user = Factory.insert(:user, email: "concurrent-verification@example.test")
+    decoded_token = :crypto.strong_rand_bytes(32)
+    token = Base.url_encode64(decoded_token, padding: false)
+    now = DateTime.utc_now(:microsecond)
+
+    assert {:ok, verification} =
+             user
+             |> EmailVerificationToken.changeset(
+               :crypto.hash(:sha256, decoded_token),
+               DateTime.add(now, 86_400),
+               now
+             )
+             |> Repo.insert()
+
+    results =
+      run_concurrently(repo, [
+        fn -> Accounts.verify_email(token, RequestContext.new!()) end,
+        fn -> Accounts.verify_email(token, RequestContext.new!()) end
+      ])
+
+    assert results == [:ok, :ok]
+    assert %DateTime{} = Repo.get!(Clubeira.Accounts.User, user.id).email_verified_at
+    assert %DateTime{} = Repo.get!(EmailVerificationToken, verification.id).consumed_at
+
+    assert Repo.aggregate(
+             from(event in SystemEvent,
+               where: event.action == "account.email_verified" and event.resource_id == ^user.id
              ),
              :count
            ) == 1
