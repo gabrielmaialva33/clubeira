@@ -145,6 +145,10 @@ defmodule ClubeiraWeb.Router do
 
     get "/polos/:polo_slug/backoffice/payments", BackofficePaymentController, :index
 
+    get "/polos/:polo_slug/backoffice/subscriptions",
+        BackofficeSubscriptionController,
+        :index
+
     post "/polos/:polo_slug/backoffice/payments/:payment_id/refunds",
          BackofficePaymentRefundController,
          :create

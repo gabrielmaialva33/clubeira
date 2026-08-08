@@ -108,6 +108,35 @@ defmodule ClubeiraWeb.BackofficePaymentRefundControllerTest do
     refute Map.has_key?(refund_data, "provider_reference")
     refute Map.has_key?(refund_data, "reason")
     refute Map.has_key?(refund_data, "failure_reason")
+
+    subscription_query = URI.encode_query(%{"order_number" => order.order_number})
+
+    assert %{
+             "data" => [
+               %{
+                 "status" => "cancelled",
+                 "cancelled_at" => subscription_cancelled_at,
+                 "order" => %{"id" => ^order_id, "status" => "refunded"},
+                 "current_cycle" => nil,
+                 "balance" => %{
+                   "issued_units" => 0,
+                   "available_units" => 0,
+                   "consumed_units" => 0
+                 }
+               }
+             ],
+             "meta" => %{"count" => 1}
+           } =
+             conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{admin_token}")
+             |> get(
+               "/api/v1/polos/#{fixture.polo_route.slug}/backoffice/subscriptions?#{subscription_query}"
+             )
+             |> json_response(200)
+
+    assert {:ok, _subscription_cancelled_at, 0} =
+             DateTime.from_iso8601(subscription_cancelled_at)
   end
 
   test "the finance feed filters and paginates payments without leaking support-only fields", %{
