@@ -1,9 +1,11 @@
 defmodule Clubeira.Subscriptions do
   @moduledoc """
-  Member-facing reads for independent subscriptions and cycle entitlements.
+  Subscription reads and commercial lifecycle boundaries.
 
-  Cross-polo discovery uses an actor-owned routing projection. Every contract,
-  cycle, and allocation is then re-read inside that polo's RLS boundary.
+  Member cross-polo discovery uses an actor-owned routing projection. Every
+  contract, cycle, and allocation is then re-read inside that polo's RLS
+  boundary. Administrative contract inventory remains tenant-scoped and
+  requires the polo's billing capability.
   """
 
   import Ecto.Query
@@ -20,6 +22,7 @@ defmodule Clubeira.Subscriptions do
   alias Clubeira.Polos.PoloRoute
   alias Clubeira.Repo
   alias Clubeira.Subscriptions.AccessContract
+  alias Clubeira.Subscriptions.BackofficeSubscriptionReader
   alias Clubeira.Subscriptions.BenefitCycle
   alias Clubeira.Subscriptions.BenefitPackageItem
   alias Clubeira.Subscriptions.CycleEntitlementSubject
@@ -63,6 +66,15 @@ defmodule Clubeira.Subscriptions do
   defdelegate transition_product_offering(scope, offering_id, attributes),
     to: ProductOfferingLifecycle,
     as: :transition
+
+  @doc """
+  Lists the polo's access contracts for an authorized billing operator.
+  """
+  @spec list_backoffice_subscriptions(TenantScope.t(), map()) ::
+          {:ok, %{subscriptions: [map()], page: page()}} | {:error, term()}
+  defdelegate list_backoffice_subscriptions(scope, params),
+    to: BackofficeSubscriptionReader,
+    as: :list
 
   @spec list_for_account(AccountScope.t()) :: {:ok, [map()]} | {:error, term()}
   def list_for_account(%AccountScope{} = account_scope) do

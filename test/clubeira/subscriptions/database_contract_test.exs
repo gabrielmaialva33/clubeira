@@ -23,4 +23,25 @@ defmodule Clubeira.Subscriptions.DatabaseContractTest do
     assert indexes["product_offerings_backoffice_status_feed_idx"] =~
              "(polo_id, status, inserted_at, id)"
   end
+
+  test "backoffice subscription feeds have indexes matching their keyset filters" do
+    assert %{rows: rows} =
+             Repo.query!("""
+             SELECT indexname, indexdef
+             FROM pg_indexes
+             WHERE schemaname = 'public'
+               AND indexname IN (
+                 'access_contracts_backoffice_feed_idx',
+                 'access_contracts_backoffice_status_feed_idx'
+               )
+             """)
+
+    indexes = Map.new(rows, fn [name, definition] -> {name, definition} end)
+
+    assert indexes["access_contracts_backoffice_feed_idx"] =~
+             "(polo_id, inserted_at, id)"
+
+    assert indexes["access_contracts_backoffice_status_feed_idx"] =~
+             "(polo_id, status, inserted_at, id)"
+  end
 end
