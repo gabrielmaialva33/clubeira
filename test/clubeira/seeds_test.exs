@@ -23,8 +23,14 @@ defmodule Clubeira.SeedsTest do
   alias Clubeira.Directory.City
   alias Clubeira.Directory.Organization
   alias Clubeira.Directory.OrganizationIdentifier
+  alias Clubeira.Directory.OrganizationMembership
+  alias Clubeira.Directory.OrganizationMembershipRole
+  alias Clubeira.Directory.OrganizationRole
   alias Clubeira.Directory.Place
   alias Clubeira.Directory.PlaceCategory
+  alias Clubeira.Directory.PlaceStaffAssignment
+  alias Clubeira.Directory.PlaceStaffAssignmentRole
+  alias Clubeira.Directory.PlaceStaffRole
   alias Clubeira.Directory.PoloPlaceOpeningPeriod
   alias Clubeira.Directory.PoloPlaceProfile
   alias Clubeira.Directory.PoloPlaceProfileCategory
@@ -69,8 +75,14 @@ defmodule Clubeira.SeedsTest do
     assert Repo.aggregate(Place, :count) == 3
     assert Repo.aggregate(PlaceCategory, :count) == 4
     assert Repo.aggregate(PoloRoute, :count) == 2
-    assert Repo.aggregate(User, :count) == 3
-    assert Repo.aggregate(PasswordCredential, :count) == 3
+    assert Repo.aggregate(User, :count) == 4
+    assert Repo.aggregate(PasswordCredential, :count) == 4
+    assert Repo.aggregate(OrganizationRole, :count) == 1
+    assert Repo.aggregate(OrganizationMembership, :count) == 1
+    assert Repo.aggregate(OrganizationMembershipRole, :count) == 1
+    assert Repo.aggregate(PlaceStaffRole, :count) == 1
+    assert Repo.aggregate(PlaceStaffAssignment, :count) == 1
+    assert Repo.aggregate(PlaceStaffAssignmentRole, :count) == 1
     assert Repo.aggregate(PaymentProvider, :count) == 1
     assert Repo.aggregate(MerchantAccount, :count) == 1
     assert Repo.aggregate(Document, :count) == 1
@@ -122,6 +134,7 @@ defmodule Clubeira.SeedsTest do
 
     review = assert_member_api_scenario(first_result)
     assert_moderator_scenario(first_result, review)
+    assert_partner_scenario(first_result)
     assert_admin_scenario(first_result)
   end
 
@@ -381,5 +394,33 @@ defmodule Clubeira.SeedsTest do
              place.place_id == onboarding.place.id and
                place.polo_place_id == onboarding.participation.id
            end)
+  end
+
+  defp assert_partner_scenario(seed_result) do
+    password =
+      System.get_env("CLUBEIRA_DEMO_PARTNER_PASSWORD", "clubeira-parceiro-local")
+
+    assert seed_result.partner_email == "parceiro.demo@clubeira.local"
+    assert {:ok, session} = Accounts.login(seed_result.partner_email, password)
+
+    sobral_scope =
+      Scope.new!(Ids.fetch!(:polo_sobral),
+        actor_user_id: session.user.id,
+        request_id: Ecto.UUID.generate(version: 7)
+      )
+
+    assert {:ok, %{places: [place], page: %{has_more: false}}} =
+             Directory.list_partner_places(sobral_scope, %{})
+
+    assert place.place.id == Ids.fetch!(:place_local_sobral)
+
+    londrina_scope =
+      Scope.new!(Ids.fetch!(:polo_londrina),
+        actor_user_id: session.user.id,
+        request_id: Ecto.UUID.generate(version: 7)
+      )
+
+    assert {:error, :partner_access_required} =
+             Directory.list_partner_places(londrina_scope, %{})
   end
 end

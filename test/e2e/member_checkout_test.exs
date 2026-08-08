@@ -7,6 +7,7 @@ defmodule Clubeira.E2E.MemberCheckoutTest do
   alias Clubeira.Accounts.User
   alias Clubeira.Billing.Gateways.MercadoPago
   alias Clubeira.BillingFixtures
+  alias Clubeira.Directory.Place
   alias Clubeira.Factory
   alias Clubeira.LegalFixtures
   alias Clubeira.Repo
@@ -234,6 +235,134 @@ defmodule Clubeira.E2E.MemberCheckoutTest do
            } =
              Req.post!("#{base_url}/api/v1/auth/sessions",
                json: %{"email" => admin.email, "password" => @password},
+               retry: false
+             )
+
+    partner_organization = Factory.insert(:organization)
+
+    Factory.insert(:place_operator,
+      place: Repo.get!(Place, fixture.polo_place.place_id),
+      organization: partner_organization
+    )
+
+    Factory.insert(:place_category, key: "e2e-cafe", name: "Café E2E")
+
+    assert %Req.Response{
+             status: 201,
+             body: %{"data" => %{"access_token" => partner_token}}
+           } =
+             Req.post!("#{base_url}/api/v1/auth/registrations",
+               json: %{
+                 "email" => "partner.e2e@example.test",
+                 "password" => @password,
+                 "legal_document_version_ids" => [terms.version_id]
+               },
+               retry: false
+             )
+
+    partner_verification_token = receive_verification_token()
+
+    assert %Req.Response{status: 204, body: ""} =
+             Req.post!("#{base_url}/api/v1/auth/email-verifications",
+               json: %{"token" => partner_verification_token},
+               retry: false
+             )
+
+    partner_access_url =
+      "#{base_url}/api/v1/polos/#{fixture.polo_route.slug}/backoffice/places/" <>
+        "#{fixture.polo_place.place_id}/partner-accesses"
+
+    assert %Req.Response{
+             status: 201,
+             body: %{
+               "data" => %{
+                 "id" => partner_access_id,
+                 "place_id" => place_id,
+                 "status" => "active"
+               }
+             }
+           } =
+             Req.post!(partner_access_url,
+               headers: [
+                 {"authorization", "Bearer #{admin_token}"},
+                 {"idempotency-key", "e2e-partner-access-grant"}
+               ],
+               json: %{"email" => "partner.e2e@example.test"},
+               retry: false
+             )
+
+    assert place_id == fixture.polo_place.place_id
+
+    partner_places_url =
+      "#{base_url}/api/v1/polos/#{fixture.polo_route.slug}/partner/places"
+
+    assert %Req.Response{
+             status: 200,
+             body: %{"data" => [%{"place" => %{"id" => ^place_id}}], "meta" => %{"count" => 1}}
+           } =
+             Req.get!(partner_places_url,
+               headers: [{"authorization", "Bearer #{partner_token}"}],
+               retry: false
+             )
+
+    assert %Req.Response{
+             status: 200,
+             body: %{"data" => %{"place_id" => ^place_id, "profile" => %{"revision" => 1}}}
+           } =
+             Req.put!("#{partner_places_url}/#{place_id}/profile",
+               headers: [
+                 {"authorization", "Bearer #{partner_token}"},
+                 {"idempotency-key", "e2e-partner-profile"}
+               ],
+               json: %{
+                 "contact" => %{
+                   "email" => "partner-public.e2e@example.test",
+                   "phone" => "(88) 99999-0101"
+                 },
+                 "category_keys" => ["e2e-cafe"],
+                 "weekly_hours" => [
+                   %{"weekday" => 1, "opens_at" => "08:00", "closes_at" => "18:00"}
+                 ],
+                 "special_hours" => []
+               },
+               retry: false
+             )
+
+    assert %Req.Response{
+             status: 200,
+             body: %{
+               "data" => %{
+                 "places" => [
+                   %{
+                     "place_id" => ^place_id,
+                     "profile" => %{
+                       "contact" => %{"email" => "partner-public.e2e@example.test"}
+                     }
+                   }
+                 ]
+               }
+             }
+           } =
+             Req.get!(
+               "#{base_url}/api/v1/polos/#{fixture.polo_route.slug}/places",
+               retry: false
+             )
+
+    assert %Req.Response{status: 200, body: %{"data" => %{"status" => "revoked"}}} =
+             Req.post!(
+               "#{base_url}/api/v1/polos/#{fixture.polo_route.slug}/backoffice/" <>
+                 "partner-accesses/#{partner_access_id}/revocations",
+               headers: [
+                 {"authorization", "Bearer #{admin_token}"},
+                 {"idempotency-key", "e2e-partner-access-revocation"}
+               ],
+               json: %{"reason" => "Encerramento do cenário E2E"},
+               retry: false
+             )
+
+    assert %Req.Response{status: 403, body: %{"errors" => %{"detail" => "Forbidden"}}} =
+             Req.get!(partner_places_url,
+               headers: [{"authorization", "Bearer #{partner_token}"}],
                retry: false
              )
 

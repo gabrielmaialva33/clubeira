@@ -13,6 +13,7 @@ defmodule Clubeira.Seeds.Demo do
   alias Clubeira.Seeds.Demo.Legal
   alias Clubeira.Seeds.Demo.Member
   alias Clubeira.Seeds.Demo.Moderator
+  alias Clubeira.Seeds.Demo.Partner
   alias Clubeira.Seeds.Demo.Polo
   alias Clubeira.Seeds.Demo.Profiles
 
@@ -95,6 +96,7 @@ defmodule Clubeira.Seeds.Demo do
     member = Member.run!(billing)
     moderator = Moderator.run!()
     admin = Admin.run!()
+    partner = Partner.run!()
 
     %{
       profile: :demo,
@@ -115,6 +117,7 @@ defmodule Clubeira.Seeds.Demo do
       member: member,
       moderator_email: moderator.email,
       admin_email: admin.email,
+      partner_email: partner.email,
       payment_provider: billing.provider.code,
       subscriptions: member.subscriptions,
       vouchers: member.vouchers
