@@ -1,0 +1,32 @@
+{
+  "operation_id": "019fe291-7315-72b8-9df3-016cf94334e2",
+  "polo_id": "019fe291-7316-7596-a631-5cd55cfcf615",
+  "city": {
+    "country_code": "BR",
+    "subdivision_code": "CE",
+    "external_code": "2312908",
+    "name": "Sobral",
+    "timezone": "America/Fortaleza"
+  },
+  "polo": {
+    "name": "Clubeira Sobral",
+    "slug": "sobral",
+    "timezone": "America/Fortaleza"
+  },
+  "legal": {
+    "code": "consumer-terms",
+    "locale": "pt-BR",
+    "version": 1,
+    "content_uri": "https://clubeira.example/legal/consumer-terms-v1.txt",
+    "content_file": "/run/secrets/consumer-terms-v1.txt",
+    "effective_from": "2026-08-08T00:00:00-03:00"
+  },
+  "billing": {
+    "provider_code": "mercado_pago",
+    "provider_name": "Mercado Pago",
+    "merchant_account_name": "Clubeira Sobral",
+    "merchant_account_reference": "replace-with-the-psp-account-reference",
+    "valid_from": "2026-08-08T00:00:00-03:00"
+  },
+  "admin_email": "admin@clubeira.example"
+}
