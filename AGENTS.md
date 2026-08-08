@@ -97,6 +97,12 @@ cliente como prova de permissão.
   agregar a versão mais recente e seus lugares e trata `place_id` só como filtro.
 - `Clubeira.Directory.list_backoffice_places/2` redescobre participações ainda
   sem perfil público: exige `manage_partners`, pagina sob RLS e nunca expõe CNPJ.
+- Acesso humano do parceiro exige simultaneamente uma membership tenant
+  `partner_manager` e afiliações globais vigentes de organização, lugar e
+  operador. Nenhuma dessas dimensões isolada concede acesso.
+- `Clubeira.Directory.revoke_partner_access/3` encerra somente a membership do
+  polo. Não apague afiliação global nem afete memberships independentes do mesmo
+  usuário em outros polos.
 - `Clubeira.Directory.transition_place_participation/3` suspende, reativa ou
   aposenta a participação corrente com revisão, idempotência, auditoria, evento
   e outbox atômicos; `retire` encerra a vigência e é terminal, sem alterar o

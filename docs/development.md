@@ -53,8 +53,13 @@ O cadastro de parceiros usa uma identidade separada:
 `admin.demo@clubeira.local` com `clubeira-admin-local`, configuráveis por
 `CLUBEIRA_DEMO_ADMIN_EMAIL` e `CLUBEIRA_DEMO_ADMIN_PASSWORD`. Ela recebe apenas
 o role key `admin` nos mesmos polos e pode exercitar tanto o onboarding quanto a
-publicação `PUT` do perfil. As organizações demo têm CNPJs fictícios válidos e
-cifrados; nenhum documento real pertence às fixtures.
+publicação `PUT` do perfil. O acesso self-service usa
+`parceiro.demo@clubeira.local` com `clubeira-parceiro-local`, configuráveis por
+`CLUBEIRA_DEMO_PARTNER_EMAIL` e `CLUBEIRA_DEMO_PARTNER_PASSWORD`. Essa conta
+possui role `partner_manager` somente em Sobral e vínculos vigentes com a
+organização e o estabelecimento Sabores do Acaraú Demo. As organizações demo
+têm CNPJs fictícios válidos e cifrados; nenhum documento real pertence às
+fixtures.
 As seeds também criam o provedor `mercado_pago`, uma conta global
 `mercado-pago-demo` e vínculos primários com os dois polos. A saída da seed
 mostra o UUID usado na URL do webhook. Sobral recebe ainda um ponto de
@@ -79,6 +84,53 @@ O endpoint também aceita `place_id`, `profile_status=published` e cursor
 `after`. A resposta separa identidade global, status e vigência da participação
 local, revisão e perfil público opcional. CNPJ não integra esse read model, e
 IDs de outro polo produzem uma página vazia sob a role restrita.
+
+## Acesso operacional do parceiro
+
+O admin atribui uma conta já verificada ao operador vigente de um
+estabelecimento. Organização, polo e papéis são derivados no servidor:
+
+```text
+POST /api/v1/polos/:slug/backoffice/places/:place_id/partner-accesses
+Authorization: Bearer <admin-token>
+Idempotency-Key: <8-a-128-caracteres>
+
+{"email":"parceiro.demo@clubeira.local"}
+```
+
+A resposta `201` traz o `id` do acesso. A operação cria na mesma transação a
+membership dedicada `partner_manager`, a afiliação `manager` da organização e
+a atribuição `manager` do estabelecimento. Conta inexistente ou sem e-mail
+verificado retorna `422`; uma membership corrente no mesmo polo retorna `409`,
+evitando misturar o acesso revogável do parceiro com papéis administrativos.
+
+Com o bearer do parceiro, as únicas participações visíveis são aquelas que
+continuam provadas por todos esses vínculos:
+
+```text
+GET /api/v1/polos/:slug/partner/places?limit=20
+Authorization: Bearer <partner-token>
+
+PUT /api/v1/polos/:slug/partner/places/:place_id/profile
+Authorization: Bearer <partner-token>
+Idempotency-Key: <8-a-128-caracteres>
+```
+
+O `PUT` usa o mesmo contrato de perfil completo do backoffice. Um lugar não
+atribuído retorna `404`, inclusive quando o UUID é válido. A revogação exige
+motivo, encerra somente a vigência tenant-aware e preserva afiliação global e
+acessos independentes em outros polos:
+
+```text
+POST /api/v1/polos/:slug/backoffice/partner-accesses/:access_id/revocations
+Authorization: Bearer <admin-token>
+Idempotency-Key: <8-a-128-caracteres>
+
+{"reason":"Responsável removido do estabelecimento"}
+```
+
+Grant, edição e revogação têm replay exato e gravam idempotência, auditoria,
+evento e outbox na mesma transação. O motivo livre fica somente na auditoria.
 
 A participação corrente pode ser pausada, retomada ou encerrada sem alterar o
 ponto de validação ou sua credencial:

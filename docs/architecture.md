@@ -148,6 +148,40 @@ o perfil quando existente. Filtros de participação, presença de perfil e luga
 rodam sob RLS; um `place_id` externo continua sendo somente filtro, nunca prova
 de autorização.
 
+### Acesso operacional do parceiro
+
+O acesso humano ao estabelecimento combina duas dimensões que não podem ser
+substituídas uma pela outra. `polo_memberships` + `polo_membership_roles`
+concedem `partner_manager` dentro de um polo; `organization_memberships` e
+`place_staff_assignments`, com seus respectivos papéis `manager`, provam a
+afiliação global à organização operadora e ao lugar. A autorização exige todas
+as cadeias vigentes. Assim, uma role tenant isolada não abre todos os lugares e
+uma atribuição global isolada não atravessa a RLS de nenhum polo.
+
+`POST /api/v1/polos/:slug/backoffice/places/:place_id/partner-accesses` exige
+`manage_partners`, relê o operador ativo do lugar e localiza uma conta ativa com
+e-mail verificado. Organização, papéis e IDs relacionais são sempre derivados
+do banco. O comando cria uma membership dedicada; contas que já possuem uma
+membership corrente no polo são recusadas para que revogar o parceiro nunca
+remova acidentalmente administração, cobrança ou moderação. User lock,
+constraints de exclusão e idempotência serializam grants concorrentes.
+
+`GET /api/v1/polos/:slug/partner/places` pagina somente participações ativas
+cujo `place_id` aparece na cadeia de afiliação do ator. Primeiro a autorização
+relê `partner_manager` sob RLS; depois a consulta global exige membership da
+organização, papéis, atribuição do lugar, operador e organização ainda ativos.
+O mesmo predicado autoriza
+`PUT /api/v1/polos/:slug/partner/places/:place_id/profile`; um lugar não
+atribuído é tratado como não encontrado.
+
+`POST /api/v1/polos/:slug/backoffice/partner-accesses/:access_id/revocations`
+trava a membership dedicada, encerra seu `tstzrange` no relógio transacional e
+marca o estado `revoked`. Afiliação e atribuição globais permanecem históricas e
+reutilizáveis; sem a capability tenant elas não autorizam nenhuma operação.
+Memberships do mesmo usuário em outros polos são linhas independentes e não são
+alteradas. Grant e revogação persistem resposta idempotente, auditoria, evento e
+outbox atomicamente; motivo operacional fica apenas na auditoria.
+
 `POST /api/v1/polos/:slug/backoffice/places/:place_id/lifecycle-actions`
 controla o lifecycle da participação local. `suspend` tira o
 estabelecimento de descoberta, venda, provisionamento e resgate porque essas
@@ -162,12 +196,15 @@ mas deixam de autorizar operações porque as bordas exigem participação ativa
 ### Perfil operacional do estabelecimento
 
 `PUT /api/v1/polos/:slug/backoffice/places/:place_id/profile` relê a role
-`admin`, o polo e uma participação ativa, e então substitui contato, categorias,
-semana de funcionamento e exceções na mesma transação. A participação é travada
-antes da reserva idempotente: retries concorrentes devolvem a resposta original,
-enquanto chaves distintas serializam revisões completas sem misturar filhos de
-duas versões. Publicação inicial e atualização gravam auditoria, evento de
-domínio, outbox e resposta `200` idempotente atomicamente.
+`admin`; sua rota equivalente em `/partner/places/:place_id/profile` exige o
+vínculo operacional completo descrito acima. Depois da autorização, ambas usam
+o mesmo comando para reler polo e participação ativa e substituir contato,
+categorias, semana de funcionamento e exceções na mesma transação. A
+participação é travada antes da reserva idempotente: retries concorrentes
+devolvem a resposta original, enquanto chaves distintas serializam revisões
+completas sem misturar filhos de duas versões. Publicação inicial e atualização
+gravam auditoria, evento de domínio, outbox e resposta `200` idempotente
+atomicamente.
 
 `place_categories` é uma taxonomia global curada; o perfil não cria categorias
 livres. `polo_place_profiles`, sua relação N:N de categorias e

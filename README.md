@@ -7,7 +7,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL_18-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![OTP](https://img.shields.io/badge/OTP_29-A90533?style=for-the-badge&logo=erlang&logoColor=white)](https://www.erlang.org/)
 [![RLS](https://img.shields.io/badge/RLS-FORCED-16A34A?style=for-the-badge)](#-multi-tenancy)
-[![Tests](https://img.shields.io/badge/tests-442-6D28D9?style=for-the-badge)](./test)
+[![Tests](https://img.shields.io/badge/tests-475-6D28D9?style=for-the-badge)](./test)
 [![Migrations](https://img.shields.io/badge/migrations-144-F59E0B?style=for-the-badge)](./priv/repo/migrations)
 [![License](https://img.shields.io/badge/license-MIT-16A34A?style=for-the-badge)](./LICENSE)
 
@@ -77,7 +77,7 @@ flowchart LR
 |:--|:--|
 | 🔐 **Identidade** | cadastro atômico com aceite legal, confirmação de e-mail por token opaco, Argon2id, sessão bearer revogável e rate limit por global/IP/identidade |
 | 🗺️ **Descoberta** | diretório público com perfil, contato, categorias e horários do parceiro, catálogo comercial e opções de checkout — tudo paginado por cursor |
-| 🏪 **Parceiros** | onboarding, perfil e lifecycle administrativo até aposentadoria terminal, com idempotência, auditoria, evento e outbox atômicos |
+| 🏪 **Parceiros** | onboarding, acesso operacional por estabelecimento, perfil próprio e lifecycle administrativo até revogação/aposentadoria terminal, com idempotência, auditoria, evento e outbox atômicos |
 | 🛒 **Venda** | checkout idempotente, histórico do membro e feed financeiro administrativo paginados, Pix via Mercado Pago e reembolso integral; webhooks HMAC sempre releem a order no PSP |
 | 🏦 **Recebimento** | contas globais vinculadas por vigência a cada polo, com integridade referencial entre tenant e conta |
 | 📜 **Assinatura** | planos, contratos, ciclos e alocações de benefício independentes por polo |
@@ -149,7 +149,9 @@ As seeds criam `membro.demo@clubeira.local` com a senha local
 para trocar esse valor. O backoffice separa
 `moderador.demo@clubeira.local` / `clubeira-moderador-local` de
 `admin.demo@clubeira.local` / `clubeira-admin-local`; só o segundo pode
-cadastrar parceiros. Sobral também recebe um ponto de validação cuja chave
+cadastrar parceiros. O cenário também cria
+`parceiro.demo@clubeira.local` / `clubeira-parceiro-local`, vinculado somente
+ao Sabores do Acaraú Demo em Sobral. Sobral também recebe um ponto de validação cuja chave
 local de demonstração é
 `M-bCcLGupP8XuBxzemHd-4JumJf6trsiQpinEl30xwg`; substitua-a por 32 bytes
 aleatórios em base64url sem padding via `CLUBEIRA_DEMO_VALIDATION_SECRET` em
@@ -357,6 +359,8 @@ docker compose stop
 | `POST` | `/api/v1/polos/:slug/places/:place_id/reviews` | 🔑 |
 | `POST` | `/api/v1/polos/:slug/places/:place_id/reviews/:review_id/reports` | 🔑 |
 | `POST` | `/api/v1/polos/:slug/backoffice/partners` | 🛡️ |
+| `POST` | `/api/v1/polos/:slug/backoffice/places/:place_id/partner-accesses` | 🛡️ |
+| `POST` | `/api/v1/polos/:slug/backoffice/partner-accesses/:access_id/revocations` | 🛡️ |
 | `GET` | `/api/v1/polos/:slug/backoffice/places` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/places/:place_id/lifecycle-actions` | 🛡️ |
 | `PUT` | `/api/v1/polos/:slug/backoffice/places/:place_id/profile` | 🛡️ |
@@ -377,8 +381,10 @@ docker compose stop
 | `POST` | `/api/v1/polos/:slug/backoffice/reviews/:review_id/moderation-actions` | 🛡️ |
 | `GET` | `/api/v1/polos/:slug/backoffice/review-reports` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/review-reports/:review_report_id/moderation-actions` | 🛡️ |
+| `GET` | `/api/v1/polos/:slug/partner/places` | 🤝 |
+| `PUT` | `/api/v1/polos/:slug/partner/places/:place_id/profile` | 🤝 |
 
-🌐 público · 🔑 bearer do membro · 🏪 credencial do ponto de validação · 🔏 HMAC do PSP · 🛡️ membership de backoffice; cada rota relê sua capacidade no banco
+🌐 público · 🔑 bearer do membro · 🏪 credencial do ponto de validação · 🔏 HMAC do PSP · 🛡️ membership administrativo · 🤝 parceiro atribuído ao estabelecimento; cada rota relê sua capacidade no banco
 
 Mensagens humanas de erro negociam `Accept-Language` com pesos `q`: `pt-BR` e
 `en` são suportados, idiomas desconhecidos caem deterministicamente em inglês
@@ -426,6 +432,16 @@ curl -sS -X POST http://localhost:4000/api/v1/polos/sobral/backoffice/partners \
   -H 'idempotency-key: parceiro-sobral-001' \
   -H 'content-type: application/json' \
   -d '{"organization":{"legal_name":"Bistrô da Serra Ltda.","trade_name":"Bistrô da Serra","cnpj":"12.ABC.345/01DE-35"},"place":{"name":"Bistrô da Serra Centro","slug":"bistro-da-serra-centro","address":{"postal_code":"62010-000","street":"Rua das Flores","number":"42","district":"Centro"}}}'
+
+curl -sS -X POST \
+  http://localhost:4000/api/v1/polos/sobral/backoffice/places/<place_uuid>/partner-accesses \
+  -H "authorization: Bearer $ADMIN_TOKEN" \
+  -H 'idempotency-key: acesso-parceiro-sobral-001' \
+  -H 'content-type: application/json' \
+  -d '{"email":"parceiro.demo@clubeira.local"}'
+
+curl -sS http://localhost:4000/api/v1/polos/sobral/partner/places \
+  -H "authorization: Bearer $PARTNER_TOKEN"
 
 curl -sS -X PUT \
   http://localhost:4000/api/v1/polos/sobral/backoffice/places/<place_uuid>/profile \
@@ -804,7 +820,7 @@ alterar a configuração versionada.
 | `credo --strict` | consistência e code smells |
 | `deps.audit` + `hex.audit` | CVE e pacotes retirados |
 | `sobelow --config` | análise estática de segurança Phoenix |
-| `test --cover` | 442 testes e cobertura backend >= 90%, incluindo E2E HTTP por TCP, RLS e concorrência real |
+| `test --cover` | 475 testes e cobertura backend >= 90%, incluindo E2E HTTP por TCP, RLS e concorrência real |
 
 ---
 
@@ -819,6 +835,8 @@ alterar a configuração versionada.
 | Cadastro, sessão e aceite legal | ✅ |
 | Catálogo, diretório e checkout-options públicos | ✅ |
 | Perfil operacional do estabelecimento | ✅ |
+| Acesso e revogação do gestor do estabelecimento | ✅ |
+| Inventário e edição self-service do parceiro | ✅ |
 | Inventário administrativo de parceiros e lugares | ✅ |
 | Suspensão e reativação da participação do parceiro | ✅ |
 | Aposentadoria terminal da participação do parceiro | ✅ |
@@ -903,6 +921,19 @@ alterar a configuração versionada.
   participações convidadas, ativas, suspensas ou aposentadas mesmo sem perfil
   público e pagina por `inserted_at + id`; aceita filtros de participação,
   presença de perfil e lugar, sem expor CNPJ ou dados de outro polo;
+- `POST /api/v1/polos/:polo_slug/backoffice/places/:place_id/partner-accesses`
+  exige `admin`, conta ativa com e-mail verificado e `Idempotency-Key`; a
+  organização operadora é derivada do banco e o comando cria atomicamente a
+  membership dedicada do polo, a afiliação organizacional e a atribuição ao
+  estabelecimento. Retry exato não duplica nenhum vínculo, audit, evento ou
+  outbox;
+- `GET /api/v1/polos/:polo_slug/partner/places` exige simultaneamente a role
+  `partner_manager` ativa no polo e os vínculos globais vigentes de organização,
+  operador e estabelecimento. A página nunca usa um ID recebido como prova de
+  autorização e não revela outro estabelecimento ou polo;
+- `POST /api/v1/polos/:polo_slug/backoffice/partner-accesses/:access_id/revocations`
+  fecha a vigência da membership do polo e produz `partner_access.revoked`
+  atomicamente. Afiliação global e acessos em outros polos permanecem intactos;
 - `POST /api/v1/polos/:polo_slug/backoffice/places/:place_id/lifecycle-actions`
   exige `admin` e `Idempotency-Key` e aceita `suspend`, `reactivate` ou `retire`;
   a revisão da participação, auditoria, evento, outbox e resposta idempotente
@@ -910,11 +941,14 @@ alterar a configuração versionada.
   reescrever histórico nem alterar pontos ou credenciais, e a reativação exige
   vigência corrente e identidade global ativa; `retire` encerra a vigência no
   relógio transacional e é terminal, sem apagar o histórico;
-- `PUT /api/v1/polos/:polo_slug/backoffice/places/:place_id/profile` exige
-  bearer com role `admin` e `Idempotency-Key`, substitui atomicamente o perfil da
-  participação ativa e incrementa sua revisão; FKs compostas, RLS e constraints
-  de exclusão impedem mistura de polos e sobreposição de horários, enquanto
-  contato permanece fora de audit, evento e outbox;
+- `PUT /api/v1/polos/:polo_slug/backoffice/places/:place_id/profile` permite a
+  administração do polo; o alias
+  `PUT /api/v1/polos/:polo_slug/partner/places/:place_id/profile` exige o vínculo
+  ativo exatamente com aquele estabelecimento. Ambos usam a mesma operação
+  idempotente, substituem o perfil da participação ativa e incrementam sua
+  revisão; FKs compostas, RLS e constraints de exclusão impedem mistura de
+  polos e sobreposição de horários, enquanto contato permanece fora de audit,
+  evento e outbox;
 - `POST /api/v1/polos/:polo_slug/backoffice/places/:place_id/benefit-offers`
   exige `admin` e `Idempotency-Key`, relê lugar e participação ativos e cria a
   identidade da oferta, sua versão imutável `1` publicada e o vínculo com o
