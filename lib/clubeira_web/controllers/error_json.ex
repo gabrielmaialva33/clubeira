@@ -5,21 +5,21 @@ defmodule ClubeiraWeb.ErrorJSON do
   See config/config.exs.
   """
 
-  # If you want to customize a particular status code,
-  # you may add your own clauses, such as:
-  #
-  # def render("500.json", _assigns) do
-  #   %{errors: %{detail: "Internal Server Error"}}
-  # end
+  alias ClubeiraWeb.Gettext, as: GettextBackend
 
   def render(template, %{code: code}) when is_binary(code) do
-    %{errors: %{code: code, detail: Phoenix.Controller.status_message_from_template(template)}}
+    %{errors: %{code: code, detail: translated_status(template)}}
   end
 
-  # By default, Phoenix returns the status message from
-  # the template name. For example, "404.json" becomes
-  # "Not Found".
   def render(template, _assigns) do
-    %{errors: %{detail: Phoenix.Controller.status_message_from_template(template)}}
+    %{errors: %{detail: translated_status(template)}}
+  end
+
+  defp translated_status(template) do
+    Gettext.dgettext(
+      GettextBackend,
+      "api_errors",
+      Phoenix.Controller.status_message_from_template(template)
+    )
   end
 end

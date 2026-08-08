@@ -1,0 +1,32 @@
+msgid ""
+msgstr ""
+
+msgid "Bad Request"
+msgstr ""
+
+msgid "Unauthorized"
+msgstr ""
+
+msgid "Forbidden"
+msgstr ""
+
+msgid "Not Found"
+msgstr ""
+
+msgid "Conflict"
+msgstr ""
+
+msgid "Unprocessable Content"
+msgstr ""
+
+msgid "Too Many Requests"
+msgstr ""
+
+msgid "Internal Server Error"
+msgstr ""
+
+msgid "Bad Gateway"
+msgstr ""
+
+msgid "Service Unavailable"
+msgstr ""

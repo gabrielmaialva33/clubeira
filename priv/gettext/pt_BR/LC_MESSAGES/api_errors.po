@@ -1,0 +1,35 @@
+msgid ""
+msgstr ""
+"Language: pt_BR\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Bad Request"
+msgstr "Requisição inválida"
+
+msgid "Unauthorized"
+msgstr "Não autorizado"
+
+msgid "Forbidden"
+msgstr "Acesso negado"
+
+msgid "Not Found"
+msgstr "Não encontrado"
+
+msgid "Conflict"
+msgstr "Conflito"
+
+msgid "Unprocessable Content"
+msgstr "Conteúdo não processável"
+
+msgid "Too Many Requests"
+msgstr "Muitas requisições"
+
+msgid "Internal Server Error"
+msgstr "Erro interno do servidor"
+
+msgid "Bad Gateway"
+msgstr "Gateway inválido"
+
+msgid "Service Unavailable"
+msgstr "Serviço indisponível"

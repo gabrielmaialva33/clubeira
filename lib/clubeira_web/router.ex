@@ -19,6 +19,7 @@ defmodule ClubeiraWeb.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
+    plug ClubeiraWeb.Plugs.ApiLocale
     plug :put_secure_browser_headers, @secure_headers
   end
 
