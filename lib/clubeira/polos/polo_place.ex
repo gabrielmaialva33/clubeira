@@ -17,6 +17,7 @@ defmodule Clubeira.Polos.PoloPlace do
 
     field :participation_during, TstzRange
     field :status, :string
+    field :revision, :integer
 
     timestamps()
   end
@@ -28,6 +29,7 @@ defmodule Clubeira.Polos.PoloPlace do
           place_id: Ecto.UUID.t(),
           participation_during: Postgrex.Range.t(),
           status: String.t(),
+          revision: pos_integer(),
           inserted_at: DateTime.t(),
           updated_at: DateTime.t()
         }

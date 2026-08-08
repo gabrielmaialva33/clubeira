@@ -9,6 +9,7 @@ defmodule Clubeira.Directory do
   import Ecto.Query
 
   alias Clubeira.Directory.Address
+  alias Clubeira.Directory.BackofficePlaceReader
   alias Clubeira.Directory.Brand
   alias Clubeira.Directory.City
   alias Clubeira.Directory.Organization
@@ -17,6 +18,7 @@ defmodule Clubeira.Directory do
   alias Clubeira.Directory.PlaceBrand
   alias Clubeira.Directory.PlaceCategory
   alias Clubeira.Directory.PlaceOperator
+  alias Clubeira.Directory.PlaceParticipationLifecycle
   alias Clubeira.Directory.PlaceProfilePublisher
   alias Clubeira.Directory.PlaceProfileView
   alias Clubeira.Directory.PoloPlaceOpeningPeriod
@@ -60,6 +62,27 @@ defmodule Clubeira.Directory do
 
   def publish_place_profile(_scope, _place_id, _attributes),
     do: {:error, :partner_admin_required}
+
+  @doc """
+  Suspends or reactivates the current participation of a place in one polo.
+  """
+  @spec transition_place_participation(Scope.t(), Ecto.UUID.t(), map()) ::
+          {:ok, PlaceParticipationLifecycle.result()}
+          | {:error, atom() | Ecto.Changeset.t()}
+  def transition_place_participation(%Scope{} = scope, place_id, attributes)
+      when is_map(attributes) do
+    PlaceParticipationLifecycle.transition(scope, place_id, attributes)
+  end
+
+  def transition_place_participation(_scope, _place_id, _attributes),
+    do: {:error, :partner_admin_required}
+
+  @doc """
+  Lists polo participation records even when their public profile is missing.
+  """
+  @spec list_backoffice_places(Scope.t(), map()) ::
+          {:ok, %{places: [map()], page: map()}} | {:error, term()}
+  defdelegate list_backoffice_places(scope, params), to: BackofficePlaceReader, as: :list
 
   @spec fetch_public(String.t(), map()) ::
           {:ok, public_directory()} | {:error, :invalid_pagination | :polo_not_found}

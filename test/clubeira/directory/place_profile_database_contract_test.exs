@@ -6,6 +6,49 @@ defmodule Clubeira.Directory.PlaceProfileDatabaseContractTest do
   alias Clubeira.Repo
   alias Clubeira.ReviewsFixtures
 
+  test "backoffice place feeds have indexes matching their keyset filters" do
+    assert %{rows: rows} =
+             Repo.query!("""
+             SELECT indexname, indexdef
+             FROM pg_indexes
+             WHERE schemaname = 'public'
+               AND indexname IN (
+                 'polo_places_backoffice_feed_idx',
+                 'polo_places_backoffice_status_feed_idx'
+               )
+             """)
+
+    indexes = Map.new(rows, fn [name, definition] -> {name, definition} end)
+
+    assert indexes["polo_places_backoffice_feed_idx"] =~
+             "(polo_id, inserted_at, id)"
+
+    assert indexes["polo_places_backoffice_status_feed_idx"] =~
+             "(polo_id, status, inserted_at, id)"
+  end
+
+  test "place participation lifecycle revisions are mandatory and positive" do
+    assert %{rows: [["NO", "1"]]} =
+             Repo.query!("""
+             SELECT is_nullable, column_default
+             FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = 'polo_places'
+               AND column_name = 'revision'
+             """)
+
+    assert %{rows: [[definition]]} =
+             Repo.query!("""
+             SELECT pg_get_constraintdef(db_constraint.oid)
+             FROM pg_constraint AS db_constraint
+             JOIN pg_class AS relation ON relation.oid = db_constraint.conrelid
+             WHERE relation.relname = 'polo_places'
+               AND db_constraint.conname = 'polo_places_revision_check'
+             """)
+
+    assert definition =~ "revision > 0"
+  end
+
   test "profile relations preserve the polo dimension through composite foreign keys" do
     definitions = constraint_definitions()
 
