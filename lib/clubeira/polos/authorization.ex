@@ -14,14 +14,22 @@ defmodule Clubeira.Polos.Authorization do
 
   @capability_roles %{
     manage_billing: ["admin"],
+    manage_own_places: ["partner_manager"],
     manage_partners: ["admin"],
     moderate_reviews: ["admin", "review_moderator"]
   }
 
-  @type capability :: :manage_billing | :manage_partners | :moderate_reviews
+  @type capability ::
+          :manage_billing | :manage_own_places | :manage_partners | :moderate_reviews
+
+  @type authorization_error ::
+          :billing_admin_required
+          | :moderator_required
+          | :partner_access_required
+          | :partner_admin_required
 
   @spec authorize(module(), Scope.t(), capability(), DateTime.t()) ::
-          :ok | {:error, :moderator_required | :partner_admin_required}
+          :ok | {:error, authorization_error()}
   def authorize(repo, %Scope{actor_user_id: actor_user_id} = scope, capability, now)
       when is_binary(actor_user_id) and is_map_key(@capability_roles, capability) do
     role_keys = Map.fetch!(@capability_roles, capability)
@@ -64,10 +72,14 @@ defmodule Clubeira.Polos.Authorization do
   def authorize(_repo, %Scope{}, :manage_billing, _now),
     do: {:error, :billing_admin_required}
 
+  def authorize(_repo, %Scope{}, :manage_own_places, _now),
+    do: {:error, :partner_access_required}
+
   def authorize(_repo, %Scope{}, :moderate_reviews, _now),
     do: {:error, :moderator_required}
 
   defp authorization_error(:manage_partners), do: :partner_admin_required
   defp authorization_error(:manage_billing), do: :billing_admin_required
+  defp authorization_error(:manage_own_places), do: :partner_access_required
   defp authorization_error(:moderate_reviews), do: :moderator_required
 end

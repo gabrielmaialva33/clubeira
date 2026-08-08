@@ -4,6 +4,7 @@ defmodule Clubeira.Directory.PlaceProfilePublisher do
   import Ecto.Query
 
   alias Clubeira.Audit
+  alias Clubeira.Directory.PartnerPlaceAccess
   alias Clubeira.Directory.Place
   alias Clubeira.Directory.PlaceCategory
   alias Clubeira.Directory.PlaceProfileUpdateRequest
@@ -45,10 +46,20 @@ defmodule Clubeira.Directory.PlaceProfilePublisher do
       now = transaction_time(repo)
 
       with {:ok, _polo} <- fetch_active_polo(repo, scope.polo_id),
-           :ok <- Authorization.authorize(repo, scope, :manage_partners, now) do
+           :ok <- authorize_management(repo, scope, place_id, now) do
         reserve_publish(repo, scope, place_id, request, now)
       end
     end)
+  end
+
+  defp authorize_management(repo, scope, place_id, now) do
+    case Authorization.authorize(repo, scope, :manage_partners, now) do
+      :ok ->
+        :ok
+
+      {:error, :partner_admin_required} ->
+        PartnerPlaceAccess.authorize(repo, scope, place_id, now)
+    end
   end
 
   defp reserve_publish(repo, scope, place_id, request, now) do

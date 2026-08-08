@@ -13,7 +13,10 @@ defmodule Clubeira.Directory do
   alias Clubeira.Directory.Brand
   alias Clubeira.Directory.City
   alias Clubeira.Directory.Organization
+  alias Clubeira.Directory.PartnerAccessGrantor
+  alias Clubeira.Directory.PartnerAccessRevoker
   alias Clubeira.Directory.PartnerOnboarder
+  alias Clubeira.Directory.PartnerPlaceReader
   alias Clubeira.Directory.Place
   alias Clubeira.Directory.PlaceBrand
   alias Clubeira.Directory.PlaceCategory
@@ -50,6 +53,37 @@ defmodule Clubeira.Directory do
   end
 
   def onboard_partner(_scope, _attributes), do: {:error, :partner_admin_required}
+
+  @doc """
+  Grants a verified account partner access to one operated place in the polo.
+  """
+  @spec grant_partner_access(Scope.t(), Ecto.UUID.t(), map()) ::
+          {:ok, PartnerAccessGrantor.result()} | {:error, atom() | Ecto.Changeset.t()}
+  def grant_partner_access(%Scope{} = scope, place_id, attributes) when is_map(attributes) do
+    PartnerAccessGrantor.grant(scope, place_id, attributes)
+  end
+
+  def grant_partner_access(_scope, _place_id, _attributes),
+    do: {:error, :partner_admin_required}
+
+  @doc """
+  Revokes one dedicated partner access inside an authorized polo.
+  """
+  @spec revoke_partner_access(Scope.t(), Ecto.UUID.t(), map()) ::
+          {:ok, PartnerAccessRevoker.result()} | {:error, atom() | Ecto.Changeset.t()}
+  def revoke_partner_access(%Scope{} = scope, access_id, attributes) when is_map(attributes) do
+    PartnerAccessRevoker.revoke(scope, access_id, attributes)
+  end
+
+  def revoke_partner_access(_scope, _access_id, _attributes),
+    do: {:error, :partner_admin_required}
+
+  @doc """
+  Lists active places managed by the authenticated partner inside one polo.
+  """
+  @spec list_partner_places(Scope.t(), map()) ::
+          {:ok, %{places: [map()], page: map()}} | {:error, term()}
+  defdelegate list_partner_places(scope, params), to: PartnerPlaceReader, as: :list
 
   @doc """
   Replaces the public profile of an active place participation.

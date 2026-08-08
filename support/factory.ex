@@ -27,10 +27,16 @@ defmodule Clubeira.Factory do
   alias Clubeira.Directory.City
   alias Clubeira.Directory.Organization
   alias Clubeira.Directory.OrganizationIdentifier
+  alias Clubeira.Directory.OrganizationMembership
+  alias Clubeira.Directory.OrganizationMembershipRole
+  alias Clubeira.Directory.OrganizationRole
   alias Clubeira.Directory.Place
   alias Clubeira.Directory.PlaceBrand
   alias Clubeira.Directory.PlaceCategory
   alias Clubeira.Directory.PlaceOperator
+  alias Clubeira.Directory.PlaceStaffAssignment
+  alias Clubeira.Directory.PlaceStaffAssignmentRole
+  alias Clubeira.Directory.PlaceStaffRole
   alias Clubeira.Directory.PoloPlaceOpeningPeriod
   alias Clubeira.Directory.PoloPlaceProfile
   alias Clubeira.Directory.PoloPlaceProfileCategory
@@ -147,6 +153,27 @@ defmodule Clubeira.Factory do
     }
   end
 
+  def organization_role_factory do
+    number = sequence(:organization_role, & &1)
+
+    %OrganizationRole{
+      key: "role-#{number}",
+      name: "Papel da organização #{number}",
+      status: "active"
+    }
+  end
+
+  def organization_membership_factory do
+    %OrganizationMembership{
+      valid_during: tstz_range(@default_range_start),
+      status: "active"
+    }
+  end
+
+  def organization_membership_role_factory do
+    %OrganizationMembershipRole{inserted_at: timestamp()}
+  end
+
   def brand_factory do
     number = sequence(:brand, & &1)
 
@@ -210,6 +237,27 @@ defmodule Clubeira.Factory do
       valid_during: tstz_range(@default_range_start),
       inserted_at: timestamp()
     }
+  end
+
+  def place_staff_role_factory do
+    number = sequence(:place_staff_role, & &1)
+
+    %PlaceStaffRole{
+      key: "role-#{number}",
+      name: "Papel do estabelecimento #{number}",
+      status: "active"
+    }
+  end
+
+  def place_staff_assignment_factory do
+    %PlaceStaffAssignment{
+      valid_during: tstz_range(@default_range_start),
+      status: "active"
+    }
+  end
+
+  def place_staff_assignment_role_factory do
+    %PlaceStaffAssignmentRole{inserted_at: timestamp()}
   end
 
   def polo_factory do
