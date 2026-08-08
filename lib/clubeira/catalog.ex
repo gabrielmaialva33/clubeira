@@ -11,6 +11,7 @@ defmodule Clubeira.Catalog do
 
   alias Clubeira.Catalog.BenefitOffer
   alias Clubeira.Catalog.BenefitOfferPublisher
+  alias Clubeira.Catalog.BenefitOfferReader
   alias Clubeira.Catalog.BenefitOfferVersion
   alias Clubeira.Catalog.BenefitOfferVersionPlace
   alias Clubeira.Directory.Place
@@ -46,6 +47,13 @@ defmodule Clubeira.Catalog do
   defdelegate publish_benefit_offer(scope, place_id, attributes),
     to: BenefitOfferPublisher,
     as: :publish
+
+  @doc """
+  Lists benefit identities and their latest immutable version for polo operations.
+  """
+  @spec list_benefit_offers(Scope.t(), map()) ::
+          {:ok, %{benefit_offers: [map()], page: map()}} | {:error, term()}
+  defdelegate list_benefit_offers(scope, params), to: BenefitOfferReader, as: :list
 
   @spec fetch_public(String.t(), map()) :: {:ok, public_catalog()} | {:error, fetch_error()}
   def fetch_public(slug, params \\ %{})

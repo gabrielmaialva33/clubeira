@@ -2,6 +2,28 @@ defmodule Clubeira.Catalog.DatabaseContractTest do
   use Clubeira.DataCase, async: false
 
   alias Clubeira.RedemptionsFixtures
+  alias Clubeira.Repo
+
+  test "backoffice benefit offer feeds have indexes matching their keyset filters" do
+    assert %{rows: rows} =
+             Repo.query!("""
+             SELECT indexname, indexdef
+             FROM pg_indexes
+             WHERE schemaname = 'public'
+               AND indexname IN (
+                 'benefit_offers_backoffice_feed_idx',
+                 'benefit_offers_backoffice_status_feed_idx'
+               )
+             """)
+
+    indexes = Map.new(rows, fn [name, definition] -> {name, definition} end)
+
+    assert indexes["benefit_offers_backoffice_feed_idx"] =~
+             "(polo_id, inserted_at, id)"
+
+    assert indexes["benefit_offers_backoffice_status_feed_idx"] =~
+             "(polo_id, status, inserted_at, id)"
+  end
 
   test "published versions of the same offer cannot overlap" do
     fixture = RedemptionsFixtures.create!()
