@@ -66,6 +66,71 @@ Factories vivem em `support/factory.ex` e são compiladas apenas em `dev` e
 `test`. Dados estruturais das seeds sempre recebem IDs e valores estáveis;
 Faker fica restrito a texto de apresentação irrelevante para a regra testada.
 
+## Inventário administrativo de lugares
+
+O admin pode reencontrar uma participação mesmo antes de publicar seu perfil:
+
+```text
+GET /api/v1/polos/:slug/backoffice/places?profile_status=missing&status=active&limit=20
+Authorization: Bearer <admin-token>
+```
+
+O endpoint também aceita `place_id`, `profile_status=published` e cursor
+`after`. A resposta separa identidade global, status e vigência da participação
+local, revisão e perfil público opcional. CNPJ não integra esse read model, e
+IDs de outro polo produzem uma página vazia sob a role restrita.
+
+A participação corrente pode ser pausada, retomada ou encerrada sem alterar o
+ponto de validação ou sua credencial:
+
+```text
+POST /api/v1/polos/:slug/backoffice/places/:place_id/lifecycle-actions
+Authorization: Bearer <admin-token>
+Idempotency-Key: <8-a-128-caracteres>
+
+{"action":"suspend","reason":"Interrupção operacional preventiva"}
+```
+
+As ações suportadas são `suspend`, `reactivate` e `retire`. Retry exato devolve
+o mesmo `200`; chave igual com payload diferente e transição incompatível
+retornam `409` estável. Reativação exige a participação ainda vigente e o lugar
+global ativo. `retire` encerra a vigência no relógio transacional e torna a
+participação terminal; pontos e credenciais preservam seu próprio lifecycle.
+
+## Denúncias de avaliações
+
+Um membro autenticado diferente do autor pode denunciar uma avaliação já
+publicada:
+
+```text
+POST /api/v1/polos/:slug/places/:place_id/reviews/:review_id/reports
+Authorization: Bearer <member-token>
+Idempotency-Key: <8-a-128-caracteres>
+
+{"reason_code":"offensive_content","details":"Contexto privado para a moderação"}
+```
+
+`reason_code` aceita `spam`, `offensive_content`, `personal_data`, `fraud` ou
+`other`; neste último caso, `details` é obrigatório. O detalhe livre nunca sai
+na resposta nem em audit/evento/outbox. A fila e a resolução exigem
+`review_moderator` ou `admin`:
+
+```text
+GET /api/v1/polos/:slug/backoffice/review-reports?status=open&limit=20
+Authorization: Bearer <moderator-token>
+
+POST /api/v1/polos/:slug/backoffice/review-reports/:report_id/moderation-actions
+Authorization: Bearer <moderator-token>
+Idempotency-Key: <8-a-128-caracteres>
+
+{"action":"hide","reason":"Violação confirmada pelas diretrizes"}
+```
+
+As ações são `dismiss`, `hide` e `remove`. A primeira mantém o review
+publicado; as demais aceitam a denúncia e retiram a publicação do feed. A fila
+aceita `open`, `accepted`, `rejected` ou `closed`, usa cursor opaco e expõe o
+motivo completo somente nessa fronteira autorizada.
+
 ## Publicação administrativa de benefícios
 
 Um admin do polo pode publicar uma oferta inicial sem acessar SQL:
@@ -92,6 +157,19 @@ polo falha como `404`, sem reservar a chave nem criar dados parciais. Header
 `Idempotency-Key` ausente ou ambíguo retorna `400` com
 `invalid_idempotency_key`; payload ou chave malformados retornam `422` antes da
 reserva.
+
+O inventário autenticado devolve as identidades e a versão imutável mais
+recente sem depender da resposta original da publicação:
+
+```text
+GET /api/v1/polos/:slug/backoffice/benefit-offers?status=active&place_id=<uuid>&limit=20
+Authorization: Bearer <admin-token>
+```
+
+Também aceita código exato e cursor `after`. A página é fechada antes de buscar
+versão e lugares, então vínculos N:N não cortam filhos nem tornam o cursor
+instável. O filtro de lugar considera a versão mais recente e permanece
+tenant-aware; um UUID pertencente a outro polo produz uma página vazia.
 
 ## Publicação administrativa de produtos comerciais
 
@@ -228,8 +306,25 @@ curl -sS \
   -H "authorization: Bearer $ADMIN_TOKEN"
 ```
 
-O feed não retorna motivo, chave idempotente ou referências externas. Com o
-`payment_id` e o mesmo bearer de `admin` do polo:
+O feed não retorna motivo, chave idempotente ou referências externas.
+
+O mesmo admin pode acompanhar o contrato criado pela captura sem consultar SQL:
+
+```sh
+curl -sS \
+  "http://localhost:4000/api/v1/polos/sobral/backoffice/subscriptions?status=active&limit=20" \
+  -H "authorization: Bearer $ADMIN_TOKEN"
+```
+
+O feed aceita `status`, `order_number`, `purchaser_user_id`,
+`product_offering_version_id`, `limit` e `after`. O cursor é opaco e ordena por
+`access_contracts.inserted_at + id`. A resposta inclui o snapshot comercial, o
+ciclo corrente e o saldo agregado; não inclui e-mail, documento, billing
+agreement, idempotência ou referências do provedor. Depois de um reembolso
+integral, o mesmo contrato continua consultável como `cancelled`, com pedido
+`refunded`, ciclo corrente ausente e saldo operacional zerado.
+
+Com o `payment_id` e o mesmo bearer de `admin` do polo:
 
 ```sh
 curl -sS -X POST \
@@ -365,15 +460,96 @@ somente para evolução do schema e bootstrap controlado.
 Em produção, runtime usa `DATABASE_URL`; migration usa
 `MIGRATOR_DATABASE_URL` junto de
 `CLUBEIRA_DATABASE_ROLE_MODE=migrator`. As duas credenciais devem ser distintas.
+O job migrator não recebe `PHX_SERVER`, `SECRET_KEY_BASE`, material de cifra nem
+segredos do mailer. A aplicação, por sua vez, nunca recebe
+`MIGRATOR_DATABASE_URL`.
 
-A CI provisiona as duas roles pelo mesmo `docker/postgres/init.sql`, executa
-as migrations como `clubeira_migrator` e roda
+O provisionamento de uma base vazia segue uma ordem única:
+
+```sh
+psql "$ADMIN_DATABASE_URL" --file docker/postgres/provision-production.sql
+
+CLUBEIRA_DATABASE_ROLE_MODE=migrator \
+MIGRATOR_DATABASE_URL="$MIGRATOR_DATABASE_URL" \
+_build/prod/rel/clubeira/bin/migrate
+
+psql "$ADMIN_DATABASE_URL" --file docker/postgres/provision-production.sql
+psql "$RUNTIME_DATABASE_URL" --file docker/postgres/verify-runtime-role.sql
+```
+
+O primeiro provisionamento cria as roles sem credencial embutida e instala
+default privileges antes de qualquer tabela. A segunda execução reconcilia
+grants dos objetos existentes e mantém `schema_migrations` somente leitura
+para `clubeira_app`. Password, certificado ou IAM são configurados fora do
+repositório. O script não cria nem escolhe o database: a conexão administrativa
+já deve apontar para o alvo correto.
+
+Depois das migrations e da reconciliação de grants, aplique a configuração
+estrutural do primeiro polo pela mesma release:
+
+```sh
+cp config/bootstrap.example.json /run/config/clubeira-bootstrap.json
+# Edite IDs UUIDv7, cidade, URLs, referência da conta PSP e caminhos montados.
+
+CLUBEIRA_DATABASE_ROLE_MODE=migrator \
+MIGRATOR_DATABASE_URL="$MIGRATOR_DATABASE_URL" \
+CLUBEIRA_BOOTSTRAP_FILE=/run/config/clubeira-bootstrap.json \
+_build/prod/rel/clubeira/bin/bootstrap
+```
+
+O arquivo é estrito e sem segredos. `legal.content_file` precisa ser absoluto,
+regular e legível; `legal.content_uri` precisa ser HTTPS. A operação cria a
+fundação inteira atomicamente, usa advisory lock transacional e falha fechada
+se uma identidade natural já existir com atributos diferentes. O conteúdo dos
+termos vira SHA-256 e uma versão publicada imutável. Não altere o manifesto
+mantendo o mesmo `operation_id`; gere uma nova operação para outra fundação.
+
+O bootstrap nunca fabrica credencial. Com `admin_email` presente, faça a
+primeira execução, consulte `GET /api/v1/legal/registration`, cadastre o usuário
+por `POST /api/v1/auth/registrations`, conclua a verificação de e-mail e repita
+o mesmo `bin/bootstrap`. Os estados esperados são `pending_registration`,
+`pending_verification`, `granted` e depois `already_granted`. Membership,
+atribuição da role e auditoria tenant nascem na mesma transação sob o polo.
+
+A CI cria o cenário local por `docker/postgres/init.sql`, aplica também o
+provisionamento de produção, executa as migrations como `clubeira_migrator` e roda
 `docker/postgres/verify-runtime-role.sql` autenticada como `clubeira_app`. O
 contrato prova flags da role, privilégio de schema, DML e isolamento RLS com e
-sem escopo; não substitua esse passo por uma conexão `postgres` privilegiada.
+sem escopo, além de impedir escrita da web em `schema_migrations`; não
+substitua esse passo por uma conexão `postgres` privilegiada.
 A ida e volta de migrations também mantém um polo propositalmente sem rota para
 provar o rollback e verifica que slugs legados inválidos falham com diagnóstico
 antes de qualquer backfill.
+
+## Release e probes
+
+```sh
+MIX_ENV=prod mix assets.deploy
+MIX_ENV=prod mix release --overwrite
+docker build --tag clubeira:release .
+```
+
+`rel/overlays/bin/migrate` chama `Clubeira.Release.migrate/0` como job único;
+`rel/overlays/bin/bootstrap` aplica o manifesto explícito. Nenhum dos dois
+integra a supervision tree. `rel/overlays/bin/server` habilita o Bandit e recusa
+modo migrator. O container final executa como `nobody`, com `tini`, sem Mix ou
+toolchain de compilação.
+
+`GET /health` é liveness e não consulta dependência externa. `GET /ready` usa a
+role runtime real, valida flags e grants, lê `schema_migrations` sem lock ou DDL
+e responde `503` se houver migration pendente ou banco indisponível. Ambos ficam
+fora do redirect de HTTPS para permitir probes internos; tráfego público ainda
+recebe HSTS no proxy confiável.
+
+PostgreSQL usa TLS com verificação de peer e hostname por default.
+`DATABASE_CA_CERT_FILE` aponta para uma CA privada legível por caminho absoluto.
+Somente desenvolvimento, CI ou rede local isolada declaram
+`DATABASE_SSL=false`. `PHX_HOST`, `PORT` e `POOL_SIZE` falham cedo com o nome da
+variável inválida.
+
+Mensagens humanas da pipeline API negociam `Accept-Language` (`pt-BR` e `en`),
+respeitam pesos `q`, devolvem `Content-Language` e usam inglês como fallback.
+IDs, estados, enums e códigos de domínio permanecem invariantes.
 
 ## Migrations
 
@@ -411,11 +587,22 @@ mix precommit
 
 `mix quality` roda formatação em check, compilação com warnings como erro,
 dependências não usadas, Credo strict, auditoria de dependências, auditoria Hex,
-Sobelow e testes. `mix precommit` formata antes de repetir o gate completo.
+Sobelow e a suíte com cobertura backend mínima de 90%. Enquanto o produto não
+possui frontend, somente o scaffold `ClubeiraWeb.CoreComponents` fica fora do
+denominador; controllers, JSON, domínio, workers e demais módulos continuam no
+gate. `mix precommit` formata antes de repetir o gate completo.
 
 Testes de banco usam SQL Sandbox. O setup cria e assume uma role PostgreSQL
 temporária sem bypass de RLS dentro da transação, para que a suíte não ganhe
 falso positivo por conectar como administrador.
+
+`test/e2e/member_checkout_test.exs` sobe um Bandit supervisionado em porta
+efêmera e usa `Req` sobre TCP contra o endpoint real. O cenário atravessa health,
+login, checkout idempotente, criação Pix, webhook HMAC, liquidação, assinatura,
+carteira e histórico com PostgreSQL real. Somente a API remota do PSP termina em
+`Req.Test`; a borda HTTP da aplicação não é substituída. Ele roda dentro de
+`mix test` e não substitui os testes isolados de contrato nem uma validação
+futura contra o PSP em sandbox.
 
 ## Multi-tenancy no código
 

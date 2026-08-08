@@ -27,6 +27,7 @@ Leia antes de alterar comportamento estrutural:
   seeds;
 - `support/seeds*`: cenários determinísticos e idempotentes;
 - `test/clubeira/`: testes de domínio, contratos do banco, RLS e concorrência;
+- `test/e2e/`: fluxos black-box por TCP contra Bandit e PostgreSQL reais;
 - `test/support/`: DataCase, ConnCase, roles restritas e fixtures específicas;
 - `docker/postgres/`: bootstrap e verificação da role de runtime.
 
@@ -84,12 +85,30 @@ cliente como prova de permissão.
 - `Clubeira.Billing.list_backoffice_payments/2` é o read model financeiro do
   polo: exige a capability `manage_billing`, usa keyset por relógio transacional
   e não expõe motivo, idempotência ou referências externas do PSP.
+- `Clubeira.Subscriptions.list_backoffice_subscriptions/2` é o inventário
+  operacional dos contratos do polo: exige `manage_billing`, usa keyset por
+  relógio transacional, agrega somente o ciclo corrente e nunca expõe PII,
+  billing agreement, idempotência ou referências externas do PSP.
 - `Clubeira.Subscriptions.list_product_offerings/2` mantém o lifecycle comercial
   operável fora da vitrine pública: exige `manage_partners`, pagina identidades
   antes de agregar a última versão e seus preços e nunca reinterpreta histórico.
+- `Clubeira.Catalog.list_benefit_offers/2` liga publicação de benefícios à
+  montagem comercial: exige `manage_partners`, pagina identidades antes de
+  agregar a versão mais recente e seus lugares e trata `place_id` só como filtro.
+- `Clubeira.Directory.list_backoffice_places/2` redescobre participações ainda
+  sem perfil público: exige `manage_partners`, pagina sob RLS e nunca expõe CNPJ.
+- `Clubeira.Directory.transition_place_participation/3` suspende, reativa ou
+  aposenta a participação corrente com revisão, idempotência, auditoria, evento
+  e outbox atômicos; `retire` encerra a vigência e é terminal, sem alterar o
+  lifecycle próprio de pontos ou credenciais.
 - `Clubeira.Redemptions.list_validation_points/2` é o inventário operacional do
   polo: exige `manage_partners`, roda sob RLS e nunca expõe chave ou digest de
   credencial.
+- `Clubeira.Reviews.report/2` aceita somente uma denúncia autenticada contra
+  review publicado de outro autor; detalhes livres ficam fora de resposta,
+  audit, evento e outbox. `resolve_report/2` exige `moderate_reviews`, serializa
+  uma única decisão append-only e aplica `dismiss`, `hide` ou `remove`
+  atomicamente.
 - QR, prova do ponto de validação, renovações, reembolsos parciais e chargebacks
   ainda são bordas próprias. Não simule essas integrações dentro do core nem
   declare uma borda futura como pronta.

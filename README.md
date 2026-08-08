@@ -7,8 +7,8 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL_18-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![OTP](https://img.shields.io/badge/OTP_29-A90533?style=for-the-badge&logo=erlang&logoColor=white)](https://www.erlang.org/)
 [![RLS](https://img.shields.io/badge/RLS-FORCED-16A34A?style=for-the-badge)](#-multi-tenancy)
-[![Tests](https://img.shields.io/badge/tests-346-6D28D9?style=for-the-badge)](./test)
-[![Migrations](https://img.shields.io/badge/migrations-135-F59E0B?style=for-the-badge)](./priv/repo/migrations)
+[![Tests](https://img.shields.io/badge/tests-442-6D28D9?style=for-the-badge)](./test)
+[![Migrations](https://img.shields.io/badge/migrations-144-F59E0B?style=for-the-badge)](./priv/repo/migrations)
 [![License](https://img.shields.io/badge/license-MIT-16A34A?style=for-the-badge)](./LICENSE)
 
 **[🏗️ Arquitetura](docs/architecture.md)** · **[🛠️ Desenvolvimento](docs/development.md)** · **[🤝 Contribuir](CONTRIBUTING.md)** · **[🔐 Segurança](SECURITY.md)**
@@ -77,13 +77,13 @@ flowchart LR
 |:--|:--|
 | 🔐 **Identidade** | cadastro atômico com aceite legal, confirmação de e-mail por token opaco, Argon2id, sessão bearer revogável e rate limit por global/IP/identidade |
 | 🗺️ **Descoberta** | diretório público com perfil, contato, categorias e horários do parceiro, catálogo comercial e opções de checkout — tudo paginado por cursor |
-| 🏪 **Parceiros** | onboarding administrativo idempotente e publicação autenticada do perfil operacional, ambos com auditoria, evento e outbox atômicos |
+| 🏪 **Parceiros** | onboarding, perfil e lifecycle administrativo até aposentadoria terminal, com idempotência, auditoria, evento e outbox atômicos |
 | 🛒 **Venda** | checkout idempotente, histórico do membro e feed financeiro administrativo paginados, Pix via Mercado Pago e reembolso integral; webhooks HMAC sempre releem a order no PSP |
 | 🏦 **Recebimento** | contas globais vinculadas por vigência a cada polo, com integridade referencial entre tenant e conta |
 | 📜 **Assinatura** | planos, contratos, ciclos e alocações de benefício independentes por polo |
 | ✅ **Resgate** | enrollment sem persistir segredo, grant assinado e curto, lifecycle administrativo do ponto, rotação e revogação da credencial, consumo atômico com anti-replay, ledger, auditoria, evento e outbox |
-| ⭐ **UGC** | avaliações verificadas por resgate, fila de moderação autorizada por polo, decisão append-only e feed público só do que foi publicado |
-| 🧪 **Base** | 139 migrations, seeds determinísticas, factories, RLS forçado e testes de concorrência contra bancos isolados reais |
+| ⭐ **UGC** | avaliações verificadas, publicação, denúncia, resolução pós-publicação append-only e feed público só do que continua publicado |
+| 🧪 **Base** | 145 migrations, seeds determinísticas, factories, RLS forçado, E2E HTTP por TCP e testes de concorrência contra bancos isolados reais |
 
 O fluxo de venda implementado no domínio é:
 
@@ -126,7 +126,8 @@ com os polos **Sobral** e **Londrina**.
 | Endereço | O que é |
 |:--|:--|
 | <http://localhost:4000> | aplicação |
-| <http://localhost:4000/health> | health check |
+| <http://localhost:4000/health> | liveness do processo |
+| <http://localhost:4000/ready> | readiness da role runtime e das migrations |
 | <http://localhost:4000/api/v1/polos/sobral/catalog> | catálogo demo |
 | <http://localhost:4000/api/v1/polos/sobral/places> | parceiros do polo |
 | <http://localhost:4000/api/v1/polos/sobral/checkout-options> | opções de checkout |
@@ -354,13 +355,18 @@ docker compose stop
 | `POST` | `/api/v1/polos/:slug/me/redemption-grants` | 🔑 |
 | `GET` | `/api/v1/polos/:slug/me/redemptions` | 🔑 |
 | `POST` | `/api/v1/polos/:slug/places/:place_id/reviews` | 🔑 |
+| `POST` | `/api/v1/polos/:slug/places/:place_id/reviews/:review_id/reports` | 🔑 |
 | `POST` | `/api/v1/polos/:slug/backoffice/partners` | 🛡️ |
+| `GET` | `/api/v1/polos/:slug/backoffice/places` | 🛡️ |
+| `POST` | `/api/v1/polos/:slug/backoffice/places/:place_id/lifecycle-actions` | 🛡️ |
 | `PUT` | `/api/v1/polos/:slug/backoffice/places/:place_id/profile` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/places/:place_id/benefit-offers` | 🛡️ |
+| `GET` | `/api/v1/polos/:slug/backoffice/benefit-offers` | 🛡️ |
 | `GET` | `/api/v1/polos/:slug/backoffice/product-offerings` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/product-offerings` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/product-offerings/:product_offering_id/lifecycle-actions` | 🛡️ |
 | `GET` | `/api/v1/polos/:slug/backoffice/payments` | 🛡️ |
+| `GET` | `/api/v1/polos/:slug/backoffice/subscriptions` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/payments/:payment_id/refunds` | 🛡️ |
 | `GET` | `/api/v1/polos/:slug/backoffice/validation-points` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/places/:place_id/validation-points` | 🛡️ |
@@ -369,8 +375,15 @@ docker compose stop
 | `POST` | `/api/v1/polos/:slug/backoffice/validation-credentials/:credential_id/revocations` | 🛡️ |
 | `GET` | `/api/v1/polos/:slug/backoffice/reviews` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/reviews/:review_id/moderation-actions` | 🛡️ |
+| `GET` | `/api/v1/polos/:slug/backoffice/review-reports` | 🛡️ |
+| `POST` | `/api/v1/polos/:slug/backoffice/review-reports/:review_report_id/moderation-actions` | 🛡️ |
 
 🌐 público · 🔑 bearer do membro · 🏪 credencial do ponto de validação · 🔏 HMAC do PSP · 🛡️ membership de backoffice; cada rota relê sua capacidade no banco
+
+Mensagens humanas de erro negociam `Accept-Language` com pesos `q`: `pt-BR` e
+`en` são suportados, idiomas desconhecidos caem deterministicamente em inglês
+e a resposta declara `Content-Language`. Códigos de erro, IDs, enums e estados
+continuam estáveis e nunca são traduzidos.
 
 <details>
 <summary><strong>📋 Exemplos com <code>curl</code></strong></summary>
@@ -448,6 +461,10 @@ curl -sS -X POST \
 
 curl -sS \
   'http://localhost:4000/api/v1/polos/sobral/backoffice/payments?status=captured&limit=20' \
+  -H "authorization: Bearer $ADMIN_TOKEN"
+
+curl -sS \
+  'http://localhost:4000/api/v1/polos/sobral/backoffice/subscriptions?status=active&limit=20' \
   -H "authorization: Bearer $ADMIN_TOKEN"
 
 curl -sS -X POST \
@@ -697,18 +714,86 @@ nunca no evento ou na outbox.
 
 ---
 
+## 🚀 Release de produção
+
+O `Dockerfile` multi-stage fixa Elixir `1.20.2`, OTP `29.0.5` e as imagens por
+digest. A imagem final não contém Mix nem toolchain, executa como `nobody`, usa
+`tini` como PID 1 e inclui somente a release montada.
+
+```bash
+# Artefato OTP local
+MIX_ENV=prod mix assets.deploy
+MIX_ENV=prod mix release --overwrite
+
+docker build --tag clubeira:release .
+
+# Job único, somente com MIGRATOR_DATABASE_URL e sem segredos web:
+docker run --rm --env-file /run/secrets/clubeira-migrator.env \
+  clubeira:release /app/bin/migrate
+
+# Bootstrap estrutural explícito; o manifesto e os termos são mounts read-only:
+docker run --rm --env-file /run/secrets/clubeira-migrator.env \
+  --env CLUBEIRA_BOOTSTRAP_FILE=/run/config/clubeira-bootstrap.json \
+  --mount type=bind,src=/run/config,dst=/run/config,readonly \
+  clubeira:release /app/bin/bootstrap
+
+# Processo HTTP, somente com DATABASE_URL da role restrita:
+docker run --env-file /run/secrets/clubeira-runtime.env \
+  --publish 4000:4000 clubeira:release
+```
+
+Os dois arquivos acima são secret files separados montados pelo orquestrador;
+as variáveis e limites aceitos estão documentados em `.env.example`.
+
+Antes da primeira migration, o administrador do banco executa
+`docker/postgres/provision-production.sql`; depois da migration, executa o
+mesmo script novamente para reconciliar objetos já existentes e valida a
+conexão autenticada como `clubeira_app` com
+`docker/postgres/verify-runtime-role.sql`. O script não cria database, não
+define senha e é idempotente; autenticação por password, certificado ou IAM
+fica no provedor de segredos.
+
+`config/bootstrap.example.json` é o contrato do primeiro polo. O comando cria,
+em uma transação serializada, cidade, polo, rota, termos legais imutáveis, role
+`admin`, provedor, merchant account e vínculo composto polo/conta. O manifesto
+não contém senha nem token PSP; o conteúdo legal é lido do mount, conferido por
+SHA-256 e somente o digest é persistido. UUIDs da operação e do polo são UUIDv7
+estáveis. Repetir o comando devolve o mesmo resultado; qualquer divergência de
+campo aborta tudo e fica registrada uma única auditoria da aplicação bem-sucedida.
+
+Se `admin_email` estiver configurado, a primeira execução normalmente retorna
+`pending_registration`. Cadastre e verifique esse usuário pelos endpoints
+públicos normais, então execute o mesmo manifesto outra vez: o retorno passa a
+`granted` e a membership/role tenant é criada e auditada sob RLS. O bootstrap
+nunca cria usuário, senha, sessão nem aceite legal artificial.
+
+TLS até o PostgreSQL é obrigatório por default e verifica certificado e
+hostname. `DATABASE_CA_CERT_FILE` aceita uma CA privada por caminho absoluto;
+`DATABASE_SSL=false` existe somente para redes locais explicitamente isoladas.
+`PHX_HOST`, `PORT`, `POOL_SIZE` e demais entradas são validadas antes do boot.
+O modo migrator recusa `PHX_SERVER=true` e não exige `SECRET_KEY_BASE`, chaves
+de identificador ou credenciais do mailer.
+
+`GET /health` prova apenas que o processo HTTP vive. `GET /ready` também prova
+que a conexão usa uma role segura, possui os grants esperados, só lê
+`schema_migrations` e não possui migrations pendentes; falhas devolvem `503`
+sem vazar detalhe do PostgreSQL.
+
+---
+
 ## 🧪 Qualidade
 
 ```bash
 mix test        # suíte completa
 mix test --failed
-mix quality     # format, compile, Credo, audits, Sobelow e testes
+mix quality     # format, compile, Credo, audits, Sobelow e cobertura >= 90%
 mix dialyzer
 mix precommit   # formata e executa o quality gate
 ```
 
 A CI repete as migrations a partir de um banco vazio, testa o rollback total,
-roda os gates de qualidade, compila em produção e constrói os assets.
+valida roles/grants/RLS, monta e sobe a release real e constrói a imagem de
+produção.
 Localmente, `CLUBEIRA_TEST_DB_POOL_SIZE` permite ajustar o pool da suíte sem
 alterar a configuração versionada.
 
@@ -719,7 +804,7 @@ alterar a configuração versionada.
 | `credo --strict` | consistência e code smells |
 | `deps.audit` + `hex.audit` | CVE e pacotes retirados |
 | `sobelow --config` | análise estática de segurança Phoenix |
-| `test` | 393 testes, incluindo contratos de RLS e concorrência real |
+| `test --cover` | 442 testes e cobertura backend >= 90%, incluindo E2E HTTP por TCP, RLS e concorrência real |
 
 ---
 
@@ -728,10 +813,17 @@ alterar a configuração versionada.
 | Fatia | Status |
 |:--|:--:|
 | Schema normalizado + RLS forçado | ✅ |
+| Release OTP, container e readiness de produção | ✅ |
+| Bootstrap produtivo idempotente do primeiro polo/admin | ✅ |
+| Erros HTTP localizados em pt-BR/en | ✅ |
 | Cadastro, sessão e aceite legal | ✅ |
 | Catálogo, diretório e checkout-options públicos | ✅ |
 | Perfil operacional do estabelecimento | ✅ |
+| Inventário administrativo de parceiros e lugares | ✅ |
+| Suspensão e reativação da participação do parceiro | ✅ |
+| Aposentadoria terminal da participação do parceiro | ✅ |
 | Publicação administrativa de benefício v1 | ✅ |
+| Inventário administrativo de benefícios | ✅ |
 | Publicação administrativa de produto comercial v1 | ✅ |
 | Inventário administrativo de ofertas comerciais | ✅ |
 | Pausa, reativação e aposentadoria de produto comercial | ✅ |
@@ -740,6 +832,7 @@ alterar a configuração versionada.
 | Reembolso integral Pix + reconciliação por webhook | ✅ |
 | Feed financeiro administrativo por polo | ✅ |
 | Contrato, ciclo e alocações | ✅ |
+| Inventário administrativo de assinaturas e saldo | ✅ |
 | Resgate online autenticado | ✅ |
 | Provisionamento de ponto de validação API | ✅ |
 | Inventário administrativo de pontos e credenciais | ✅ |
@@ -747,13 +840,14 @@ alterar a configuração versionada.
 | Revogação administrativa da credencial | ✅ |
 | Suspensão, reativação e aposentadoria do ponto API | ✅ |
 | Avaliações verificadas + moderação | ✅ |
+| Denúncia + resolução pós-publicação de avaliações | ✅ |
 | Outbox com HMAC, retry e dead-letter | ✅ |
 | Recuperação de senha por e-mail | ✅ |
 | Verificação de e-mail + reenvio autenticado | ✅ |
 | Cartão, reembolso parcial e chargeback | ⏳ |
 | Renovação automática | ⏳ |
 | QR estático, placard e modo offline | ⏳ |
-| Mídia, resposta e denúncia em avaliações | ⏳ |
+| Mídia e resposta do parceiro em avaliações | ⏳ |
 
 <details>
 <summary><strong>📋 Limites atuais, na íntegra</strong></summary>
@@ -782,6 +876,11 @@ alterar a configuração versionada.
 - `GET /api/v1/polos/:polo_slug/backoffice/payments` exige `admin`, pagina por
   `inserted_at + id` e filtra por status ou número exato do pedido; retorna IDs
   e estados operacionais sem motivo, chave idempotente ou referência externa;
+- `GET /api/v1/polos/:polo_slug/backoffice/subscriptions` exige `admin`, pagina
+  contratos por `inserted_at + id` e filtra por status, pedido, comprador ou
+  versão comercial imutável; agrega pedido, configuração capturada, ciclo
+  corrente e saldo emitido, disponível e consumido, sem expor e-mail,
+  documento, acordo de cobrança, idempotência ou referência externa do PSP;
 - `POST /api/v1/polos/:polo_slug/backoffice/payments/:payment_id/refunds`
   exige `admin`, motivo e `Idempotency-Key`, executa somente estorno integral e
   nunca aceita valor, conta ou referência externa do cliente;
@@ -800,6 +899,17 @@ alterar a configuração versionada.
   mesma transação idempotente; cidade, timezone, polo e ator são derivados no
   servidor, e o CNPJ não entra em resposta, audit, evento ou outbox; um CNPJ
   ativo já cadastrado produz conflito auditado, sem vinculação automática;
+- `GET /api/v1/polos/:polo_slug/backoffice/places` exige `admin`, inclui
+  participações convidadas, ativas, suspensas ou aposentadas mesmo sem perfil
+  público e pagina por `inserted_at + id`; aceita filtros de participação,
+  presença de perfil e lugar, sem expor CNPJ ou dados de outro polo;
+- `POST /api/v1/polos/:polo_slug/backoffice/places/:place_id/lifecycle-actions`
+  exige `admin` e `Idempotency-Key` e aceita `suspend`, `reactivate` ou `retire`;
+  a revisão da participação, auditoria, evento, outbox e resposta idempotente
+  mudam atomicamente; a suspensão retira o lugar das bordas operacionais sem
+  reescrever histórico nem alterar pontos ou credenciais, e a reativação exige
+  vigência corrente e identidade global ativa; `retire` encerra a vigência no
+  relógio transacional e é terminal, sem apagar o histórico;
 - `PUT /api/v1/polos/:polo_slug/backoffice/places/:place_id/profile` exige
   bearer com role `admin` e `Idempotency-Key`, substitui atomicamente o perfil da
   participação ativa e incrementa sua revisão; FKs compostas, RLS e constraints
@@ -812,6 +922,11 @@ alterar a configuração versionada.
   na borda e novamente no banco, retry devolve o DTO original e códigos
   concorrentes produzem um único vencedor com conflito auditado; header
   idempotente ausente ou ambíguo falha com `400` e código estável;
+- `GET /api/v1/polos/:polo_slug/backoffice/benefit-offers` exige `admin`,
+  pagina identidades por `inserted_at + id` e agrega a versão imutável mais
+  recente com seus lugares; aceita filtros de status, código e lugar sem
+  revelar dados de outro polo nem exigir que o operador guarde UUIDs fora do
+  sistema;
 - `POST /api/v1/polos/:polo_slug/backoffice/product-offerings` exige `admin` e
   `Idempotency-Key` e publica atomicamente o grafo comercial inicial completo:
   produto e versão, oferta e versão, preço, pacote e versão, escopo, lugares,
@@ -858,6 +973,15 @@ alterar a configuração versionada.
 - `GET /api/v1/polos/:polo_slug/backoffice/reviews` entrega a fila ao papel
   `review_moderator` ou `admin`; o endpoint de `moderation-actions` publica ou
   rejeita sob lock, idempotência, auditoria, evento e outbox;
+- `POST /api/v1/polos/:polo_slug/places/:place_id/reviews/:review_id/reports`
+  permite que outro membro denuncie uma avaliação publicada com replay exato;
+  detalhes livres ficam no histórico restrito e não entram em resposta, audit,
+  evento ou outbox;
+- `GET /api/v1/polos/:polo_slug/backoffice/review-reports` pagina denúncias por
+  estado e entrega conteúdo, denunciante e eventual resolução somente a
+  `review_moderator` ou `admin`; a ação correspondente aceita `dismiss`, `hide`
+  ou `remove`, arbitra uma única decisão no banco e atualiza denúncia e review
+  atomicamente sob lock, idempotência, auditoria, evento e outbox;
 - `GET /api/v1/polos/:polo_slug/me/redemptions` pagina somente os resgates
   bem-sucedidos do membro no polo e expõe o vínculo com sua avaliação do lugar;
 - `POST /api/v1/polos/:polo_slug/me/redemption-devices` autoriza uma instalação
@@ -872,8 +996,8 @@ alterar a configuração versionada.
 - a outbox é persistida atomicamente e o worker opcional entrega envelopes por
   HTTPS com HMAC, deduplicação por `event_id`, retry exponencial, lease
   recuperável e dead-letter;
-- edição, mídia, respostas, denúncias e ações pós-publicação de avaliações
-  continuam como fatias próprias;
+- edição, mídia e respostas do parceiro em avaliações continuam como fatias
+  próprias;
 - a taxonomia global é curada por migration/seed e ainda não possui API de
   administração; fotos do estabelecimento continuam uma fatia própria com sua
   futura borda de armazenamento;

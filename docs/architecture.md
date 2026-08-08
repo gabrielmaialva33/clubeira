@@ -141,6 +141,24 @@ contrato completo e sua própria chave idempotente. Mídia também permanece uma
 borda independente, pois upload, moderação e armazenamento têm ciclo operacional
 diferente da identidade comercial.
 
+`GET /api/v1/polos/:slug/backoffice/places` permite reencontrar a participação
+antes dessa publicação. O read model exige `manage_partners`, pagina por
+`polo_places.inserted_at + id` e inclui estado global do lugar, vigência local e
+o perfil quando existente. Filtros de participação, presença de perfil e lugar
+rodam sob RLS; um `place_id` externo continua sendo somente filtro, nunca prova
+de autorização.
+
+`POST /api/v1/polos/:slug/backoffice/places/:place_id/lifecycle-actions`
+controla o lifecycle da participação local. `suspend` tira o
+estabelecimento de descoberta, venda, provisionamento e resgate porque essas
+bordas já exigem `polo_places.status = 'active'`; contratos, versões, pontos e
+credenciais permanecem historicamente intactos. `reactivate` exige a mesma
+participação ainda vigente e a identidade global do lugar ativa. A operação
+trava o `polo_place`, incrementa sua revisão e persiste auditoria, evento,
+outbox e idempotência na mesma transação RLS. `retire` encerra a vigência no
+relógio transacional e é terminal; pontos e credenciais permanecem intactos,
+mas deixam de autorizar operações porque as bordas exigem participação ativa.
+
 ### Perfil operacional do estabelecimento
 
 `PUT /api/v1/polos/:slug/backoffice/places/:place_id/profile` relê a role
@@ -201,6 +219,14 @@ persistido. A chave idempotente guarda o DTO `201`; retries exatos, inclusive
 concorrentes, retornam o mesmo resultado, enquanto duas chaves para o mesmo
 código deixam um único vencedor. Oferta, versão, vínculo, audit, evento e outbox
 nascem ou falham juntos.
+
+`GET /api/v1/polos/:slug/backoffice/benefit-offers` fecha a lacuna operacional
+entre essa publicação e a montagem do produto comercial. O read model exige
+`manage_partners`, pagina primeiro as identidades por `inserted_at + id` e só
+depois agrega a versão imutável mais recente e seus lugares. Filtros de status,
+código e lugar rodam sob a mesma RLS; um `place_id` externo é apenas filtro e
+nunca autorização. Lugares deixam explícitos tanto o estado global quanto o da
+participação local, e versões históricas não são reescritas pela leitura.
 
 ### Publicação administrativa comercial
 
@@ -448,6 +474,18 @@ para o feed geral, o filtro por status e a seleção do refund mais recente. O D
 expõe IDs e estados necessários ao suporte, mas mantém motivo, falha,
 idempotência e referências externas fora da API.
 
+`GET /api/v1/polos/:slug/backoffice/subscriptions` completa a visão operacional
+entre pagamento e consumo. O read model relê `manage_billing` dentro de
+`Repo.transact_in_polo/3`, pagina primeiro a identidade de `access_contracts`
+por `inserted_at + id` e aceita filtros exatos de status, número do pedido,
+comprador ou versão comercial. Pedido e termos comerciais vêm das referências
+históricas capturadas no contrato; nenhuma configuração atual reinterpreta uma
+venda antiga. O ciclo corrente é aquele ativo cuja faixa contém o relógio da
+transação, e o saldo agrega as alocações desse ciclo como unidades emitidas,
+disponíveis e consumidas. Contrato cancelado por reembolso permanece visível,
+sem ciclo corrente e sem saldo operacional. E-mail, documentos, billing
+agreement, chaves idempotentes e referências externas do PSP não entram no DTO.
+
 Reembolso parcial não é aproximado por redução de saldo: ele permanece fora do
 contrato até existir política de produto para benefício já consumido. Chargeback,
 cartão e renovação automática continuam bordas próprias; chargeback não é
@@ -489,9 +527,24 @@ idempotência, auditoria, evento e outbox na mesma transação. O motivo complet
 fica apenas no histórico de moderação e não vaza para audit/outbox.
 
 O feed público retorna somente reviews `published`, vinculados por seu resgate
-ao polo da rota, e sempre lê a revisão imutável mais recente. Edição, mídia,
-resposta do parceiro, denúncia, ocultação e remoção pós-publicação continuam
-bordas próprias.
+ao polo da rota, e sempre lê a revisão imutável mais recente.
+
+Outro membro autenticado pode denunciar uma publicação por motivo estável. O
+comando prova review, lugar e polo pelo resgate de origem, impede autodenúncia e
+arbitra no banco no máximo uma denúncia aberta por membro e review. Detalhes
+livres ficam somente em `review_reports` e na fila autorizada; resposta pública,
+auditoria, evento e outbox carregam apenas o código do motivo.
+
+A fila de denúncias usa keyset `status + inserted_at + id` e mostra ao
+`review_moderator` ou `admin` o conteúdo imutável mais recente, denunciante e
+eventual decisão. `dismiss` rejeita a denúncia sem alterar a publicação;
+`hide` a oculta e `remove` a encerra. A resolução trava denúncia e review,
+persiste uma única `moderation_action` append-only e atualiza estado,
+idempotência, auditoria, eventos e outbox na mesma transação. O motivo completo
+da decisão permanece no histórico de moderação e no read model autorizado, não
+em audit/evento/outbox. Ocultação ou remoção corta o feed público sem apagar a
+revisão nem reinterpretar o resgate histórico. Edição, mídia e resposta do
+parceiro continuam bordas próprias.
 
 `GET /api/v1/polos/:slug/me/redemptions` fornece ao cliente o
 `source_redemption_id` e o `place_id` necessários para essa submissão. Quando o
@@ -663,6 +716,49 @@ O primeiro evento de um resgate usa `sequence = 1` e
 `aggregate_version = 1`. Reversão ou qualquer novo evento do mesmo aggregate
 deverá alocar a próxima versão sob lock ou comparação otimista atômica. Um
 `MAX(version) + 1` sem lock não é aceitável.
+
+## Fronteira operacional
+
+A release mantém credenciais e responsabilidades separadas. Um job efêmero em
+modo `migrator` executa `Clubeira.Release.migrate/0` e termina; migrations nunca
+rodam em `Application.start/2`. Réplicas HTTP usam somente `clubeira_app`, que é
+validada em cada conexão: não pode ser superuser, ignorar RLS, criar no schema,
+possuir tabelas ou assumir seus owners. Ela precisa dos grants DML das tabelas
+da aplicação, mas possui somente `SELECT` sobre `schema_migrations`.
+
+O provisionamento administrativo instala default privileges antes da primeira
+migration e reconcilia grants depois dela. Essa ordem impede que uma tabela
+nova fique invisível ao runtime e faz uma conexão incompleta falhar no
+`after_connect`, em vez de degradar uma operação de negócio no meio da
+transação. Toda tabela tenant-aware continua com RLS forçado; o mecanismo de
+release não recebe bypass nem cria um segundo schema.
+
+Um banco migrado ainda não inventa configuração comercial. O bootstrap
+produtivo é outro job explícito em modo migrator, orientado por manifesto
+secret-free e serializado por advisory lock transacional. Ele instala somente a
+fundação do primeiro polo e seu vínculo PSP, valida conteúdo legal por SHA-256
+e falha se dados preexistentes divergirem. O usuário administrador continua
+nascendo pelo cadastro e verificação públicos; uma reexecução apenas liga essa
+identidade já verificada a uma membership/role composta e auditada. Assim não
+existe senha inicial, aceite legal forjado nem endpoint público de bootstrap.
+
+Liveness e readiness possuem semânticas diferentes. `/health` responde enquanto
+o processo HTTP consegue servir e não toca no PostgreSQL. `/ready` valida a
+role restrita e compara arquivos de migration com a tabela de versões usando
+apenas leitura, sem DDL e sem lock de migration. Assim o orquestrador reinicia
+um processo morto, mas não envia tráfego para uma réplica com banco inacessível,
+grant incompleto ou schema atrasado.
+
+TLS público termina no proxy confiável e Phoenix interpreta somente
+`x-forwarded-proto` dessa fronteira. A conexão PostgreSQL verifica peer e
+hostname por default, com CA privada opcional. Desabilitar TLS exige uma opção
+explícita reservada à rede local. A imagem final roda sem toolchain como usuário
+sem privilégio e usa um init mínimo para encaminhar sinais ao BEAM.
+
+Localização é responsabilidade da borda HTTP. `Accept-Language` seleciona a
+mensagem humana e `Content-Language` registra a escolha; códigos, identificadores,
+estados, valores financeiros e payloads de domínio não mudam com locale. Isso
+preserva automação de clientes sem amarrar regra de negócio a Gettext.
 
 ## Evolução arquitetural
 
