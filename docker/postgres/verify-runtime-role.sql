@@ -43,6 +43,84 @@ SELECT NOT EXISTS (
   \quit 1
 \endif
 
+SELECT NOT EXISTS (
+  SELECT 1
+  FROM pg_class AS relation
+  JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+  WHERE namespace.nspname = 'public'
+    AND relation.relkind IN ('r', 'p')
+    AND relation.relname <> 'schema_migrations'
+    AND NOT (
+      has_table_privilege(current_user, relation.oid, 'SELECT')
+      AND has_table_privilege(current_user, relation.oid, 'INSERT')
+      AND has_table_privilege(current_user, relation.oid, 'UPDATE')
+      AND has_table_privilege(current_user, relation.oid, 'DELETE')
+    )
+) AS runtime_has_required_table_privileges
+\gset
+
+\if :runtime_has_required_table_privileges
+\else
+  \echo 'runtime role is missing required privileges on an application table'
+  \quit 1
+\endif
+
+SELECT
+  has_table_privilege(current_user, 'public.schema_migrations', 'SELECT')
+  AND NOT has_table_privilege(current_user, 'public.schema_migrations', 'INSERT')
+  AND NOT has_table_privilege(current_user, 'public.schema_migrations', 'UPDATE')
+  AND NOT has_table_privilege(current_user, 'public.schema_migrations', 'DELETE')
+  AS migration_metadata_is_read_only
+\gset
+
+\if :migration_metadata_is_read_only
+\else
+  \echo 'runtime role must not mutate schema_migrations'
+  \quit 1
+\endif
+
+SELECT NOT EXISTS (
+  SELECT 1
+  FROM pg_proc AS function
+  JOIN pg_namespace AS namespace ON namespace.oid = function.pronamespace
+  WHERE namespace.nspname = 'public'
+    AND (
+      NOT has_function_privilege(current_user, function.oid, 'EXECUTE')
+      OR NOT has_function_privilege('clubeira_migrator', function.oid, 'EXECUTE')
+    )
+) AS application_functions_are_executable_by_expected_roles
+\gset
+
+\if :application_functions_are_executable_by_expected_roles
+\else
+  \echo 'runtime or migrator role is missing EXECUTE on a public function'
+  \quit 1
+\endif
+
+SELECT NOT EXISTS (
+  SELECT 1
+  FROM pg_class AS relation
+  JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+  WHERE namespace.nspname = 'public'
+    AND relation.relkind IN ('r', 'p')
+    AND relation.relrowsecurity
+    AND (
+      NOT relation.relforcerowsecurity
+      OR NOT EXISTS (
+        SELECT 1
+        FROM pg_policy AS policy
+        WHERE policy.polrelid = relation.oid
+      )
+    )
+) AS every_rls_table_is_forced_and_has_a_policy
+\gset
+
+\if :every_rls_table_is_forced_and_has_a_policy
+\else
+  \echo 'an RLS-enabled application table is not forced or has no policy'
+  \quit 1
+\endif
+
 BEGIN;
 
 SELECT uuidv7() AS city_id, uuidv7() AS polo_id

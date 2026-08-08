@@ -13,6 +13,9 @@ defmodule Clubeira.TestDatabaseRole do
 
     Repo.query!("GRANT USAGE ON SCHEMA public TO #{role}")
     Repo.query!("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO #{role}")
+
+    Repo.query!("REVOKE INSERT, UPDATE, DELETE ON schema_migrations FROM #{role}")
+
     Repo.query!("SET LOCAL ROLE #{role}")
 
     role

@@ -20,6 +20,44 @@ defmodule Clubeira.Repo.RuntimeRoleTest do
     end
   end
 
+  test "rejects a runtime role missing required table privileges", %{
+    database_role: database_role
+  } do
+    Repo.query!("RESET ROLE")
+
+    try do
+      Repo.query!("REVOKE DELETE ON cities FROM #{database_role}")
+      Repo.query!("SET LOCAL ROLE #{database_role}")
+
+      assert_raise RuntimeError, ~r/has_required_table_privileges=false/, fn ->
+        RuntimeRole.validate_repo!(Repo)
+      end
+    after
+      Repo.query!("RESET ROLE")
+      Repo.query!("GRANT DELETE ON cities TO #{database_role}")
+      Repo.query!("SET LOCAL ROLE #{database_role}")
+    end
+  end
+
+  test "rejects a runtime role that can mutate migration metadata", %{
+    database_role: database_role
+  } do
+    Repo.query!("RESET ROLE")
+
+    try do
+      Repo.query!("GRANT INSERT ON schema_migrations TO #{database_role}")
+      Repo.query!("SET LOCAL ROLE #{database_role}")
+
+      assert_raise RuntimeError, ~r/migration_metadata_is_read_only=false/, fn ->
+        RuntimeRole.validate_repo!(Repo)
+      end
+    after
+      Repo.query!("RESET ROLE")
+      Repo.query!("REVOKE INSERT ON schema_migrations FROM #{database_role}")
+      Repo.query!("SET LOCAL ROLE #{database_role}")
+    end
+  end
+
   test "rejects a restricted role that owns an application table", %{
     database_role: database_role
   } do
