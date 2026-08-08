@@ -189,6 +189,11 @@ defmodule ClubeiraWeb.Router do
          :create
 
     get "/polos/:polo_slug/backoffice/reviews", BackofficeReviewController, :index
+    get "/polos/:polo_slug/backoffice/review-reports", BackofficeReviewReportController, :index
+
+    post "/polos/:polo_slug/backoffice/review-reports/:review_report_id/moderation-actions",
+         BackofficeReviewReportController,
+         :create_action
 
     post "/polos/:polo_slug/backoffice/reviews/:review_id/moderation-actions",
          BackofficeReviewController,
