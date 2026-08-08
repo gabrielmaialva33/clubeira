@@ -16,12 +16,14 @@ import Config
 #
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
-if System.get_env("PHX_SERVER") do
-  config :clubeira, ClubeiraWeb.Endpoint, server: true
-end
+if config_env() != :prod do
+  if System.get_env("PHX_SERVER") do
+    config :clubeira, ClubeiraWeb.Endpoint, server: true
+  end
 
-config :clubeira, ClubeiraWeb.Endpoint,
-  http: [port: String.to_integer(System.get_env("PORT", "4000"))]
+  config :clubeira, ClubeiraWeb.Endpoint,
+    http: [port: String.to_integer(System.get_env("PORT", "4000"))]
+end
 
 if mercado_pago_accounts = System.get_env("MERCADO_PAGO_ACCOUNTS_JSON") do
   config :clubeira, Clubeira.Billing.Gateways.MercadoPago,
@@ -47,43 +49,32 @@ if config_env() == :dev do
 end
 
 if config_env() == :prod do
-  integer_in_range! = fn name, default, range ->
-    value = System.get_env(name, Integer.to_string(default))
+  integer_in_range! = &Clubeira.RuntimeConfig.integer_in_range!/3
+  boolean! = &Clubeira.RuntimeConfig.boolean!/2
+  required_env! = &Clubeira.RuntimeConfig.required_env!/1
+  base64url_key! = &Clubeira.RuntimeConfig.base64url_key!/1
 
-    case Integer.parse(value) do
-      {parsed, ""} ->
-        if parsed in range do
-          parsed
-        else
-          raise "#{name} must be an integer in #{inspect(range)}, got: #{inspect(value)}"
-        end
+  database_role_mode = System.get_env("CLUBEIRA_DATABASE_ROLE_MODE", "runtime")
 
-      _invalid ->
-        raise "#{name} must be an integer in #{inspect(range)}, got: #{inspect(value)}"
+  role_mode =
+    case database_role_mode do
+      "runtime" ->
+        :runtime
+
+      "migrator" ->
+        :migrator
+
+      invalid ->
+        raise "invalid CLUBEIRA_DATABASE_ROLE_MODE=#{inspect(invalid)}; expected runtime or migrator"
     end
+
+  server? = boolean!.("PHX_SERVER", false)
+
+  if role_mode == :migrator and server? do
+    raise "PHX_SERVER cannot be enabled when CLUBEIRA_DATABASE_ROLE_MODE=migrator"
   end
 
-  boolean! = fn name, default ->
-    case System.get_env(name, to_string(default)) |> String.downcase() do
-      value when value in ["true", "1"] -> true
-      value when value in ["false", "0"] -> false
-      value -> raise "#{name} must be true, false, 1, or 0, got: #{inspect(value)}"
-    end
-  end
-
-  required_env! = fn name ->
-    case System.fetch_env(name) do
-      {:ok, value} when value != "" -> value
-      _missing -> raise "environment variable #{name} is required"
-    end
-  end
-
-  base64url_key! = fn name ->
-    case Base.url_decode64(required_env!.(name), padding: false) do
-      {:ok, key} when byte_size(key) == 32 -> key
-      _invalid -> raise "#{name} must be unpadded base64url encoding exactly 32 bytes"
-    end
-  end
+  config :clubeira, :database_role_mode, role_mode
 
   config :argon2_elixir,
     t_cost: integer_in_range!.("ARGON2_T_COST", 3, 2..10),
@@ -216,8 +207,6 @@ if config_env() == :prod do
       ]
     ]
 
-  database_role_mode = System.get_env("CLUBEIRA_DATABASE_ROLE_MODE", "runtime")
-
   if database_role_mode == "runtime" do
     identifier_key_version =
       integer_in_range!.("IDENTIFIER_ENCRYPTION_KEY_VERSION", 1, 1..32_767)
@@ -229,29 +218,9 @@ if config_env() == :prod do
       },
       lookup_key: base64url_key!.("IDENTIFIER_LOOKUP_KEY_BASE64")
 
-    password_reset_url = required_env!.("PASSWORD_RESET_URL")
-    email_verification_url = required_env!.("EMAIL_VERIFICATION_URL")
-    mailer_from_email = required_env!.("MAILER_FROM_EMAIL")
-
-    unless match?(
-             {:ok, %URI{scheme: "https", host: host, userinfo: nil, fragment: nil}}
-             when is_binary(host) and host != "",
-             URI.new(password_reset_url)
-           ) do
-      raise "PASSWORD_RESET_URL must be an absolute HTTPS URL without credentials or a fragment"
-    end
-
-    unless match?(
-             {:ok, %URI{scheme: "https", host: host, userinfo: nil, fragment: nil}}
-             when is_binary(host) and host != "",
-             URI.new(email_verification_url)
-           ) do
-      raise "EMAIL_VERIFICATION_URL must be an absolute HTTPS URL without credentials or a fragment"
-    end
-
-    unless Regex.match?(~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/u, mailer_from_email) do
-      raise "MAILER_FROM_EMAIL must be an email address"
-    end
+    password_reset_url = Clubeira.RuntimeConfig.absolute_https_url!("PASSWORD_RESET_URL")
+    email_verification_url = Clubeira.RuntimeConfig.absolute_https_url!("EMAIL_VERIFICATION_URL")
+    mailer_from_email = Clubeira.RuntimeConfig.email!("MAILER_FROM_EMAIL")
 
     config :clubeira, Clubeira.Accounts.PasswordRecovery,
       token_ttl_seconds: integer_in_range!.("PASSWORD_RESET_TOKEN_TTL_MINUTES", 30, 5..120) * 60,
@@ -278,22 +247,14 @@ if config_env() == :prod do
   retention_days = integer_in_range!.("SESSION_RETENTION_DAYS", 30, 1..365)
 
   config :clubeira, Clubeira.Accounts.SessionJanitor,
-    enabled: true,
+    enabled: role_mode == :runtime,
     initial_delay_ms: 60_000,
     interval_ms: 3_600_000,
     retention_seconds: retention_days * 24 * 60 * 60
 
-  if boolean!.("OUTBOX_PUBLISHER_ENABLED", false) do
-    url = required_env!.("OUTBOX_WEBHOOK_URL")
+  if role_mode == :runtime and boolean!.("OUTBOX_PUBLISHER_ENABLED", false) do
+    url = Clubeira.RuntimeConfig.absolute_https_url!("OUTBOX_WEBHOOK_URL")
     secret = required_env!.("OUTBOX_WEBHOOK_SECRET")
-
-    unless match?(
-             {:ok, %URI{scheme: "https", host: host, userinfo: nil, fragment: nil}}
-             when is_binary(host) and host != "",
-             URI.new(url)
-           ) do
-      raise "OUTBOX_WEBHOOK_URL must be an absolute HTTPS URL without credentials or a fragment"
-    end
 
     if byte_size(secret) < 32 do
       raise "OUTBOX_WEBHOOK_SECRET must contain at least 32 bytes"
@@ -356,9 +317,9 @@ if config_env() == :prod do
   maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
 
   repo_options = [
-    # ssl: true,
+    ssl: Clubeira.RuntimeConfig.database_ssl!(),
     url: database_url,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
+    pool_size: integer_in_range!.("POOL_SIZE", 10, 1..100),
     # For machines with several cores, consider starting multiple pools of `pool_size`
     # pool_count: 4,
     socket_options: maybe_ipv6
@@ -366,32 +327,22 @@ if config_env() == :prod do
 
   config :clubeira, Clubeira.Repo, repo_options ++ database_role_options
 
-  # The secret key base is used to sign/encrypt cookies and other secrets.
-  # A default value is used in config/dev.exs and config/test.exs but you
-  # want to use a different value for prod and you most likely don't want
-  # to check this value into version control, so we use an environment
-  # variable instead.
-  secret_key_base =
-    System.get_env("SECRET_KEY_BASE") ||
-      raise """
-      environment variable SECRET_KEY_BASE is missing.
-      You can generate one by calling: mix phx.gen.secret
-      """
+  if role_mode == :runtime do
+    secret_key_base = required_env!.("SECRET_KEY_BASE")
+    host = Clubeira.RuntimeConfig.host!("PHX_HOST")
 
-  host = System.get_env("PHX_HOST") || "example.com"
+    config :clubeira, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
-  config :clubeira, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
-
-  config :clubeira, ClubeiraWeb.Endpoint,
-    url: [host: host, port: 443, scheme: "https"],
-    http: [
-      # Enable IPv6 and bind on all interfaces.
-      # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
-      # See the documentation on https://bandit.hexdocs.pm/Bandit.html#t:options/0
-      # for details about using IPv6 vs IPv4 and loopback vs public addresses.
-      ip: {0, 0, 0, 0, 0, 0, 0, 0}
-    ],
-    secret_key_base: secret_key_base
+    config :clubeira, ClubeiraWeb.Endpoint,
+      server: server?,
+      url: [host: host, port: 443, scheme: "https"],
+      http: [
+        # Bind on all IPv4 and IPv6 interfaces. TLS terminates at the proxy.
+        ip: {0, 0, 0, 0, 0, 0, 0, 0},
+        port: integer_in_range!.("PORT", 4000, 1..65_535)
+      ],
+      secret_key_base: secret_key_base
+  end
 
   # ## SSL Support
   #

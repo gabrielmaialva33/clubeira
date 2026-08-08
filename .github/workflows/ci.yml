@@ -70,8 +70,11 @@ jobs:
           MIX_ENV=prod \
             CLUBEIRA_DATABASE_ROLE_MODE=migrator \
             MIGRATOR_DATABASE_URL=ecto://clubeira_migrator:clubeira_migrator@localhost:5432/clubeira_dev \
-            SECRET_KEY_BASE=ci-only-secret-key-base-ci-only-secret-key-base-ci-only-secret-key-base \
+            DATABASE_SSL=false \
             mix ecto.migrate --quiet
+          PGPASSWORD=postgres \
+            psql --host localhost --username postgres --dbname clubeira_dev \
+            --file docker/postgres/provision-production.sql
           PGPASSWORD=clubeira_app \
             psql --host localhost --username clubeira_app --dbname clubeira_dev \
             --file docker/postgres/verify-runtime-role.sql
@@ -144,6 +147,94 @@ jobs:
         run: |
           MIX_ENV=prod mix compile --warnings-as-errors
           MIX_ENV=prod mix assets.deploy
+          MIX_ENV=prod mix release --overwrite
+
+      - name: Smoke-test idempotent production bootstrap
+        env:
+          CLUBEIRA_DATABASE_ROLE_MODE: migrator
+          MIGRATOR_DATABASE_URL: ecto://clubeira_migrator:clubeira_migrator@localhost:5432/clubeira_dev
+          DATABASE_SSL: "false"
+        run: |
+          bootstrap_file=$(mktemp)
+          trap 'rm -f "$bootstrap_file"' EXIT
+          jq \
+            --arg content_file "$GITHUB_WORKSPACE/priv/static/legal/demo-consumer-terms-v1.txt" \
+            '.legal.content_file = $content_file' \
+            config/bootstrap.example.json >"$bootstrap_file"
+          export CLUBEIRA_BOOTSTRAP_FILE="$bootstrap_file"
+
+          first_result=$(_build/prod/rel/clubeira/bin/bootstrap)
+          repeated_result=$(_build/prod/rel/clubeira/bin/bootstrap)
+
+          jq --exit-status '.admin_status == "pending_registration"' <<<"$first_result"
+          test "$repeated_result" = "$first_result"
+
+      - name: Smoke-test the assembled release
+        env:
+          CLUBEIRA_DATABASE_ROLE_MODE: runtime
+          DATABASE_URL: ecto://clubeira_app:clubeira_app@localhost:5432/clubeira_dev
+          DATABASE_SSL: "false"
+          SECRET_KEY_BASE: ci-only-secret-key-base-ci-only-secret-key-base-ci-only-secret-key-base
+          PHX_HOST: localhost
+          PORT: "4108"
+          IDENTIFIER_ENCRYPTION_KEY_VERSION: "1"
+          IDENTIFIER_ENCRYPTION_KEY_BASE64: AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE
+          IDENTIFIER_LOOKUP_KEY_BASE64: AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI
+          PASSWORD_RESET_URL: https://localhost/reset-password
+          EMAIL_VERIFICATION_URL: https://localhost/verify-email
+          MAILER_FROM_EMAIL: no-reply@clubeira.local
+          MAILER_PROVIDER: resend
+          RESEND_API_KEY: ci-only-resend-key
+        run: |
+          _build/prod/rel/clubeira/bin/server >/tmp/clubeira-release.log 2>&1 &
+          release_pid=$!
+
+          cleanup() {
+            kill -TERM "$release_pid" 2>/dev/null || true
+            wait "$release_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          healthy=false
+          for _attempt in {1..30}; do
+            if curl --fail --silent --show-error http://127.0.0.1:4108/health >/dev/null; then
+              healthy=true
+              break
+            fi
+
+            if ! kill -0 "$release_pid" 2>/dev/null; then
+              cat /tmp/clubeira-release.log
+              exit 1
+            fi
+
+            sleep 1
+          done
+
+          if [[ "$healthy" != "true" ]]; then
+            cat /tmp/clubeira-release.log
+            exit 1
+          fi
+
+          curl --fail --silent --show-error http://127.0.0.1:4108/ready >/dev/null
+
+  container:
+    name: Production container
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build production image
+        run: docker build --tag clubeira:ci .
+
+      - name: Verify container runtime identity
+        run: |
+          test "$(docker image inspect --format '{{.Config.User}}' clubeira:ci)" = "nobody"
+          test "$(docker image inspect --format '{{json .Config.Entrypoint}}' clubeira:ci)" = '["/usr/bin/tini","--"]'
+          docker run --rm --entrypoint /bin/sh clubeira:ci -c \
+            'test "$(id -u)" = "65534" && test -x /app/bin/migrate && test -x /app/bin/bootstrap && test -x /app/bin/server'
 
   dialyzer:
     name: Dialyzer

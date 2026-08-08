@@ -7,6 +7,7 @@ defmodule Clubeira.MixProject do
       version: "0.1.0",
       elixir: "~> 1.20.2",
       elixirc_paths: elixirc_paths(Mix.env()),
+      test_coverage: [ignore_modules: [ClubeiraWeb.CoreComponents]],
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       dialyzer: [
@@ -48,7 +49,7 @@ defmodule Clubeira.MixProject do
       {:phoenix, "~> 1.8.9"},
       {:phoenix_ecto, "~> 4.5"},
       {:ecto_sql, "~> 3.13"},
-      {:postgrex, ">= 0.0.0"},
+      {:postgrex, "~> 0.22.4"},
       {:argon2_elixir, "~> 4.1"},
       {:hammer, "~> 7.4"},
       {:phoenix_html, "~> 4.1"},
@@ -122,7 +123,7 @@ defmodule Clubeira.MixProject do
         "cmd mix hex.audit",
         "deps.audit",
         "sobelow --config",
-        "test"
+        "test --cover"
       ],
       precommit: ["format", "quality"]
     ]
