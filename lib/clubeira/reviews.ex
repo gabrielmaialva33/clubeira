@@ -12,6 +12,9 @@ defmodule Clubeira.Reviews do
   alias Clubeira.Reviews.Review
   alias Clubeira.Reviews.ReviewModerator
   alias Clubeira.Reviews.ReviewReader
+  alias Clubeira.Reviews.ReviewReporter
+  alias Clubeira.Reviews.ReviewReportReader
+  alias Clubeira.Reviews.ReviewReportResolver
   alias Clubeira.Reviews.ReviewRevision
   alias Clubeira.Reviews.VerifiedReviewSubmitter
   alias Clubeira.Tenancy.Scope
@@ -26,6 +29,16 @@ defmodule Clubeira.Reviews do
   @spec moderate(Scope.t(), map()) ::
           {:ok, moderation()} | {:error, atom() | Ecto.Changeset.t()}
   defdelegate moderate(scope, attributes), to: ReviewModerator
+
+  @spec report(Scope.t(), map()) :: {:ok, map()} | {:error, atom() | Ecto.Changeset.t()}
+  defdelegate report(scope, attributes), to: ReviewReporter
+
+  @spec list_reports(Scope.t(), map()) :: {:ok, map()} | {:error, term()}
+  defdelegate list_reports(scope, params), to: ReviewReportReader, as: :list
+
+  @spec resolve_report(Scope.t(), map()) ::
+          {:ok, map()} | {:error, atom() | Ecto.Changeset.t()}
+  defdelegate resolve_report(scope, attributes), to: ReviewReportResolver, as: :resolve
 
   @spec list_for_moderation(Scope.t(), map()) :: {:ok, map()} | {:error, term()}
   defdelegate list_for_moderation(scope, params), to: ReviewReader

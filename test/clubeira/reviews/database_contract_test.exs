@@ -55,4 +55,28 @@ defmodule Clubeira.Reviews.DatabaseContractTest do
     assert public_definition =~ "(place_id, published_at, id)"
     assert public_definition =~ "WHERE (status = 'published'::text)"
   end
+
+  test "review reports arbitrate one resolution and follow their keyset order" do
+    assert %{rows: rows} =
+             Repo.query!("""
+             SELECT indexname, indexdef
+             FROM pg_indexes
+             WHERE schemaname = 'public'
+               AND indexname IN (
+                 'review_reports_status_keyset_idx',
+                 'moderation_actions_review_report_uidx'
+               )
+             ORDER BY indexname
+             """)
+
+    assert [
+             ["moderation_actions_review_report_uidx", resolution_definition],
+             ["review_reports_status_keyset_idx", report_definition]
+           ] = rows
+
+    assert resolution_definition =~ "UNIQUE"
+    assert resolution_definition =~ "(review_report_id)"
+    assert resolution_definition =~ "WHERE (review_report_id IS NOT NULL)"
+    assert report_definition =~ "(status, inserted_at, id)"
+  end
 end
