@@ -1,6 +1,8 @@
 defmodule ClubeiraWeb.BackofficeBenefitOfferController do
   use ClubeiraWeb, :controller
 
+  require Logger
+
   alias Clubeira.Catalog
   alias Clubeira.Polos
   alias Clubeira.Tenancy.Scope
@@ -12,6 +14,39 @@ defmodule ClubeiraWeb.BackofficeBenefitOfferController do
     title description terms redemption_instructions percentage_value amount_value currency
   )
   @effective_fields ~w(starts_at ends_at)
+  @query_fields ~w(after code limit place_id status)
+
+  def index(conn, %{"polo_slug" => polo_slug} = params) do
+    with {:ok, route} <- Polos.resolve_route(polo_slug),
+         {:ok, result} <-
+           Catalog.list_benefit_offers(
+             scope(conn, route.polo_id),
+             Map.take(params, @query_fields)
+           ) do
+      render(conn, :index, benefit_offers: result.benefit_offers, page: result.page)
+    else
+      {:error, :polo_not_found} ->
+        render_error(conn, :not_found)
+
+      {:error, :partner_admin_required} ->
+        render_error(conn, :forbidden)
+
+      {:error, :invalid_pagination} ->
+        render_error(conn, :bad_request)
+
+      {:error, reason}
+      when reason in [
+             :invalid_benefit_offer_code,
+             :invalid_benefit_offer_status,
+             :invalid_place_id
+           ] ->
+        render_error(conn, :unprocessable_entity)
+
+      {:error, reason} ->
+        Logger.error("could not list benefit offers: #{inspect(reason)}")
+        render_error(conn, :service_unavailable)
+    end
+  end
 
   def create(conn, %{"polo_slug" => polo_slug, "place_id" => place_id} = params) do
     with {:ok, idempotency_key} <- fetch_idempotency_key(conn),

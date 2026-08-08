@@ -102,6 +102,199 @@ defmodule ClubeiraWeb.BackofficeBenefitOfferControllerTest do
            }
   end
 
+  test "a polo admin rediscovers a published benefit with its immutable version and place", %{
+    conn: conn
+  } do
+    fixture = RedemptionsFixtures.create!()
+    admin_scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    token = authenticate!(admin_scope.actor_user_id)
+    request = offer_request(fixture)
+
+    published =
+      publish(conn, fixture, token, "benefit-offer-inventory-publication", request)
+
+    offer_id = get_in(published, ["data", "offer", "id"])
+    version_id = get_in(published, ["data", "version", "id"])
+
+    assert %{
+             "data" => [
+               %{
+                 "id" => ^offer_id,
+                 "code" => "cafe-cortesia",
+                 "name" => "Café cortesia",
+                 "benefit_kind" => "discount_percentage",
+                 "status" => "active",
+                 "recorded_at" => recorded_at,
+                 "latest_version" => %{
+                   "id" => ^version_id,
+                   "version" => 1,
+                   "title" => "15% no café da manhã",
+                   "description" => "Desconto no consumo do café da manhã.",
+                   "terms" => "Um uso por ciclo, de segunda a sexta.",
+                   "redemption_instructions" => "Apresente o voucher antes de pedir a conta.",
+                   "status" => "published",
+                   "published_at" => published_at,
+                   "effective_from" => effective_from,
+                   "effective_until" => nil,
+                   "benefit" => %{
+                     "percentage" => "15.0000",
+                     "amount" => nil,
+                     "currency" => nil
+                   },
+                   "places" => [
+                     %{
+                       "polo_place_id" => polo_place_id,
+                       "id" => place_id,
+                       "name" => place_name,
+                       "slug" => place_slug,
+                       "status" => "active",
+                       "participation_status" => "active"
+                     }
+                   ]
+                 }
+               }
+             ],
+             "meta" => %{
+               "count" => 1,
+               "page" => %{
+                 "limit" => 20,
+                 "has_more" => false,
+                 "next_cursor" => nil
+               }
+             }
+           } =
+             conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{token}")
+             |> get(benefit_offer_inventory_path(fixture) <> "?code=cafe-cortesia")
+             |> json_response(200)
+
+    for timestamp <- [recorded_at, published_at, effective_from] do
+      assert {:ok, _datetime, 0} = DateTime.from_iso8601(timestamp)
+    end
+
+    assert polo_place_id == fixture.ids.polo_place
+    assert place_id == fixture.ids.place
+    assert is_binary(place_name)
+    assert is_binary(place_slug)
+  end
+
+  test "the benefit inventory paginates inside one polo and filters the latest place assignment",
+       %{
+         conn: conn
+       } do
+    fixture =
+      RedemptionsFixtures.create!(offer_status: "retired", alternate_validation_place: true)
+
+    other_polo = RedemptionsFixtures.create!()
+    admin_scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    token = authenticate!(admin_scope.actor_user_id)
+
+    published =
+      publish(
+        conn,
+        fixture,
+        token,
+        "benefit-offer-inventory-pagination",
+        offer_request(fixture)
+      )
+
+    published_id = get_in(published, ["data", "offer", "id"])
+    inventory_path = benefit_offer_inventory_path(fixture)
+
+    assert %{
+             "data" => [%{"id" => ^published_id}],
+             "meta" => %{
+               "count" => 1,
+               "page" => %{"limit" => 1, "has_more" => true, "next_cursor" => cursor}
+             }
+           } =
+             conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{token}")
+             |> get(inventory_path <> "?limit=1")
+             |> json_response(200)
+
+    assert is_binary(cursor)
+    refute cursor =~ published_id
+
+    assert %{
+             "data" => [%{"id" => original_offer_id}],
+             "meta" => %{
+               "count" => 1,
+               "page" => %{"limit" => 1, "has_more" => false, "next_cursor" => nil}
+             }
+           } =
+             conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{token}")
+             |> get(inventory_path <> "?limit=1&after=#{cursor}")
+             |> json_response(200)
+
+    assert original_offer_id == fixture.ids.benefit_offer
+    refute original_offer_id == other_polo.ids.benefit_offer
+
+    assert %{"data" => [%{"id" => ^original_offer_id}]} =
+             conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{token}")
+             |> get(inventory_path <> "?status=retired")
+             |> json_response(200)
+
+    assert %{"data" => [%{"id" => ^original_offer_id}]} =
+             conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{token}")
+             |> get(inventory_path <> "?place_id=#{fixture.ids.other_place}")
+             |> json_response(200)
+  end
+
+  test "the benefit inventory enforces polo capability and validates every filter", %{conn: conn} do
+    fixture = RedemptionsFixtures.create!()
+    other_polo = RedemptionsFixtures.create!()
+    admin_scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    moderator_scope = ReviewsFixtures.grant_moderator!(fixture)
+    admin_token = authenticate!(admin_scope.actor_user_id)
+    moderator_token = authenticate!(moderator_scope.actor_user_id)
+    inventory_path = benefit_offer_inventory_path(fixture)
+
+    assert conn
+           |> put_req_header("authorization", "Bearer #{moderator_token}")
+           |> get(inventory_path)
+           |> json_response(403) == %{"errors" => %{"detail" => "Forbidden"}}
+
+    assert conn
+           |> recycle()
+           |> put_req_header("authorization", "Bearer #{admin_token}")
+           |> get(benefit_offer_inventory_path(other_polo))
+           |> json_response(403) == %{"errors" => %{"detail" => "Forbidden"}}
+
+    assert %{"data" => []} =
+             conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{admin_token}")
+             |> get(inventory_path <> "?place_id=#{other_polo.ids.place}")
+             |> json_response(200)
+
+    for query <- ["after=not-a-cursor", "limit=0", "limit=101"] do
+      assert conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{admin_token}")
+             |> get(inventory_path <> "?#{query}")
+             |> json_response(400) == %{"errors" => %{"detail" => "Bad Request"}}
+    end
+
+    for query <- ["code=x", "status=unknown", "place_id=not-a-uuid"] do
+      assert conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{admin_token}")
+             |> get(inventory_path <> "?#{query}")
+             |> json_response(422) == %{
+               "errors" => %{"detail" => "Unprocessable Content"}
+             }
+    end
+  end
+
   test "publishing a duplicate code returns a stable conflict without partial catalog data", %{
     conn: conn
   } do
@@ -510,6 +703,10 @@ defmodule ClubeiraWeb.BackofficeBenefitOfferControllerTest do
 
   defp benefit_offers_path(fixture) do
     "/api/v1/polos/#{fixture.polo_slug}/backoffice/places/#{fixture.ids.place}/benefit-offers"
+  end
+
+  defp benefit_offer_inventory_path(fixture) do
+    "/api/v1/polos/#{fixture.polo_slug}/backoffice/benefit-offers"
   end
 
   defp publish(conn, fixture, token, idempotency_key, request) do
