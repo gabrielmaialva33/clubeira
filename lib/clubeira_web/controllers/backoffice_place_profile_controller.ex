@@ -23,7 +23,7 @@ defmodule ClubeiraWeb.BackofficePlaceProfileController do
       {:error, reason} when reason in [:polo_not_found, :place_not_found] ->
         render_error(conn, :not_found)
 
-      {:error, :partner_admin_required} ->
+      {:error, reason} when reason in [:partner_admin_required, :partner_access_required] ->
         render_error(conn, :forbidden)
 
       {:error, reason} when reason in [:idempotency_conflict, :request_in_progress] ->

@@ -130,6 +130,14 @@ defmodule ClubeiraWeb.Router do
 
     post "/polos/:polo_slug/backoffice/partners", BackofficePartnerController, :create
 
+    post "/polos/:polo_slug/backoffice/places/:place_id/partner-accesses",
+         BackofficePartnerAccessController,
+         :create
+
+    post "/polos/:polo_slug/backoffice/partner-accesses/:access_id/revocations",
+         BackofficePartnerAccessController,
+         :revoke
+
     get "/polos/:polo_slug/backoffice/places", BackofficePlaceController, :index
 
     post "/polos/:polo_slug/backoffice/places/:place_id/lifecycle-actions",
@@ -200,6 +208,12 @@ defmodule ClubeiraWeb.Router do
     post "/polos/:polo_slug/backoffice/reviews/:review_id/moderation-actions",
          BackofficeReviewController,
          :create_action
+
+    get "/polos/:polo_slug/partner/places", PartnerPlaceController, :index
+
+    put "/polos/:polo_slug/partner/places/:place_id/profile",
+        BackofficePlaceProfileController,
+        :update
 
     get "/polos/:polo_slug/me/orders", OrderController, :index
     get "/polos/:polo_slug/me/redemptions", RedemptionController, :index
