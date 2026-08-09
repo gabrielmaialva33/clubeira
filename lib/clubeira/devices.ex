@@ -13,6 +13,7 @@ defmodule Clubeira.Devices do
   alias Clubeira.Audit
   alias Clubeira.Devices.ContractRedemptionDevice
   alias Clubeira.Devices.DeviceInstallation
+  alias Clubeira.Devices.DeviceKeyManager
   alias Clubeira.Devices.RedemptionEnrollmentRequest
   alias Clubeira.Devices.UserDeviceAuthorization
   alias Clubeira.Events
@@ -35,6 +36,24 @@ defmodule Clubeira.Devices do
           | :installation_conflict
           | :device_limit_reached
           | Ecto.Changeset.t()
+
+  @doc """
+  Registers or rotates the current Ed25519 proof-of-possession key for an owned device.
+  """
+  @spec put_device_key(AccountScope.t(), Ecto.UUID.t(), map()) ::
+          {:ok, DeviceKeyManager.key_result()} | {:error, term()}
+  defdelegate put_device_key(account_scope, device_id, attributes),
+    to: DeviceKeyManager,
+    as: :put
+
+  @doc """
+  Returns only safe metadata for the current key of an owned device.
+  """
+  @spec get_current_device_key(AccountScope.t(), Ecto.UUID.t()) ::
+          {:ok, map()} | {:error, term()}
+  defdelegate get_current_device_key(account_scope, device_id),
+    to: DeviceKeyManager,
+    as: :get_current
 
   @spec enroll_redemption_device(AccountScope.t(), String.t(), map()) ::
           {:ok, enrollment()} | {:error, enrollment_error()}
