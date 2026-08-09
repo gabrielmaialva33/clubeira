@@ -17,11 +17,21 @@ defmodule Clubeira.Directory.PartnerPlaceAccess do
   @spec authorize(module(), Scope.t(), Ecto.UUID.t(), DateTime.t()) ::
           :ok | {:error, :partner_access_required | :place_not_found}
   def authorize(repo, %Scope{} = scope, place_id, now) do
+    case authorized_organization(repo, scope, place_id, now) do
+      {:ok, _organization_id} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @spec authorized_organization(module(), Scope.t(), Ecto.UUID.t(), DateTime.t()) ::
+          {:ok, Ecto.UUID.t()} | {:error, :partner_access_required | :place_not_found}
+  def authorized_organization(repo, %Scope{} = scope, place_id, now) do
     with :ok <- Authorization.authorize(repo, scope, :manage_own_places, now),
-         true <- assigned_place?(repo, scope, place_id, now) do
-      :ok
+         organization_id when is_binary(organization_id) <-
+           assigned_organization(repo, scope, place_id, now) do
+      {:ok, organization_id}
     else
-      false -> {:error, :place_not_found}
+      nil -> {:error, :place_not_found}
       {:error, :partner_access_required} = error -> error
     end
   end
@@ -34,15 +44,14 @@ defmodule Clubeira.Directory.PartnerPlaceAccess do
     |> distinct(true)
   end
 
-  defp assigned_place?(repo, scope, place_id, now) do
+  defp assigned_organization(repo, scope, place_id, now) do
     scope
     |> active_assignments_query(now)
     |> where([assignment: assignment], assignment.place_id == ^place_id)
-    |> select([assignment: assignment], assignment.id)
+    |> select([assignment: assignment], assignment.organization_id)
     |> limit(1)
     |> lock("FOR SHARE")
     |> repo.one()
-    |> is_binary()
   end
 
   defp active_assignments_query(scope, now) do
