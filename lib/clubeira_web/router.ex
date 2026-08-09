@@ -107,6 +107,7 @@ defmodule ClubeiraWeb.Router do
     get "/polos/:polo_slug/checkout-options", CatalogController, :checkout_options
     get "/polos/:polo_slug/places", PlaceController, :index
     get "/polos/:polo_slug/places/:place_id/reviews", ReviewController, :index
+    get "/polos/:polo_slug/review-media/:media_id", ReviewMediaController, :show
     get "/legal/registration", LegalController, :registration
     post "/polos/:polo_slug/redemptions", RedemptionConfirmationController, :create
     post "/webhooks/mercado-pago/:merchant_account_id", PaymentWebhookController, :mercado_pago
@@ -117,12 +118,59 @@ defmodule ClubeiraWeb.Router do
 
     delete "/auth/session", AuthSessionController, :delete
     get "/me", AccountController, :show
+    get "/me/profile", ProfileController, :show
+    put "/me/profile", ProfileController, :update
+    get "/me/privacy/consents", PrivacyController, :index_consents
+    put "/me/privacy/consents/:purpose_code", PrivacyController, :update_consent
+    get "/me/privacy/requests", PrivacyController, :index_requests
+    post "/me/privacy/requests", PrivacyController, :create_request
+
+    get "/platform/privacy/processing-purposes",
+        PlatformPrivacyController,
+        :index_processing_purposes
+
+    put "/platform/privacy/processing-purposes/:purpose_code",
+        PlatformPrivacyController,
+        :put_processing_purpose
+
+    get "/platform/privacy/requests", PlatformPrivacyController, :index_requests
+
+    post "/platform/privacy/requests/:request_id/transitions",
+         PlatformPrivacyController,
+         :transition_request
+
+    get "/platform/billing/plans", PlatformBillingPlanController, :index
+
+    put "/platform/billing/plans/:plan_code/versions/:version",
+        PlatformBillingPlanController,
+        :put_version
+
     get "/me/subscriptions", SubscriptionController, :index
+    get "/polos/:polo_slug/me/billing", BillingAgreementController, :index
     post "/polos/:polo_slug/orders", CheckoutController, :create
     post "/polos/:polo_slug/orders/:order_id/payment-intents", PaymentIntentController, :create
+
+    post "/polos/:polo_slug/orders/:order_id/billing-agreements",
+         BillingAgreementController,
+         :create
+
+    post "/polos/:polo_slug/backoffice/platform-subscription",
+         PlatformSubscriptionController,
+         :create
+
+    get "/polos/:polo_slug/backoffice/platform-billing",
+        PlatformBillingController,
+        :show
+
     post "/polos/:polo_slug/me/redemption-devices", RedemptionDeviceController, :create
+    get "/me/devices/:device_id/key", DeviceKeyController, :show
+    put "/me/devices/:device_id/key", DeviceKeyController, :update
     post "/polos/:polo_slug/me/redemption-grants", RedemptionGrantController, :create
     post "/polos/:polo_slug/places/:place_id/reviews", ReviewController, :create
+
+    post "/polos/:polo_slug/places/:place_id/reviews/:review_id/media",
+         ReviewMediaController,
+         :create
 
     post "/polos/:polo_slug/places/:place_id/reviews/:review_id/reports",
          ReviewReportController,
@@ -168,11 +216,27 @@ defmodule ClubeiraWeb.Router do
          BackofficeProductOfferingLifecycleController,
          :create
 
+    get "/polos/:polo_slug/backoffice/partner-agreements",
+        BackofficePartnerAgreementController,
+        :index
+
+    post "/polos/:polo_slug/backoffice/partner-agreements",
+         BackofficePartnerAgreementController,
+         :create
+
+    get "/polos/:polo_slug/backoffice/partner-agreements/:agreement_id",
+        BackofficePartnerAgreementController,
+        :show
+
     get "/polos/:polo_slug/backoffice/payments", BackofficePaymentController, :index
 
     get "/polos/:polo_slug/backoffice/subscriptions",
         BackofficeSubscriptionController,
         :index
+
+    post "/polos/:polo_slug/backoffice/subscriptions/:contract_id/lifecycle-actions",
+         BackofficeSubscriptionLifecycleController,
+         :create
 
     post "/polos/:polo_slug/backoffice/payments/:payment_id/refunds",
          BackofficePaymentRefundController,
@@ -210,6 +274,10 @@ defmodule ClubeiraWeb.Router do
          :create_action
 
     get "/polos/:polo_slug/partner/places", PartnerPlaceController, :index
+
+    put "/polos/:polo_slug/partner/reviews/:review_id/response",
+        PartnerReviewResponseController,
+        :update
 
     put "/polos/:polo_slug/partner/places/:place_id/profile",
         BackofficePlaceProfileController,
