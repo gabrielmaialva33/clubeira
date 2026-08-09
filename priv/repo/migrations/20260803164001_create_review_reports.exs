@@ -17,7 +17,9 @@ defmodule Clubeira.Repo.Migrations.CreateReviewReports do
              name: :review_reports_open_uidx
            )
 
-    create index(:review_reports, [:status, :inserted_at])
+    create index(:review_reports, [:status, :inserted_at, :id],
+             name: :review_reports_status_keyset_idx
+           )
 
     create constraint(:review_reports, :review_reports_status_check,
              check: "status IN ('open', 'accepted', 'rejected', 'closed')"

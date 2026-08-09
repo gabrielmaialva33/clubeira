@@ -15,7 +15,11 @@ defmodule Clubeira.Repo.Migrations.CreateModerationActions do
     end
 
     create index(:moderation_actions, [:review_id, :occurred_at])
-    create index(:moderation_actions, [:review_report_id])
+
+    create unique_index(:moderation_actions, [:review_report_id],
+             where: "review_report_id IS NOT NULL",
+             name: :moderation_actions_review_report_uidx
+           )
 
     create constraint(:moderation_actions, :moderation_actions_action_check,
              check:
