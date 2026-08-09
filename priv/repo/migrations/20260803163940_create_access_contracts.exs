@@ -67,6 +67,14 @@ defmodule Clubeira.Repo.Migrations.CreateAccessContracts do
     create index(:access_contracts, [:polo_id, :product_offering_version_id])
     create index(:access_contracts, [:billing_agreement_id])
 
+    create index(:access_contracts, [:polo_id, :inserted_at, :id],
+             name: :access_contracts_backoffice_feed_idx
+           )
+
+    create index(:access_contracts, [:polo_id, :status, :inserted_at, :id],
+             name: :access_contracts_backoffice_status_feed_idx
+           )
+
     create constraint(:access_contracts, :access_contracts_status_check,
              check:
                "status IN ('pending', 'active', 'past_due', 'suspended', 'cancelled', 'expired')"

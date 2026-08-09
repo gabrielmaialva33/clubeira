@@ -30,6 +30,7 @@ defmodule Clubeira.Repo.Migrations.CreateProductOfferings do
       add :scope_kind, :text, null: false
       add :sales_channel, :text, null: false, default: "direct"
       add :status, :text, null: false, default: "draft"
+      add :revision, :integer, null: false, default: 1
 
       timestamps(@timestamps_opts)
     end
@@ -41,6 +42,18 @@ defmodule Clubeira.Repo.Migrations.CreateProductOfferings do
            )
 
     create index(:product_offerings, [:edition_id])
+
+    create index(:product_offerings, [:polo_id, :inserted_at, :id],
+             name: :product_offerings_backoffice_feed_idx
+           )
+
+    create index(:product_offerings, [:polo_id, :status, :inserted_at, :id],
+             name: :product_offerings_backoffice_status_feed_idx
+           )
+
+    create constraint(:product_offerings, :product_offerings_revision_check,
+             check: "revision > 0"
+           )
 
     create constraint(:product_offerings, :product_offerings_scope_check,
              check:
