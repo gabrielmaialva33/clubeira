@@ -75,36 +75,38 @@ flowchart LR
 
 | Domínio | Entregue |
 |:--|:--|
-| 🔐 **Identidade** | cadastro atômico com aceite legal, confirmação de e-mail por token opaco, Argon2id, sessão bearer revogável e rate limit por global/IP/identidade |
+| 🔐 **Identidade e LGPD** | cadastro atômico com aceite legal, perfil civil com CPF/telefone cifrados e write-only, consentimentos versionados, solicitações do titular, confirmação de e-mail, sessão bearer revogável e rate limit |
 | 🗺️ **Descoberta** | diretório público com perfil, contato, categorias e horários do parceiro, catálogo comercial e opções de checkout — tudo paginado por cursor |
-| 🏪 **Parceiros** | onboarding, acesso operacional por estabelecimento, perfil próprio e lifecycle administrativo até revogação/aposentadoria terminal, com idempotência, auditoria, evento e outbox atômicos |
-| 🛒 **Venda** | checkout idempotente, histórico do membro e feed financeiro administrativo paginados, Pix via Mercado Pago e reembolso integral; webhooks HMAC sempre releem a order no PSP |
+| 🏪 **Parceiros** | onboarding, convênio comercial completo, acesso operacional por estabelecimento, perfil próprio e lifecycle administrativo até revogação/aposentadoria terminal, com idempotência, auditoria, evento e outbox atômicos |
+| 🛒 **Venda** | checkout idempotente, Pix e assinatura recorrente via Mercado Pago, histórico do membro, cobrança administrativa, reembolso integral e chargeback; webhooks HMAC sempre releem o recurso no PSP |
 | 🏦 **Recebimento** | contas globais vinculadas por vigência a cada polo, com integridade referencial entre tenant e conta |
-| 📜 **Assinatura** | planos, contratos, ciclos e alocações de benefício independentes por polo |
-| ✅ **Resgate** | enrollment sem persistir segredo, grant assinado e curto, lifecycle administrativo do ponto, rotação e revogação da credencial, consumo atômico com anti-replay, ledger, auditoria, evento e outbox |
-| ⭐ **UGC** | avaliações verificadas, publicação, denúncia, resolução pós-publicação append-only e feed público só do que continua publicado |
-| 🧪 **Base** | 145 migrations, seeds determinísticas, factories, RLS forçado, E2E HTTP por TCP e testes de concorrência contra bancos isolados reais |
+| 📜 **Assinatura** | planos, contratos, ciclos e alocações por polo, pausa/retomada operacional e renovação aprovada sem reinterpretar versões históricas |
+| ✅ **Resgate** | enrollment sem persistir segredo, chave Ed25519 do dispositivo com prova de posse, grant assinado e curto, lifecycle do ponto, consumo atômico com anti-replay, ledger, auditoria, evento e outbox |
+| ⭐ **UGC** | avaliações verificadas, mídia validada pelo storage, resposta versionada do parceiro, denúncia, moderação append-only e feed público consistente |
+| 🧾 **Plataforma** | catálogo versionado de planos e features, assinatura SaaS do polo, nota, itens e pagamento liquidados por webhook autenticado |
+| 🧪 **Base** | migrations reversíveis, seeds determinísticas, factories, RLS forçado, E2E HTTP por TCP e testes de concorrência contra bancos isolados reais |
 
 O fluxo de venda implementado no domínio é:
 
 ```text
 checkout autenticado
   -> pedido aguardando pagamento
-  -> captura autenticada pelo adaptador do provedor
+  -> Pix ou acordo recorrente criado pelo adaptador do provedor
+  -> captura ou cobrança recorrente autenticada e relida no PSP
   -> pagamento e pedido liquidado
   -> contrato e ciclo de benefício
   -> alocações de vouchers
-  -> reembolso integral opcional
-  -> cancelamento do contrato/ciclo e revogação do saldo restante
+  -> renovação cria nota, novo ciclo e novas alocações
+  -> reembolso integral ou chargeback perdido revoga o saldo restante
 ```
 
 A liquidação persiste esse resultado de forma atômica e aceita reprocessamento
-seguro. A primeira borda real de PSP usa a Orders API do Mercado Pago para Pix;
-payload bruto termina no adaptador e o core recebe somente uma captura
-normalizada depois da assinatura e do estado remoto serem verificados. O
-reembolso integral reserva identidade local antes do I/O e só revoga direitos
-após confirmação do PSP. Cartão, reembolso parcial e chargeback continuam
-fatias separadas. A API online de resgate já
+seguro. Pix usa a Orders API; recorrência usa `preapproval` e
+`authorized_payments`; chargeback usa sua consulta oficial. O payload bruto
+termina no adaptador e o core recebe somente evidência normalizada depois da
+assinatura e do estado remoto serem verificados. O reembolso integral reserva
+identidade local antes do I/O e só revoga direitos após confirmação do PSP.
+Cartão e reembolso parcial continuam fatias separadas. A API online de resgate já
 entrega o grant que um cliente pode renderizar como QR; placard estático,
 operação offline e o componente visual de leitura continuam bordas próprias.
 
@@ -342,21 +344,33 @@ docker compose stop
 | `POST` | `/api/v1/auth/password-resets` | 🌐 |
 | `DELETE` | `/api/v1/auth/session` | 🔑 |
 | `GET` | `/api/v1/me` | 🔑 |
+| `GET` | `/api/v1/me/profile` | 🔑 |
+| `PUT` | `/api/v1/me/profile` | 🔑 |
+| `GET` | `/api/v1/me/privacy/consents` | 🔑 |
+| `PUT` | `/api/v1/me/privacy/consents/:purpose_code` | 🔑 |
+| `GET` | `/api/v1/me/privacy/requests` | 🔑 |
+| `POST` | `/api/v1/me/privacy/requests` | 🔑 |
 | `GET` | `/api/v1/polos/:slug/catalog` | 🌐 |
 | `GET` | `/api/v1/polos/:slug/checkout-options` | 🌐 |
 | `GET` | `/api/v1/polos/:slug/places` | 🌐 |
 | `GET` | `/api/v1/polos/:slug/places/:place_id/reviews` | 🌐 |
+| `GET` | `/api/v1/polos/:slug/review-media/:media_id` | 🌐 |
 | `POST` | `/api/v1/polos/:slug/redemptions` | 🏪 |
 | `POST` | `/api/v1/webhooks/mercado-pago/:merchant_account_id` | 🔏 |
 | `GET` | `/api/v1/me/subscriptions` | 🔑 |
+| `GET` | `/api/v1/polos/:slug/me/billing` | 🔑 |
 | `POST` | `/api/v1/polos/:slug/orders` | 🔑 |
 | `POST` | `/api/v1/polos/:slug/orders/:order_id/payment-intents` | 🔑 |
+| `POST` | `/api/v1/polos/:slug/orders/:order_id/billing-agreements` | 🔑 |
 | `GET` | `/api/v1/polos/:slug/me/orders` | 🔑 |
 | `GET` | `/api/v1/polos/:slug/me/vouchers` | 🔑 |
 | `POST` | `/api/v1/polos/:slug/me/redemption-devices` | 🔑 |
+| `GET` | `/api/v1/me/devices/:device_id/key` | 🔑 |
+| `PUT` | `/api/v1/me/devices/:device_id/key` | 🔑 |
 | `POST` | `/api/v1/polos/:slug/me/redemption-grants` | 🔑 |
 | `GET` | `/api/v1/polos/:slug/me/redemptions` | 🔑 |
 | `POST` | `/api/v1/polos/:slug/places/:place_id/reviews` | 🔑 |
+| `POST` | `/api/v1/polos/:slug/places/:place_id/reviews/:review_id/media` | 🔑 |
 | `POST` | `/api/v1/polos/:slug/places/:place_id/reviews/:review_id/reports` | 🔑 |
 | `POST` | `/api/v1/polos/:slug/backoffice/partners` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/places/:place_id/partner-accesses` | 🛡️ |
@@ -369,9 +383,15 @@ docker compose stop
 | `GET` | `/api/v1/polos/:slug/backoffice/product-offerings` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/product-offerings` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/product-offerings/:product_offering_id/lifecycle-actions` | 🛡️ |
+| `GET` | `/api/v1/polos/:slug/backoffice/partner-agreements` | 🛡️ |
+| `POST` | `/api/v1/polos/:slug/backoffice/partner-agreements` | 🛡️ |
+| `GET` | `/api/v1/polos/:slug/backoffice/partner-agreements/:agreement_id` | 🛡️ |
 | `GET` | `/api/v1/polos/:slug/backoffice/payments` | 🛡️ |
 | `GET` | `/api/v1/polos/:slug/backoffice/subscriptions` | 🛡️ |
+| `POST` | `/api/v1/polos/:slug/backoffice/subscriptions/:contract_id/lifecycle-actions` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/payments/:payment_id/refunds` | 🛡️ |
+| `POST` | `/api/v1/polos/:slug/backoffice/platform-subscription` | 🛡️ |
+| `GET` | `/api/v1/polos/:slug/backoffice/platform-billing` | 🛡️ |
 | `GET` | `/api/v1/polos/:slug/backoffice/validation-points` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/places/:place_id/validation-points` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/validation-points/:validation_point_id/lifecycle-actions` | 🛡️ |
@@ -382,9 +402,16 @@ docker compose stop
 | `GET` | `/api/v1/polos/:slug/backoffice/review-reports` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/review-reports/:review_report_id/moderation-actions` | 🛡️ |
 | `GET` | `/api/v1/polos/:slug/partner/places` | 🤝 |
+| `PUT` | `/api/v1/polos/:slug/partner/reviews/:review_id/response` | 🤝 |
 | `PUT` | `/api/v1/polos/:slug/partner/places/:place_id/profile` | 🤝 |
+| `GET` | `/api/v1/platform/privacy/processing-purposes` | 🧭 |
+| `PUT` | `/api/v1/platform/privacy/processing-purposes/:purpose_code` | 🧭 |
+| `GET` | `/api/v1/platform/privacy/requests` | 🧭 |
+| `POST` | `/api/v1/platform/privacy/requests/:request_id/transitions` | 🧭 |
+| `GET` | `/api/v1/platform/billing/plans` | 🧭 |
+| `PUT` | `/api/v1/platform/billing/plans/:plan_code/versions/:version` | 🧭 |
 
-🌐 público · 🔑 bearer do membro · 🏪 credencial do ponto de validação · 🔏 HMAC do PSP · 🛡️ membership administrativo · 🤝 parceiro atribuído ao estabelecimento; cada rota relê sua capacidade no banco
+🌐 público · 🔑 bearer do membro · 🏪 credencial do ponto de validação · 🔏 HMAC do PSP · 🛡️ membership administrativo · 🤝 parceiro atribuído ao estabelecimento · 🧭 role global da plataforma; cada rota relê sua capacidade no banco
 
 Mensagens humanas de erro negociam `Accept-Language` com pesos `q`: `pt-BR` e
 `en` são suportados, idiomas desconhecidos caem deterministicamente em inglês
@@ -820,7 +847,7 @@ alterar a configuração versionada.
 | `credo --strict` | consistência e code smells |
 | `deps.audit` + `hex.audit` | CVE e pacotes retirados |
 | `sobelow --config` | análise estática de segurança Phoenix |
-| `test --cover` | 475 testes e cobertura backend >= 90%, incluindo E2E HTTP por TCP, RLS e concorrência real |
+| `test --cover` | cobertura backend >= 90%, incluindo E2E HTTP por TCP, RLS e concorrência real |
 
 ---
 
@@ -862,10 +889,17 @@ alterar a configuração versionada.
 | Outbox com HMAC, retry e dead-letter | ✅ |
 | Recuperação de senha por e-mail | ✅ |
 | Verificação de e-mail + reenvio autenticado | ✅ |
-| Cartão, reembolso parcial e chargeback | ⏳ |
-| Renovação automática | ⏳ |
+| Perfil civil cifrado e consentimentos/solicitações LGPD | ✅ |
+| Convênios comerciais com escopo completo | ✅ |
+| Renovação automática aprovada do membro | ✅ |
+| Chargeback autenticado e relido no PSP | ✅ |
+| Pausa e retomada operacional do contrato | ✅ |
+| Planos e cobrança SaaS do polo | ✅ |
+| Chave Ed25519 do dispositivo com prova de posse | ✅ |
+| Mídia e resposta versionada do parceiro em avaliações | ✅ |
+| Cartão e reembolso parcial | ⏳ |
+| Falha, inadimplência e cancelamento remoto da recorrência | ⏳ |
 | QR estático, placard e modo offline | ⏳ |
-| Mídia e resposta do parceiro em avaliações | ⏳ |
 
 <details>
 <summary><strong>📋 Limites atuais, na íntegra</strong></summary>
@@ -880,6 +914,12 @@ alterar a configuração versionada.
 - `GET /api/v1/me` relê a conta autenticada e devolve identidade, estado da
   verificação de e-mail e expiração da sessão sem depender do DTO antigo do
   login;
+- `GET/PUT /api/v1/me/profile` mantém a pessoa civil separada da autenticação;
+  CPF e telefone entram somente como escrita cifrada, enquanto a resposta
+  devolve apenas presença, tipo e estado de verificação. As rotas de privacidade
+  mantêm a linha do tempo append-only de consentimento e pedidos LGPD
+  idempotentes por `client_request_id`; a fila global e suas transições exigem
+  `privacy_officer` ou `platform_admin` vigente;
 - `POST /api/v1/auth/password-reset-requests` responde sempre `202` para não
   revelar contas, entrega por e-mail um token opaco de 30 minutos e revoga a
   solicitação anterior; `POST /api/v1/auth/password-resets` consome o token uma
@@ -889,8 +929,14 @@ alterar a configuração versionada.
 - `POST /api/v1/polos/:polo_slug/orders/:order_id/payment-intents` inicia Pix
   somente para o comprador autenticado e exige `Idempotency-Key`;
 - `POST /api/v1/webhooks/mercado-pago/:merchant_account_id` autentica a
-  assinatura do tópico Order e confirma captura ou reembolso pela API do
-  provedor;
+  assinatura, exige identidade consistente entre query e body e relê no
+  provedor Orders, cobranças autorizadas de assinatura ou chargebacks antes de
+  normalizar qualquer transição;
+- `POST /api/v1/polos/:polo_slug/orders/:order_id/billing-agreements` cria um
+  `preapproval` somente para pedido do ator com `renewal_policy=automatic`.
+  Cada `authorized_payment` aprovado gera nota do consumidor, pagamento, novo
+  ciclo, alocações, auditoria, evento e outbox atomicamente; a leitura
+  `/me/billing` expõe somente o histórico financeiro do próprio ator;
 - `GET /api/v1/polos/:polo_slug/backoffice/payments` exige `admin`, pagina por
   `inserted_at + id` e filtra por status ou número exato do pedido; retorna IDs
   e estados operacionais sem motivo, chave idempotente ou referência externa;
@@ -899,6 +945,10 @@ alterar a configuração versionada.
   versão comercial imutável; agrega pedido, configuração capturada, ciclo
   corrente e saldo emitido, disponível e consumido, sem expor e-mail,
   documento, acordo de cobrança, idempotência ou referência externa do PSP;
+- `POST /api/v1/polos/:polo_slug/backoffice/subscriptions/:contract_id/lifecycle-actions`
+  serializa `suspend` e `reactivate` sob lock, registra a faixa temporal de
+  suspensão e mantém contrato, ciclos, auditoria, evento, outbox e resposta
+  idempotente na mesma transação;
 - `POST /api/v1/polos/:polo_slug/backoffice/payments/:payment_id/refunds`
   exige `admin`, motivo e `Idempotency-Key`, executa somente estorno integral e
   nunca aceita valor, conta ou referência externa do cliente;
@@ -978,6 +1028,10 @@ alterar a configuração versionada.
   e `retire` é terminal, sem reescrever versões ou invalidar pedidos históricos;
   transições concorrentes serializam sob lock, incrementam uma revisão
   monotônica e confirmam audit, evento, outbox e replay na mesma transação;
+- as rotas `backoffice/partner-agreements` publicam e leem o convênio inteiro:
+  termos versionados, organizações, marcas, polo, lugares, edição e versões de
+  benefício. Todas as dimensões são revalidadas no mesmo polo e o grafo nasce
+  atomicamente com idempotência, auditoria, evento e outbox;
 - `POST /api/v1/polos/:polo_slug/backoffice/places/:place_id/validation-points`
   exige `admin` e `Idempotency-Key`, relê a participação ativa e cria ponto mais
   credencial atomicamente; recebe somente o SHA-256 da chave gerada pelo cliente,
@@ -1004,6 +1058,14 @@ alterar a configuração versionada.
   e sua autoria, polo e lugar são revalidados sob RLS;
 - `GET /api/v1/polos/:polo_slug/places/:place_id/reviews` lista somente
   avaliações publicadas daquele lugar e polo, com paginação keyset;
+- mídia de review só é registrada enquanto a avaliação autenticada está
+  pendente e depois que um control plane confiável confirma tipo, tamanho,
+  dimensões e SHA-256 imutável do objeto; o feed público expõe metadados seguros
+  e a rota de entrega redireciona para a URL construída pelo adaptador, nunca
+  para uma URL arbitrária recebida do cliente;
+- `PUT /api/v1/polos/:polo_slug/partner/reviews/:review_id/response` exige a
+  afiliação vigente exatamente ao lugar avaliado e preserva cada edição em
+  `review_response_revisions`; somente a revisão atual publicada entra no feed;
 - `GET /api/v1/polos/:polo_slug/backoffice/reviews` entrega a fila ao papel
   `review_moderator` ou `admin`; o endpoint de `moderation-actions` publica ou
   rejeita sob lock, idempotência, auditoria, evento e outbox;
@@ -1020,6 +1082,10 @@ alterar a configuração versionada.
   bem-sucedidos do membro no polo e expõe o vínculo com sua avaliação do lugar;
 - `POST /api/v1/polos/:polo_slug/me/redemption-devices` autoriza uma instalação
   para o contrato sem confiar em `device_id` externo;
+- `GET/PUT /api/v1/me/devices/:device_id/key` registra ou rotaciona uma chave
+  Ed25519 somente após verificar uma assinatura de prova de posse vinculada ao
+  usuário, instalação e chave. A chave privada e o token de instalação nunca são
+  persistidos nem retornados;
 - `POST /api/v1/polos/:polo_slug/me/redemption-grants` emite a autorização
   assinada e curta do membro; `POST /api/v1/polos/:polo_slug/redemptions`
   autentica o ponto de validação e consome o nonce sob idempotência;
@@ -1030,20 +1096,23 @@ alterar a configuração versionada.
 - a outbox é persistida atomicamente e o worker opcional entrega envelopes por
   HTTPS com HMAC, deduplicação por `event_id`, retry exponencial, lease
   recuperável e dead-letter;
-- edição, mídia e respostas do parceiro em avaliações continuam como fatias
-  próprias;
+- `platform/billing/plans` exige uma role global da organização plataforma e
+  publica versões, features tipadas e preço temporal sem reinterpretar versões
+  anteriores. O admin financeiro do polo inicia a assinatura SaaS e acompanha
+  assinatura, notas, itens e pagamentos; o webhook relido no PSP liquida o
+  grafo tenant-aware atomicamente;
 - a taxonomia global é curada por migration/seed e ainda não possui API de
   administração; fotos do estabelecimento continuam uma fatia própria com sua
   futura borda de armazenamento;
 - a API comercial publica somente a configuração inicial direta, evergreen e
-  de assinatura, com uma versão, um preço e `renewal_policy = none`; novas
-  versões, edições, múltiplos preços/canais e renovação continuam fronteiras
-  próprias para não reescrever configuração histórica;
+  de assinatura, com uma versão e um preço; aceita `renewal_policy` `none`,
+  `manual` ou `automatic`. Novas versões, edições e múltiplos preços/canais
+  continuam fronteiras próprias para não reescrever configuração histórica;
 - vincular uma organização já existente a uma nova unidade ou polo exige uma
   borda própria, com autorização explícita sobre essa identidade global;
-- renovação automática, cartão, reembolso parcial e chargeback ainda não fazem
-  parte do fluxo operacional; por isso factories e seeds anunciam
-  `renewal_policy = none`.
+- cartão e reembolso parcial continuam fora do fluxo. Recorrência cobre criação
+  e cobrança aprovada; falha, inadimplência, cancelamento remoto e troca de meio
+  de pagamento continuam bordas explícitas, sem fallback que conceda benefício.
 
 </details>
 

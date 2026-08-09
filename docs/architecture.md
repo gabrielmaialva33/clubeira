@@ -265,6 +265,20 @@ código e lugar rodam sob a mesma RLS; um `place_id` externo é apenas filtro e
 nunca autorização. Lugares deixam explícitos tanto o estado global quanto o da
 participação local, e versões históricas não são reescritas pela leitura.
 
+### Convênios comerciais
+
+`POST /api/v1/polos/:slug/backoffice/partner-agreements` publica um convênio
+executável, não somente seu cabeçalho. O comando exige `manage_partners`, valida
+sob RLS organização operadora, propriedade da marca, participação do lugar,
+edição e versões publicadas dos benefícios, e cria acordo, termo `v1` e os seis
+vínculos de escopo na mesma transação. FKs compostas repetem `polo_id` nos
+vínculos tenant-aware; um UUID de outra cidade não atravessa a fronteira.
+
+Validade e termos são imutáveis para o histórico. `agreement_number` e
+`Idempotency-Key` arbitram colisões e replay; acordo, auditoria, evento, outbox e
+DTO confirmam juntos. Listagem e detalhe partem do polo autenticado e nunca usam
+um vínculo recebido como autorização.
+
 ### Publicação administrativa comercial
 
 `POST /api/v1/polos/:slug/backoffice/product-offerings` publica a menor unidade
@@ -281,7 +295,9 @@ o `tstzrange` da configuração comercial. O escopo é derivado da união dos
 lugares válidos, e políticas ainda não implementadas no provisioner não são
 aceitas como opção configurável. Neste primeiro corte, a oferta é direta,
 evergreen, ativada pela confirmação do pagamento, com um beneficiário,
-`shared_contract` e `renewal_policy = none`.
+`shared_contract`; `renewal_policy` pode ser `none`, `manual` ou `automatic`.
+Somente `automatic` habilita a criação do acordo recorrente, sem alterar o
+significado de versões já publicadas.
 
 A reserva idempotente acontece antes da leitura das referências para que uma
 rejeição seja reproduzível. A montagem inteira do grafo usa um savepoint único:
@@ -395,6 +411,20 @@ executar a limpeza sem coordenação exclusiva. O padrão é manter 30 dias apó
 expiração, consumo ou revogação e pode ser reduzido conforme a política LGPD;
 tokens crus nunca são persistidos.
 
+`persons` é criada lazily pela API de perfil e vinculada ao usuário por
+`user_person_links`. CPF e telefone passam por validação canônica, são cifrados
+com chave versionada e recebem um HMAC de lookup separado; o valor claro nunca
+volta pela API. RLS de ator protege pessoa, identificadores e contatos. O mesmo
+`ActorScope` protege `device_keys`: uma chave Ed25519 só entra depois que a
+assinatura de prova de posse vincula usuário, instalação e chave pública.
+
+Consentimento é uma linha do tempo append-only, não um boolean sobrescrito. Um
+evento referencia simultaneamente finalidade e versão legal compatíveis por FK
+composta. Pedidos LGPD usam `client_request_id` UUIDv7 como identidade
+idempotente do titular; o backoffice global exige membership vigente numa
+organização `platform` com role `privacy_officer` ou `platform_admin`, serializa
+cada transição e preserva eventos e auditoria de sistema.
+
 As bordas iniciais são:
 
 - `POST /api/v1/auth/registrations` — cria conta e primeira sessão atomicamente;
@@ -410,6 +440,9 @@ As bordas iniciais são:
 - `DELETE /api/v1/auth/session` — revoga a sessão corrente;
 - `GET /api/v1/me` — relê identidade, verificação de e-mail e validade da
   sessão autenticada;
+- `GET/PUT /api/v1/me/profile` — lê ou substitui o perfil civil do próprio ator
+  sem devolver CPF ou telefone;
+- `/api/v1/me/privacy/*` — mantém consentimentos e pedidos do titular;
 - `GET /api/v1/polos/:slug/checkout-options` — lista as combinações comerciais
   públicas atualmente provisionáveis para o polo;
 - `GET /api/v1/polos/:slug/places` — pagina o diretório comercial público do
@@ -419,6 +452,10 @@ As bordas iniciais são:
   tenant;
 - `POST /api/v1/polos/:slug/orders/:order_id/payment-intents` — inicia o Pix
   do próprio comprador e devolve somente a ação normalizada para pagamento;
+- `POST /api/v1/polos/:slug/orders/:order_id/billing-agreements` — inicia a
+  assinatura recorrente somente quando a versão comprada permite renovação
+  automática;
+- `GET /api/v1/polos/:slug/me/billing` — relê acordos e notas somente do ator;
 - `GET /api/v1/polos/:slug/me/orders` — pagina os pedidos do ator naquele polo,
   incluindo os itens e preços históricos;
 - `GET /api/v1/polos/:slug/me/redemptions` — pagina os resgates confirmados do
@@ -524,9 +561,34 @@ sem ciclo corrente e sem saldo operacional. E-mail, documentos, billing
 agreement, chaves idempotentes e referências externas do PSP não entram no DTO.
 
 Reembolso parcial não é aproximado por redução de saldo: ele permanece fora do
-contrato até existir política de produto para benefício já consumido. Chargeback,
-cartão e renovação automática continuam bordas próprias; chargeback não é
-declarado operacional enquanto o único meio suportado for Pix.
+contrato até existir política de produto para benefício já consumido. Cartão
+também continua uma borda própria.
+
+Recorrência começa com uma reserva local idempotente e cria `preapproval` fora
+da transação. O webhook `subscription_authorized_payment` é autenticado, relê
+`/authorized_payments/:id` e só então normaliza uma cobrança aprovada. Sob lock
+do acordo e do contrato, a liquidação cria `consumer_invoice`, `payment`, novo
+ciclo, sujeitos e alocações, avança o período do acordo e registra provider
+event, auditoria, evento e outbox na mesma transação. O timestamp remoto é
+evidência; início e fim do novo ciclo partem do relógio transacional e da
+política histórica contratada. Falha, inadimplência, cancelamento remoto e troca
+de meio de pagamento continuam transições explícitas ainda não implementadas.
+
+Chargeback usa o tópico oficial `topic_chargebacks_wh`; query e body precisam
+concordar, e o adaptador relê tanto o chargeback quanto o pagamento no PSP. A
+abertura suspende contrato e ciclos sem apagar saldo. `won` restaura apenas o
+acesso que esse chargeback suspendeu; `lost` marca o pagamento, encerra contrato
+e ciclos e revoga unidades ainda disponíveis com ledger append-only. Evento do
+provedor, `chargeback`, estados financeiros, direito de acesso, auditoria,
+evento e outbox são uma única decisão idempotente.
+
+A cobrança da própria plataforma forma um agregado separado da cobrança do
+membro. Roles globais `platform_billing_admin` ou `platform_admin` publicam
+planos, versões, features tipadas e preços temporais. O admin financeiro do polo
+inicia a assinatura SaaS usando uma merchant account global configurada pelo
+runtime. O mesmo webhook autenticado relê a cobrança autorizada e cria
+`platform_invoice`, itens, pagamento e período da assinatura sob RLS e FKs
+compostas. Nenhuma falha nessa cobrança concede ou remove benefício do membro.
 
 O histórico de resgates usa keyset decrescente sobre
 `redemption_attempts.requested_at + id`. Esse é também o índice composto por
@@ -564,7 +626,17 @@ idempotência, auditoria, evento e outbox na mesma transação. O motivo complet
 fica apenas no histórico de moderação e não vaza para audit/outbox.
 
 O feed público retorna somente reviews `published`, vinculados por seu resgate
-ao polo da rota, e sempre lê a revisão imutável mais recente.
+ao polo da rota, e sempre lê a revisão imutável mais recente. Mídia entra apenas
+enquanto a review está pendente e depois que um adaptador confiável confirma
+tipo, tamanho, dimensões e SHA-256 imutável do objeto. A entrega pública resolve
+o `storage_key` persistido numa URL do adaptador; o cliente nunca escolhe um
+redirect arbitrário.
+
+Uma organização operadora vigente pode publicar ou editar uma única resposta
+por review. Cada alteração acrescenta `review_response_revisions`; a identidade
+da resposta e a autoria histórica não são reescritas. A autorização exige ao
+mesmo tempo membership tenant `partner_manager`, membership da organização,
+atribuição ao lugar e relação operadora vigentes.
 
 Outro membro autenticado pode denunciar uma publicação por motivo estável. O
 comando prova review, lugar e polo pelo resgate de origem, impede autodenúncia e
@@ -580,8 +652,7 @@ persiste uma única `moderation_action` append-only e atualiza estado,
 idempotência, auditoria, eventos e outbox na mesma transação. O motivo completo
 da decisão permanece no histórico de moderação e no read model autorizado, não
 em audit/evento/outbox. Ocultação ou remoção corta o feed público sem apagar a
-revisão nem reinterpretar o resgate histórico. Edição, mídia e resposta do
-parceiro continuam bordas próprias.
+revisão nem reinterpretar o resgate histórico.
 
 `GET /api/v1/polos/:slug/me/redemptions` fornece ao cliente o
 `source_redemption_id` e o `place_id` necessários para essa submissão. Quando o
@@ -609,6 +680,13 @@ outro polo. Dentro do mesmo polo, uma oferta pode consumir somente o direito
 daquela unidade ou uma cota compartilhada entre unidades, conforme o item do
 pacote. O histórico aponta para versões imutáveis; publicar uma nova versão
 não reinterpreta ciclos antigos.
+
+Suspensão administrativa é um fato temporal próprio. O comando trava contrato,
+sequência de eventos e suspensão aberta, exige `manage_billing` e cria uma faixa
+`contract_suspensions.suspended_during` ligada por FK composta ao evento que a
+originou. Reativação fecha exatamente essa faixa e preserva a história. Estado,
+ciclos afetados, auditoria, evento, outbox e replay idempotente mudam juntos;
+cancelamento terminal não pode ser desfeito por essa borda.
 
 ## Transações críticas
 

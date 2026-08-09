@@ -25,10 +25,69 @@ if config_env() != :prod do
     http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 end
 
-if mercado_pago_accounts = System.get_env("MERCADO_PAGO_ACCOUNTS_JSON") do
-  config :clubeira, Clubeira.Billing.Gateways.MercadoPago,
-    accounts:
-      Clubeira.Billing.Gateways.MercadoPago.Configuration.parse_accounts!(mercado_pago_accounts)
+mercado_pago_options =
+  case System.get_env("MERCADO_PAGO_ACCOUNTS_JSON") do
+    nil ->
+      []
+
+    mercado_pago_accounts ->
+      [
+        accounts:
+          Clubeira.Billing.Gateways.MercadoPago.Configuration.parse_accounts!(
+            mercado_pago_accounts
+          )
+      ]
+  end
+
+mercado_pago_options =
+  case System.get_env("MERCADO_PAGO_SUBSCRIPTION_BACK_URL") do
+    nil ->
+      mercado_pago_options
+
+    _configured ->
+      Keyword.put(
+        mercado_pago_options,
+        :subscription_back_url,
+        Clubeira.RuntimeConfig.absolute_https_url!("MERCADO_PAGO_SUBSCRIPTION_BACK_URL")
+      )
+  end
+
+if mercado_pago_options != [] do
+  config :clubeira, Clubeira.Billing.Gateways.MercadoPago, mercado_pago_options
+end
+
+if System.get_env("PLATFORM_BILLING_MERCHANT_ACCOUNT_ID") do
+  config :clubeira, :platform_billing,
+    merchant_account_id: Clubeira.RuntimeConfig.uuid!("PLATFORM_BILLING_MERCHANT_ACCOUNT_ID")
+end
+
+review_media_environment =
+  ~w(
+    REVIEW_MEDIA_VERIFICATION_URL
+    REVIEW_MEDIA_PUBLIC_BASE_URL
+    REVIEW_MEDIA_VERIFICATION_BEARER_TOKEN
+  )
+
+if Enum.any?(review_media_environment, &System.get_env/1) do
+  review_media_options = [
+    verification_url: Clubeira.RuntimeConfig.absolute_https_url!("REVIEW_MEDIA_VERIFICATION_URL"),
+    public_base_url: Clubeira.RuntimeConfig.absolute_https_url!("REVIEW_MEDIA_PUBLIC_BASE_URL")
+  ]
+
+  review_media_options =
+    case System.get_env("REVIEW_MEDIA_VERIFICATION_BEARER_TOKEN") do
+      nil ->
+        review_media_options
+
+      _configured ->
+        Keyword.put(
+          review_media_options,
+          :bearer_token,
+          Clubeira.RuntimeConfig.required_env!("REVIEW_MEDIA_VERIFICATION_BEARER_TOKEN")
+        )
+    end
+
+  config :clubeira, Clubeira.Reviews.MediaVerifiers.Http, review_media_options
 end
 
 if config_env() == :dev do

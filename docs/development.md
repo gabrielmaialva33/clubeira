@@ -43,8 +43,10 @@ As assinaturas demo passam pelos comandos reais `Billing.place_order/2` e
 `Billing.settle_payment/2`: pedido, intent, pagamento, evento do provedor,
 contrato, ciclo, alocações, auditoria, eventos e outbox nascem pela mesma
 fronteira transacional usada pela aplicação, em vez de serem montados à mão.
-As ofertas comerciais demo usam `renewal_policy = none`; renovação automática
-não é anunciada antes de existir seu comando e sua rotina operacional.
+As ofertas comerciais demo continuam com `renewal_policy = none` para não abrir
+uma assinatura externa durante `mix setup`. O backoffice já pode publicar uma
+oferta `automatic`; a jornada autenticada cria o `preapproval` e liquida cada
+cobrança aprovada pelo webhook relido no PSP.
 O backoffice usa `moderador.demo@clubeira.local` com a senha local
 `clubeira-moderador-local`; substitua por `CLUBEIRA_DEMO_MODERATOR_EMAIL` e
 `CLUBEIRA_DEMO_MODERATOR_PASSWORD` em ambientes compartilhados. Esse usuário
@@ -309,7 +311,7 @@ de leitura e recifragem que carregará também a chave anterior. A chave de look
 de unicidade global. A role migrator não precisa dessas chaves; elas são
 obrigatórias apenas no runtime de produção.
 
-## Mercado Pago Pix
+## Mercado Pago: Pix, recorrência e chargeback
 
 Configure as credenciais por conta em um único JSON. A chave externa precisa
 ser igual a `merchant_accounts.provider_account_reference`; no cenário demo é
@@ -322,6 +324,7 @@ export MERCADO_PAGO_ACCOUNTS_JSON='{
     "webhook_secret": "REPLACE_WITH_THE_ORDER_WEBHOOK_SECRET"
   }
 }'
+export MERCADO_PAGO_SUBSCRIPTION_BACK_URL='https://app.example.com/assinaturas/retorno'
 ```
 
 Configuração vazia, JSON inválido, token curto ou segredo menor que 32 bytes
@@ -336,15 +339,18 @@ export CLUBEIRA_DEMO_EMAIL='<payer_test_user>@testuser.com'
 mix db.reset
 ```
 
-Na aplicação do Mercado Pago, selecione o tópico **Order (Mercado Pago)** e
-configure a URL HTTPS abaixo com o UUID exibido pelas seeds:
+Na aplicação do Mercado Pago, selecione **Order (Mercado Pago)**,
+**Subscription authorized payment** e **Chargebacks** e configure a mesma URL
+HTTPS com o UUID exibido pelas seeds:
 
 ```text
 https://<host>/api/v1/webhooks/mercado-pago/<merchant_account_id>
 ```
 
-A integração segue a [Orders API](https://www.mercadopago.com.br/developers/pt/reference/online-payments/checkout-api/overview)
-e a validação oficial de [notificações Order](https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/notifications).
+A integração segue a [Orders API](https://www.mercadopago.com.br/developers/pt/reference/online-payments/checkout-api/overview),
+o recurso oficial de assinaturas e a validação de notificações do provedor.
+Todos os tópicos passam pela mesma autenticação HMAC, conferem a identidade
+entre URL e payload e releem o recurso remoto antes do core.
 Use o simulador do painel para provar `200`; uma captura real de sandbox ainda
 deve ser validada com credenciais próprias antes do deploy.
 
@@ -395,6 +401,48 @@ retorna conflito; uma rejeição definitiva fica estável e não altera a venda.
 Para validar a jornada completa, confirme no banco que `payments` e `orders`
 ficaram `refunded`, contrato/ciclo ficaram `cancelled` e somente o saldo
 remanescente recebeu lançamentos `refund_revocation`.
+
+Para uma oferta publicada com `renewal_policy=automatic`, crie primeiro o
+pedido e depois chame `POST .../orders/:order_id/billing-agreements` com
+`Idempotency-Key`. O retorno contém apenas o redirect hospedado pelo PSP. A
+notificação de `authorized_payment` cria a nota do consumidor e o ciclo; falha,
+inadimplência, cancelamento remoto e troca de meio ainda não têm transição
+operacional. Chargeback aberto suspende o acesso, ganho o restaura e perdido
+revoga somente o saldo ainda disponível.
+
+## Storage de mídia de avaliações
+
+O cliente envia apenas uma `storage_key` previamente carregada. O runtime exige
+um control plane que confirme metadados imutáveis antes do registro e uma base
+pública separada para a entrega:
+
+```sh
+export REVIEW_MEDIA_VERIFICATION_URL='https://storage.example.com/internal/media/verify'
+export REVIEW_MEDIA_PUBLIC_BASE_URL='https://cdn.example.com/reviews'
+export REVIEW_MEDIA_VERIFICATION_BEARER_TOKEN='<secret-opcional>'
+```
+
+As duas URLs precisam ser HTTPS e são configuradas em conjunto. O endpoint de
+verificação recebe `?key=...` e deve retornar `immutable=true`, `content_type`,
+`sha256` base64url, `size_bytes` e dimensões/duração coerentes. O bearer nunca
+entra no banco, resposta, auditoria ou URL pública.
+
+## Cobrança SaaS do polo
+
+Planos e features são globais e exigem uma membership vigente numa organização
+`kind=platform` com role `platform_billing_admin` ou `platform_admin`. A
+assinatura e suas notas continuam tenant-aware e exigem `manage_billing` no
+polo. Configure a conta global usada pela Clubeira para cobrar os polos:
+
+```sh
+export PLATFORM_BILLING_MERCHANT_ACCOUNT_ID='<merchant-account-uuid>'
+```
+
+O UUID precisa existir em `merchant_accounts` e ter credenciais no mesmo
+`MERCADO_PAGO_ACCOUNTS_JSON`. A criação do plano é um `PUT` versionado e
+repetível; preço futuro pode ser publicado sem entrar no catálogo corrente. A
+assinatura usa o mesmo `MERCADO_PAGO_SUBSCRIPTION_BACK_URL` e o webhook só
+liquida `platform_invoice`, itens e pagamento depois de reler a cobrança.
 
 ## Resgate online autenticado
 
@@ -650,11 +698,12 @@ falso positivo por conectar como administrador.
 
 `test/e2e/member_checkout_test.exs` sobe um Bandit supervisionado em porta
 efêmera e usa `Req` sobre TCP contra o endpoint real. O cenário atravessa health,
-login, checkout idempotente, criação Pix, webhook HMAC, liquidação, assinatura,
-carteira e histórico com PostgreSQL real. Somente a API remota do PSP termina em
-`Req.Test`; a borda HTTP da aplicação não é substituída. Ele roda dentro de
-`mix test` e não substitui os testes isolados de contrato nem uma validação
-futura contra o PSP em sandbox.
+cadastro, confirmação de e-mail, perfil cifrado, consentimento, pedido LGPD,
+checkout idempotente, criação Pix, webhook HMAC, liquidação, assinatura, chave
+Ed25519 do dispositivo, carteira, resgate, review, moderação e reembolso com
+PostgreSQL real. Somente a API remota do PSP termina em `Req.Test`; a borda HTTP
+da aplicação não é substituída. Ele roda dentro de `mix test` e não substitui os
+testes isolados de contrato nem uma validação futura contra o PSP em sandbox.
 
 ## Multi-tenancy no código
 

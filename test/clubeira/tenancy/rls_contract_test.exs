@@ -193,4 +193,21 @@ defmodule Clubeira.Tenancy.RlsContractTest do
                {:ok, Repo.aggregate(UserDeviceAuthorization, :count)}
              end)
   end
+
+  test "device public keys are protected by the owning actor's active authorization" do
+    assert %{rows: [[true, true, true]]} =
+             Repo.query!("""
+             SELECT
+               class.relrowsecurity,
+               class.relforcerowsecurity,
+               EXISTS (
+                 SELECT 1
+                 FROM pg_policy AS policy
+                 WHERE policy.polrelid = class.oid
+                   AND policy.polname = 'device_keys_actor_scope'
+               )
+             FROM pg_class AS class
+             WHERE class.oid = 'public.device_keys'::regclass
+             """)
+  end
 end

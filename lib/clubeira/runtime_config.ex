@@ -55,6 +55,16 @@ defmodule Clubeira.RuntimeConfig do
     end
   end
 
+  @spec uuid!(String.t()) :: Ecto.UUID.t()
+  def uuid!(name) do
+    value = required_env!(name)
+
+    case Ecto.UUID.cast(value) do
+      {:ok, uuid} -> uuid
+      :error -> raise "#{name} must be a UUID"
+    end
+  end
+
   @spec absolute_https_url!(String.t()) :: String.t()
   def absolute_https_url!(name) do
     value = required_env!(name)

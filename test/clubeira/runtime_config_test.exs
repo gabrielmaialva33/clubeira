@@ -3,7 +3,10 @@ defmodule Clubeira.RuntimeConfigTest do
 
   alias Clubeira.RuntimeConfig
 
-  @environment_variables ~w(DATABASE_CA_CERT_FILE DATABASE_SSL PHX_HOST POOL_SIZE)
+  @environment_variables ~w(
+    DATABASE_CA_CERT_FILE DATABASE_SSL PHX_HOST PLATFORM_BILLING_MERCHANT_ACCOUNT_ID POOL_SIZE
+    REVIEW_MEDIA_PUBLIC_BASE_URL
+  )
 
   setup do
     previous_values = Map.new(@environment_variables, &{&1, System.get_env(&1)})
@@ -69,5 +72,49 @@ defmodule Clubeira.RuntimeConfigTest do
                  fn ->
                    RuntimeConfig.database_ssl!()
                  end
+  end
+
+  test "uuid!/1 validates configured database identities" do
+    System.delete_env("PLATFORM_BILLING_MERCHANT_ACCOUNT_ID")
+
+    assert_raise RuntimeError,
+                 ~r/environment variable PLATFORM_BILLING_MERCHANT_ACCOUNT_ID is required/,
+                 fn ->
+                   RuntimeConfig.uuid!("PLATFORM_BILLING_MERCHANT_ACCOUNT_ID")
+                 end
+
+    System.put_env("PLATFORM_BILLING_MERCHANT_ACCOUNT_ID", "not-a-uuid")
+
+    assert_raise RuntimeError,
+                 ~r/PLATFORM_BILLING_MERCHANT_ACCOUNT_ID must be a UUID/,
+                 fn ->
+                   RuntimeConfig.uuid!("PLATFORM_BILLING_MERCHANT_ACCOUNT_ID")
+                 end
+
+    id = Ecto.UUID.generate(version: 7)
+    System.put_env("PLATFORM_BILLING_MERCHANT_ACCOUNT_ID", id)
+    assert RuntimeConfig.uuid!("PLATFORM_BILLING_MERCHANT_ACCOUNT_ID") == id
+  end
+
+  test "absolute_https_url!/1 accepts only credential-free HTTPS endpoints" do
+    for invalid <- [
+          "http://storage.example.test/media",
+          "https://token@storage.example.test/media",
+          "https://storage.example.test/media#fragment",
+          "/relative/media"
+        ] do
+      System.put_env("REVIEW_MEDIA_PUBLIC_BASE_URL", invalid)
+
+      assert_raise RuntimeError,
+                   ~r/REVIEW_MEDIA_PUBLIC_BASE_URL must be an absolute HTTPS URL/,
+                   fn ->
+                     RuntimeConfig.absolute_https_url!("REVIEW_MEDIA_PUBLIC_BASE_URL")
+                   end
+    end
+
+    System.put_env("REVIEW_MEDIA_PUBLIC_BASE_URL", "https://cdn.example.test/reviews")
+
+    assert RuntimeConfig.absolute_https_url!("REVIEW_MEDIA_PUBLIC_BASE_URL") ==
+             "https://cdn.example.test/reviews"
   end
 end
