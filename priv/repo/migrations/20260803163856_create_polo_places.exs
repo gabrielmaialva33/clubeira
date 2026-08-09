@@ -28,6 +28,7 @@ defmodule Clubeira.Repo.Migrations.CreatePoloPlaces do
 
       add :participation_during, :tstzrange, null: false
       add :status, :text, null: false, default: "active"
+      add :revision, :integer, null: false, default: 1
 
       timestamps(@timestamps_opts)
     end
@@ -36,9 +37,19 @@ defmodule Clubeira.Repo.Migrations.CreatePoloPlaces do
     create index(:polo_places, [:polo_id, :place_id])
     create index(:polo_places, [:place_id])
 
+    create index(:polo_places, [:polo_id, :inserted_at, :id],
+             name: :polo_places_backoffice_feed_idx
+           )
+
+    create index(:polo_places, [:polo_id, :status, :inserted_at, :id],
+             name: :polo_places_backoffice_status_feed_idx
+           )
+
     create constraint(:polo_places, :polo_places_status_check,
              check: "status IN ('invited', 'active', 'suspended', 'retired')"
            )
+
+    create constraint(:polo_places, :polo_places_revision_check, check: "revision > 0")
 
     create constraint(:polo_places, :polo_places_participation_check,
              check:
