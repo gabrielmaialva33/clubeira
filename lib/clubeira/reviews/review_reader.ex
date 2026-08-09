@@ -3,12 +3,16 @@ defmodule Clubeira.Reviews.ReviewReader do
 
   import Ecto.Query
 
+  alias Clubeira.Directory.Organization
   alias Clubeira.Directory.Place
   alias Clubeira.Polos.Authorization
   alias Clubeira.Polos.PoloPlace
   alias Clubeira.Redemptions.Redemption
   alias Clubeira.Repo
   alias Clubeira.Reviews.Review
+  alias Clubeira.Reviews.ReviewMedia
+  alias Clubeira.Reviews.ReviewResponse
+  alias Clubeira.Reviews.ReviewResponseRevision
   alias Clubeira.Reviews.ReviewRevision
   alias Clubeira.Tenancy.Scope
 
@@ -103,7 +107,85 @@ defmodule Clubeira.Reviews.ReviewReader do
       |> limit(^query_limit)
       |> repo.all()
 
-    page(rows, pagination.limit, :cursor_at)
+    result = page(rows, pagination.limit, :cursor_at)
+    responses = public_responses(repo, Enum.map(result.reviews, & &1.id))
+    media = public_media(repo, Enum.map(result.reviews, & &1.review_revision_id))
+
+    reviews =
+      Enum.map(result.reviews, fn review ->
+        review
+        |> Map.put(:response, responses[review.id])
+        |> Map.put(:media, Map.get(media, review.review_revision_id, []))
+        |> Map.delete(:review_revision_id)
+      end)
+
+    %{result | reviews: reviews}
+  end
+
+  defp public_media(_repo, []), do: %{}
+
+  defp public_media(repo, revision_ids) do
+    ReviewMedia
+    |> where(
+      [media],
+      media.review_revision_id in ^revision_ids and media.status == "ready"
+    )
+    |> order_by([media], asc: media.review_revision_id, asc: media.position)
+    |> select([media], %{
+      id: media.id,
+      review_revision_id: media.review_revision_id,
+      kind: media.kind,
+      content_type: media.content_type,
+      position: media.position,
+      width: media.width,
+      height: media.height,
+      duration_ms: media.duration_ms,
+      status: media.status
+    })
+    |> repo.all()
+    |> Enum.group_by(& &1.review_revision_id, &Map.delete(&1, :review_revision_id))
+  end
+
+  defp public_responses(_repo, []), do: %{}
+
+  defp public_responses(repo, review_ids) do
+    latest_revisions =
+      from(revision in ReviewResponseRevision,
+        group_by: revision.review_response_id,
+        select: %{
+          review_response_id: revision.review_response_id,
+          revision_number: max(revision.revision_number)
+        }
+      )
+
+    ReviewResponse
+    |> join(:inner, [response], latest in subquery(latest_revisions),
+      on: latest.review_response_id == response.id
+    )
+    |> join(:inner, [response, latest], revision in ReviewResponseRevision,
+      on:
+        revision.review_response_id == response.id and
+          revision.revision_number == latest.revision_number
+    )
+    |> join(:inner, [response], organization in Organization,
+      on: organization.id == response.organization_id
+    )
+    |> where([response], response.review_id in ^review_ids and response.status == "published")
+    |> select([response, _latest, revision, organization], %{
+      id: response.id,
+      review_id: response.review_id,
+      organization: %{
+        id: organization.id,
+        name: coalesce(organization.trade_name, organization.legal_name)
+      },
+      status: response.status,
+      revision_number: revision.revision_number,
+      body: revision.body,
+      published_at: response.published_at,
+      updated_at: response.updated_at
+    })
+    |> repo.all()
+    |> Map.new(&{&1.review_id, &1})
   end
 
   defp join_latest_revision(query) do
@@ -150,6 +232,7 @@ defmodule Clubeira.Reviews.ReviewReader do
       id: review.id,
       place_id: review.place_id,
       verification_kind: review.verification_kind,
+      review_revision_id: revision.id,
       revision_number: revision.revision_number,
       rating: revision.rating,
       title: revision.title,

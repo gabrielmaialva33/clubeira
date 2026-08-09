@@ -3,6 +3,39 @@ defmodule Clubeira.Reviews.DatabaseContractTest do
 
   alias Clubeira.Repo
 
+  @review_graph_tables ~w(
+    moderation_actions
+    review_media
+    review_reports
+    review_response_revisions
+    review_responses
+    review_revisions
+    reviews
+  )
+
+  test "the complete review graph is protected by forced polo RLS" do
+    assert %{rows: rows} =
+             Repo.query!(
+               """
+               SELECT
+                 class.relname,
+                 class.relrowsecurity,
+                 class.relforcerowsecurity,
+                 count(policy.oid) > 0 AS has_policy
+               FROM pg_class AS class
+               JOIN pg_namespace AS namespace ON namespace.oid = class.relnamespace
+               LEFT JOIN pg_policy AS policy ON policy.polrelid = class.oid
+               WHERE namespace.nspname = 'public'
+                 AND class.relname = ANY($1::text[])
+               GROUP BY class.relname, class.relrowsecurity, class.relforcerowsecurity
+               ORDER BY class.relname
+               """,
+               [@review_graph_tables]
+             )
+
+    assert rows == Enum.map(@review_graph_tables, &[&1, true, true, true])
+  end
+
   test "the database arbitrates review identity and immutable revision history" do
     %{rows: index_rows} =
       Repo.query!("""

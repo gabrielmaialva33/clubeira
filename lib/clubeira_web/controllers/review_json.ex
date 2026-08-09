@@ -1,8 +1,8 @@
 defmodule ClubeiraWeb.ReviewJSON do
   @moduledoc false
 
-  def index(%{reviews: reviews, page: page}) do
-    %{data: Enum.map(reviews, &public_review/1), page: page}
+  def index(%{reviews: reviews, page: page, polo_slug: polo_slug}) do
+    %{data: Enum.map(reviews, &public_review(&1, polo_slug)), page: page}
   end
 
   def create(%{review: review, revision: revision}) do
@@ -22,7 +22,7 @@ defmodule ClubeiraWeb.ReviewJSON do
     }
   end
 
-  defp public_review(review) do
+  defp public_review(review, polo_slug) do
     %{
       id: review.id,
       place_id: review.place_id,
@@ -31,7 +31,28 @@ defmodule ClubeiraWeb.ReviewJSON do
       rating: review.rating,
       title: review.title,
       body: review.body,
-      published_at: DateTime.to_iso8601(review.published_at)
+      published_at: DateTime.to_iso8601(review.published_at),
+      response: public_response(review.response),
+      media: Enum.map(review.media, &public_media(&1, polo_slug))
     }
+  end
+
+  defp public_response(nil), do: nil
+
+  defp public_response(response) do
+    %{
+      id: response.id,
+      organization: response.organization,
+      status: response.status,
+      revision_number: response.revision_number,
+      body: response.body,
+      published_at: DateTime.to_iso8601(response.published_at),
+      updated_at: DateTime.to_iso8601(response.updated_at)
+    }
+  end
+
+  defp public_media(media, polo_slug) do
+    media
+    |> Map.put(:href, "/api/v1/polos/#{polo_slug}/review-media/#{media.id}")
   end
 end

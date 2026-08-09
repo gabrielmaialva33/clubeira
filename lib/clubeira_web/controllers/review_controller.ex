@@ -26,7 +26,7 @@ defmodule ClubeiraWeb.ReviewController do
              place_id,
              params
            ) do
-      render(conn, :index, reviews: page.reviews, page: page.page)
+      render(conn, :index, reviews: page.reviews, page: page.page, polo_slug: polo_slug)
     else
       {:error, reason} when reason in [:polo_not_found, :place_not_found] ->
         render_error(conn, :not_found)
