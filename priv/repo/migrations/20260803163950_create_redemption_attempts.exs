@@ -79,6 +79,12 @@ defmodule Clubeira.Repo.Migrations.CreateRedemptionAttempts do
     create index(:redemption_attempts, [:polo_id, :polo_place_id, :requested_at])
     create index(:redemption_attempts, [:requesting_user_id, :requested_at])
 
+    create index(
+             :redemption_attempts,
+             [:polo_id, :requesting_user_id, :requested_at, :id],
+             name: :redemption_attempts_member_history_idx
+           )
+
     create constraint(:redemption_attempts, :redemption_attempts_decision_check,
              check: "decision IN ('accepted', 'denied', 'expired', 'cancelled')"
            )

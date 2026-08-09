@@ -47,7 +47,10 @@ defmodule Clubeira.Repo.Migrations.CreateEntitlementLedgerEntries do
 
     create constraint(:entitlement_ledger_entries, :entitlement_ledger_entries_kind_check,
              check:
-               "(entry_kind = 'initial_grant' AND delta_units > 0 AND redemption_id IS NULL) OR (entry_kind = 'consumption' AND delta_units < 0 AND redemption_id IS NOT NULL) OR (entry_kind = 'manual_adjustment' AND redemption_id IS NULL)"
+               "(entry_kind = 'initial_grant' AND delta_units > 0 AND redemption_id IS NULL) OR " <>
+                 "(entry_kind = 'consumption' AND delta_units < 0 AND redemption_id IS NOT NULL) OR " <>
+                 "(entry_kind = 'manual_adjustment' AND redemption_id IS NULL) OR " <>
+                 "(entry_kind = 'refund_revocation' AND delta_units < 0 AND redemption_id IS NULL)"
            )
   end
 end

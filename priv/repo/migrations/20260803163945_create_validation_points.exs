@@ -20,6 +20,7 @@ defmodule Clubeira.Repo.Migrations.CreateValidationPoints do
       add :name, :text, null: false
       add :kind, :text, null: false
       add :status, :text, null: false, default: "active"
+      add :revision, :integer, null: false, default: 1
 
       timestamps(@timestamps_opts)
     end
@@ -34,12 +35,28 @@ defmodule Clubeira.Repo.Migrations.CreateValidationPoints do
 
     create index(:validation_points, [:polo_id, :polo_place_id])
 
+    create index(:validation_points, [:polo_id, :inserted_at, :id],
+             name: :validation_points_backoffice_feed_idx
+           )
+
+    create index(:validation_points, [:polo_id, :status, :inserted_at, :id],
+             name: :validation_points_backoffice_status_feed_idx
+           )
+
+    create index(:validation_points, [:polo_id, :polo_place_id, :inserted_at, :id],
+             name: :validation_points_backoffice_place_feed_idx
+           )
+
     create constraint(:validation_points, :validation_points_kind_check,
              check: "kind IN ('merchant_app', 'qr_placard', 'terminal', 'api')"
            )
 
     create constraint(:validation_points, :validation_points_status_check,
              check: "status IN ('active', 'suspended', 'retired')"
+           )
+
+    create constraint(:validation_points, :validation_points_revision_check,
+             check: "revision > 0"
            )
   end
 end
