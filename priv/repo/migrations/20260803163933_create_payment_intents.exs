@@ -26,6 +26,8 @@ defmodule Clubeira.Repo.Migrations.CreatePaymentIntents do
       add :currency, :string, size: 3, null: false
       add :amount, :decimal, precision: 14, scale: 2, null: false
       add :status, :text, null: false, default: "created"
+      add :payment_method, :text
+      add :next_action, :map, null: false, default: fragment("'{}'::jsonb")
       add :expires_at, :timestamptz
 
       timestamps(@timestamps_opts)
@@ -62,6 +64,14 @@ defmodule Clubeira.Repo.Migrations.CreatePaymentIntents do
     create constraint(:payment_intents, :payment_intents_status_check,
              check:
                "status IN ('created', 'requires_action', 'processing', 'authorized', 'succeeded', 'failed', 'cancelled', 'expired')"
+           )
+
+    create constraint(:payment_intents, :payment_intents_payment_method_check,
+             check: "payment_method IS NULL OR payment_method IN ('pix')"
+           )
+
+    create constraint(:payment_intents, :payment_intents_next_action_check,
+             check: "jsonb_typeof(next_action) = 'object'"
            )
   end
 end

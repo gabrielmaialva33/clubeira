@@ -26,6 +26,7 @@ defmodule Clubeira.Repo.Migrations.CreatePayments do
       add :authorized_at, :timestamptz
       add :captured_at, :timestamptz
       add :failed_at, :timestamptz
+      add :refunded_at, :timestamptz
       add :inserted_at, :timestamptz, null: false, default: fragment("now()")
     end
 
@@ -37,6 +38,12 @@ defmodule Clubeira.Repo.Migrations.CreatePayments do
 
     create index(:payments, [:polo_id, :payment_intent_id])
 
+    create index(:payments, [:polo_id, :inserted_at, :id], name: :payments_backoffice_feed_idx)
+
+    create index(:payments, [:polo_id, :status, :inserted_at, :id],
+             name: :payments_backoffice_status_feed_idx
+           )
+
     create constraint(:payments, :payments_amount_check, check: "amount >= 0")
 
     create constraint(:payments, :payments_currency_check,
@@ -45,6 +52,10 @@ defmodule Clubeira.Repo.Migrations.CreatePayments do
 
     create constraint(:payments, :payments_status_check,
              check: "status IN ('authorized', 'captured', 'failed', 'cancelled', 'refunded')"
+           )
+
+    create constraint(:payments, :payments_refunded_at_check,
+             check: "status <> 'refunded' OR refunded_at IS NOT NULL"
            )
   end
 end
