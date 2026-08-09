@@ -19,6 +19,14 @@ defmodule Clubeira.Repo.Migrations.CreateBenefitOffers do
 
     create unique_index(:benefit_offers, [:id, :polo_id], name: :benefit_offers_id_polo_uidx)
 
+    create index(:benefit_offers, [:polo_id, :inserted_at, :id],
+             name: :benefit_offers_backoffice_feed_idx
+           )
+
+    create index(:benefit_offers, [:polo_id, :status, :inserted_at, :id],
+             name: :benefit_offers_backoffice_status_feed_idx
+           )
+
     create constraint(:benefit_offers, :benefit_offers_kind_check,
              check:
                "benefit_kind IN ('discount_percentage', 'discount_amount', 'complimentary_item', 'bundle', 'custom')"
