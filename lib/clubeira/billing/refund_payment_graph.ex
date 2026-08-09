@@ -95,6 +95,52 @@ defmodule Clubeira.Billing.RefundPaymentGraph do
     end
   end
 
+  @spec lock_by_provider_payment(
+          module(),
+          Scope.t(),
+          PaymentProvider.t(),
+          MerchantAccount.t(),
+          String.t()
+        ) :: {:ok, t()} | {:error, :chargeback_reconciliation_mismatch}
+  def lock_by_provider_payment(
+        repo,
+        scope,
+        provider,
+        account,
+        provider_payment_reference
+      ) do
+    query =
+      from payment in Payment,
+        join: intent in PaymentIntent,
+        on:
+          intent.id == payment.payment_intent_id and intent.polo_id == payment.polo_id and
+            intent.merchant_account_id == payment.merchant_account_id,
+        join: order in Order,
+        on: order.id == intent.order_id and order.polo_id == intent.polo_id,
+        join: assignment in PoloMerchantAccount,
+        on:
+          assignment.polo_id == payment.polo_id and
+            assignment.merchant_account_id == payment.merchant_account_id,
+        where: payment.polo_id == ^scope.polo_id,
+        where: payment.merchant_account_id == ^account.id,
+        where: payment.provider_reference == ^provider_payment_reference,
+        where: assignment.payment_provider_id == ^provider.id,
+        lock: "FOR UPDATE",
+        select: %{
+          payment: payment,
+          intent: intent,
+          order: order
+        }
+
+    case repo.one(query) do
+      nil ->
+        {:error, :chargeback_reconciliation_mismatch}
+
+      graph ->
+        {:ok, Map.merge(graph, %{account: account, provider: provider})}
+    end
+  end
+
   @spec refundable(t()) :: :ok | {:error, :payment_already_refunded | :payment_not_refundable}
   def refundable(%{payment: %Payment{status: "refunded"}}),
     do: {:error, :payment_already_refunded}

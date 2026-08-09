@@ -20,8 +20,10 @@ defmodule ClubeiraWeb.PaymentWebhookController do
       internal_request_id: conn.assigns.request_id,
       data_id: params["data.id"],
       body_data_id: get_in(params, ["data", "id"]),
+      body_payment_id: get_in(params, ["data", "payment_id"]),
       event_type: params["type"],
       event_action: params["action"],
+      event_actions: params["actions"],
       provider_request_id: single_header(conn, "x-request-id"),
       signature: single_header(conn, "x-signature")
     }

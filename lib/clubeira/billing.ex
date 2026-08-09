@@ -9,13 +9,17 @@ defmodule Clubeira.Billing do
   `manage_billing` capability.
   """
 
+  alias Clubeira.Billing.AccountBillingReader
   alias Clubeira.Billing.BackofficePaymentReader
+  alias Clubeira.Billing.BillingAgreement
+  alias Clubeira.Billing.BillingAgreementStarter
   alias Clubeira.Billing.OrderPlacer
   alias Clubeira.Billing.OrderReader
   alias Clubeira.Billing.PaymentIntent
   alias Clubeira.Billing.PaymentSettler
   alias Clubeira.Billing.PaymentStarter
   alias Clubeira.Billing.PaymentWebhookHandler
+  alias Clubeira.Billing.RecurringInvoiceSettler
   alias Clubeira.Billing.Refund
   alias Clubeira.Billing.RefundPayment
   alias Clubeira.Billing.RefundSettler
@@ -35,10 +39,26 @@ defmodule Clubeira.Billing do
           {:ok, %{payments: [map()], page: map()}} | {:error, term()}
   defdelegate list_backoffice_payments(scope, params), to: BackofficePaymentReader, as: :list
 
+  @spec read_account_billing(Scope.t()) ::
+          {:ok, %{agreements: [map()]}} | {:error, term()}
+  defdelegate read_account_billing(scope), to: AccountBillingReader, as: :read
+
   @spec start_payment(Scope.t(), map()) ::
           {:ok, %{payment_intent: PaymentIntent.t(), provider: String.t()}}
           | {:error, atom() | Ecto.Changeset.t()}
   defdelegate start_payment(scope, attributes), to: PaymentStarter, as: :start
+
+  @spec start_billing_agreement(Scope.t(), map()) ::
+          {:ok,
+           %{
+             billing_agreement: BillingAgreement.t(),
+             order_id: Ecto.UUID.t(),
+             provider: String.t()
+           }}
+          | {:error, term()}
+  defdelegate start_billing_agreement(scope, attributes),
+    to: BillingAgreementStarter,
+    as: :start
 
   @spec refund_payment(Scope.t(), Ecto.UUID.t(), map()) ::
           {:ok, Refund.t()} | {:error, atom() | Ecto.Changeset.t()}
@@ -62,5 +82,15 @@ defmodule Clubeira.Billing do
         ) :: {:ok, Refund.t()} | {:error, atom() | Ecto.Changeset.t()}
   defdelegate reconcile_refund(scope, provider, account, provider_refund),
     to: RefundSettler,
+    as: :reconcile
+
+  @spec reconcile_recurring_invoice(
+          Scope.t(),
+          Clubeira.Billing.PaymentProvider.t(),
+          Clubeira.Billing.MerchantAccount.t(),
+          map()
+        ) :: {:ok, map()} | {:error, term()}
+  defdelegate reconcile_recurring_invoice(scope, provider, account, recurring_invoice),
+    to: RecurringInvoiceSettler,
     as: :reconcile
 end

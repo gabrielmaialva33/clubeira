@@ -6,6 +6,7 @@ defmodule ClubeiraWeb.BackofficePaymentRefundControllerTest do
   alias Clubeira.Accounts
   alias Clubeira.Accounts.User
   alias Clubeira.Billing
+  alias Clubeira.Billing.Chargeback
   alias Clubeira.Billing.Gateways.MercadoPago
   alias Clubeira.Billing.Payment
   alias Clubeira.BillingFixtures
@@ -222,6 +223,71 @@ defmodule ClubeiraWeb.BackofficePaymentRefundControllerTest do
            |> json_response(422) == %{
              "errors" => %{"detail" => "Unprocessable Content"}
            }
+  end
+
+  test "the finance feed exposes a safe chargeback summary and supports its terminal status", %{
+    conn: conn
+  } do
+    fixture = BillingFixtures.create!()
+    admin_scope = grant_admin!(fixture)
+    admin_token = authenticate!(admin_scope.actor_user_id)
+    {_order, payment} = captured_payment!(fixture)
+    opened_at = DateTime.utc_now(:microsecond)
+
+    {:ok, chargeback} =
+      Repo.transact_in_polo(fixture.service_scope, fn repo ->
+        payment =
+          payment
+          |> Ecto.Changeset.change(status: "charged_back", charged_back_at: opened_at)
+          |> repo.update!()
+
+        chargeback =
+          repo.insert!(%Chargeback{
+            polo_id: fixture.polo.id,
+            payment_id: payment.id,
+            provider_reference: "chargeback-private-reference",
+            amount: payment.amount,
+            reason_code: "private-provider-reason",
+            status: "lost",
+            opened_at: opened_at,
+            closed_at: opened_at,
+            inserted_at: opened_at,
+            updated_at: opened_at
+          })
+
+        {:ok, chargeback}
+      end)
+
+    assert %{
+             "data" => [
+               %{
+                 "id" => payment_id,
+                 "status" => "charged_back",
+                 "chargeback" =>
+                   %{
+                     "id" => chargeback_id,
+                     "status" => "lost",
+                     "amount" => amount,
+                     "opened_at" => opened_at_string,
+                     "closed_at" => closed_at_string
+                   } = chargeback_data
+               }
+             ]
+           } =
+             conn
+             |> put_req_header("authorization", "Bearer #{admin_token}")
+             |> get(
+               "/api/v1/polos/#{fixture.polo_route.slug}/backoffice/payments?status=charged_back"
+             )
+             |> json_response(200)
+
+    assert payment_id == payment.id
+    assert chargeback_id == chargeback.id
+    assert Decimal.equal?(Decimal.new(amount), chargeback.amount)
+    assert {:ok, _opened_at, 0} = DateTime.from_iso8601(opened_at_string)
+    assert {:ok, _closed_at, 0} = DateTime.from_iso8601(closed_at_string)
+    refute Map.has_key?(chargeback_data, "provider_reference")
+    refute Map.has_key?(chargeback_data, "reason_code")
   end
 
   test "the finance feed authorizes the actor in the routed polo and never crosses tenants", %{

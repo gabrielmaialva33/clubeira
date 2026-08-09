@@ -6,6 +6,7 @@ defmodule Clubeira.Billing.RefundSettler do
   alias Clubeira.Audit
   alias Clubeira.Billing.Gateways
   alias Clubeira.Billing.MerchantAccount
+  alias Clubeira.Billing.PaymentAccessLifecycle
   alias Clubeira.Billing.PaymentProvider
   alias Clubeira.Billing.PaymentProviderEvent
   alias Clubeira.Billing.Refund
@@ -13,13 +14,6 @@ defmodule Clubeira.Billing.RefundSettler do
   alias Clubeira.Events
   alias Clubeira.Idempotency
   alias Clubeira.Repo
-  alias Clubeira.Subscriptions.AccessContract
-  alias Clubeira.Subscriptions.BenefitCycle
-  alias Clubeira.Subscriptions.ContractEvent
-  alias Clubeira.Subscriptions.CycleEntitlementSubject
-  alias Clubeira.Subscriptions.EntitlementAllocation
-  alias Clubeira.Subscriptions.EntitlementLedgerEntry
-  alias Clubeira.Subscriptions.OrderItem
   alias Clubeira.Tenancy.Scope
 
   @maximum_provider_clock_skew_seconds 300
@@ -107,13 +101,24 @@ defmodule Clubeira.Billing.RefundSettler do
     now = transaction_time(repo)
 
     with :ok <- validate_provider_refund(scope, graph, refund, provider_refund, now),
-         {:ok, subscription} <- lock_subscription(repo, scope, graph.order.id),
+         {:ok, subscription} <- PaymentAccessLifecycle.lock(repo, scope, graph.order.id),
+         :ok <- PaymentAccessLifecycle.refundable(subscription),
          {:ok, provider_event} <- insert_provider_event(repo, scope, graph, provider_refund, now) do
       succeeded = mark_succeeded!(repo, refund, provider_refund, now)
       mark_payment_and_order_refunded!(repo, graph.payment, graph.order, now)
-      cancel_subscription!(repo, scope, subscription, succeeded, graph, now)
+
+      contract =
+        PaymentAccessLifecycle.cancel_for_refund!(
+          repo,
+          scope,
+          subscription,
+          succeeded,
+          graph,
+          now
+        )
+
       mark_provider_event_processed!(repo, provider_event, now)
-      record_refund!(repo, scope, succeeded, graph, subscription.contract, now)
+      record_refund!(repo, scope, succeeded, graph, contract, now)
       {:ok, succeeded}
     end
   end
@@ -193,57 +198,6 @@ defmodule Clubeira.Billing.RefundSettler do
     not DateTime.before?(timestamp, earliest) and not DateTime.after?(timestamp, latest)
   end
 
-  defp lock_subscription(repo, scope, order_id) do
-    contracts =
-      OrderItem
-      |> join(:inner, [item], contract in AccessContract,
-        on: contract.order_item_id == item.id and contract.polo_id == item.polo_id
-      )
-      |> where([item], item.order_id == ^order_id and item.polo_id == ^scope.polo_id)
-      |> select([_item, contract], contract)
-      |> lock("FOR UPDATE")
-      |> repo.all()
-
-    case contracts do
-      [%AccessContract{status: status} = contract]
-      when status in ["active", "past_due", "suspended"] ->
-        cycles = lock_cycles(repo, scope, contract.id)
-        allocations = lock_allocations(repo, scope, contract.id)
-        {:ok, %{contract: contract, cycles: cycles, allocations: allocations}}
-
-      _missing_or_unsupported ->
-        {:error, :subscription_not_refundable}
-    end
-  end
-
-  defp lock_cycles(repo, scope, contract_id) do
-    BenefitCycle
-    |> where(
-      [cycle],
-      cycle.polo_id == ^scope.polo_id and cycle.access_contract_id == ^contract_id
-    )
-    |> order_by([cycle], asc: cycle.sequence)
-    |> lock("FOR UPDATE")
-    |> repo.all()
-  end
-
-  defp lock_allocations(repo, scope, contract_id) do
-    EntitlementAllocation
-    |> join(:inner, [allocation], subject in CycleEntitlementSubject,
-      on:
-        subject.id == allocation.cycle_entitlement_subject_id and
-          subject.polo_id == allocation.polo_id
-    )
-    |> where(
-      [allocation, subject],
-      allocation.polo_id == ^scope.polo_id and subject.access_contract_id == ^contract_id
-    )
-    |> order_by([allocation], asc: allocation.id)
-    |> lock("FOR UPDATE")
-    |> select([allocation], allocation)
-    |> repo.all()
-  end
-
   defp insert_provider_event(repo, scope, graph, provider_refund, now) do
     id = uuid7()
     external_event_id = "refund:" <> provider_refund.provider_refund_reference
@@ -293,89 +247,6 @@ defmodule Clubeira.Billing.RefundSettler do
     order
     |> Ecto.Changeset.change(status: "refunded", updated_at: now)
     |> repo.update!()
-  end
-
-  defp cancel_subscription!(repo, scope, subscription, refund, graph, now) do
-    Enum.each(subscription.allocations, &revoke_available_balance!(repo, scope, &1, refund, now))
-
-    Enum.each(subscription.cycles, fn cycle ->
-      if cycle.status in ["planned", "active"] do
-        cycle
-        |> Ecto.Changeset.change(status: "cancelled", closed_at: now)
-        |> repo.update!()
-      end
-    end)
-
-    contract =
-      subscription.contract
-      |> Ecto.Changeset.change(status: "cancelled", cancelled_at: now, updated_at: now)
-      |> repo.update!()
-
-    sequence = next_contract_event_sequence(repo, scope, contract.id)
-
-    payload = %{
-      "access_contract_id" => contract.id,
-      "order_id" => graph.order.id,
-      "payment_id" => graph.payment.id,
-      "refund_id" => refund.id,
-      "cancelled_at" => DateTime.to_iso8601(now)
-    }
-
-    %ContractEvent{
-      polo_id: scope.polo_id,
-      access_contract_id: contract.id,
-      sequence: sequence,
-      event_type: "cancelled_by_refund",
-      actor_user_id: refund.requested_by_user_id,
-      payload: payload,
-      occurred_at: now,
-      inserted_at: now
-    }
-    |> repo.insert!()
-
-    Events.emit!(repo, %{
-      polo_id: scope.polo_id,
-      aggregate_type: "access_contract",
-      aggregate_id: contract.id,
-      aggregate_version: sequence,
-      event_type: "subscription.cancelled",
-      topic: "subscriptions.cancelled",
-      message_key: contract.id,
-      payload: payload,
-      metadata: request_metadata(scope),
-      occurred_at: now
-    })
-  end
-
-  defp revoke_available_balance!(_repo, _scope, %{available_units: 0}, _refund, _now), do: :ok
-
-  defp revoke_available_balance!(repo, scope, allocation, refund, now) do
-    %EntitlementLedgerEntry{
-      polo_id: scope.polo_id,
-      entitlement_allocation_id: allocation.id,
-      entry_kind: "refund_revocation",
-      delta_units: -allocation.available_units,
-      idempotency_key: "refund:#{refund.id}:#{allocation.id}",
-      occurred_at: now,
-      inserted_at: now
-    }
-    |> repo.insert!()
-
-    allocation
-    |> Ecto.Changeset.change(available_units: 0, updated_at: now)
-    |> repo.update!()
-  end
-
-  defp next_contract_event_sequence(repo, scope, contract_id) do
-    current =
-      ContractEvent
-      |> where(
-        [event],
-        event.polo_id == ^scope.polo_id and event.access_contract_id == ^contract_id
-      )
-      |> repo.aggregate(:max, :sequence)
-
-    (current || 0) + 1
   end
 
   defp record_refund!(repo, scope, refund, graph, contract, now) do

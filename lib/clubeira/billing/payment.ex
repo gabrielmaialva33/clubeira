@@ -21,6 +21,7 @@ defmodule Clubeira.Billing.Payment do
     field :authorized_at, :utc_datetime_usec
     field :captured_at, :utc_datetime_usec
     field :refunded_at, :utc_datetime_usec
+    field :charged_back_at, :utc_datetime_usec
     field :failed_at, :utc_datetime_usec
     field :inserted_at, :utc_datetime_usec
   end
@@ -37,6 +38,7 @@ defmodule Clubeira.Billing.Payment do
           authorized_at: DateTime.t() | nil,
           captured_at: DateTime.t() | nil,
           refunded_at: DateTime.t() | nil,
+          charged_back_at: DateTime.t() | nil,
           failed_at: DateTime.t() | nil,
           inserted_at: DateTime.t()
         }

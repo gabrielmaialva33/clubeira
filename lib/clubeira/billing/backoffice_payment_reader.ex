@@ -3,6 +3,7 @@ defmodule Clubeira.Billing.BackofficePaymentReader do
 
   import Ecto.Query
 
+  alias Clubeira.Billing.Chargeback
   alias Clubeira.Billing.MerchantAccount
   alias Clubeira.Billing.Payment
   alias Clubeira.Billing.PaymentIntent
@@ -15,7 +16,7 @@ defmodule Clubeira.Billing.BackofficePaymentReader do
 
   @default_page_limit 20
   @maximum_page_limit 100
-  @payment_statuses ~w(authorized captured failed cancelled refunded)
+  @payment_statuses ~w(authorized captured failed cancelled refunded charged_back)
 
   @spec list(Scope.t(), map()) ::
           {:ok, %{payments: [map()], page: map()}}
@@ -67,6 +68,7 @@ defmodule Clubeira.Billing.BackofficePaymentReader do
         on: provider.id == account.payment_provider_id
       )
       |> join_latest_refund(scope.polo_id)
+      |> join_latest_chargeback(scope.polo_id)
       |> where([payment], payment.polo_id == ^scope.polo_id)
       |> with_status(status)
       |> with_order_number(order_number)
@@ -109,10 +111,34 @@ defmodule Clubeira.Billing.BackofficePaymentReader do
     )
   end
 
+  defp join_latest_chargeback(query, polo_id) do
+    latest_chargebacks =
+      from chargeback in Chargeback,
+        where: chargeback.polo_id == ^polo_id,
+        distinct: [chargeback.payment_id],
+        order_by: [
+          asc: chargeback.payment_id,
+          desc: chargeback.updated_at,
+          desc: chargeback.id
+        ],
+        select: %{
+          id: chargeback.id,
+          payment_id: chargeback.payment_id,
+          amount: chargeback.amount,
+          status: chargeback.status,
+          opened_at: chargeback.opened_at,
+          closed_at: chargeback.closed_at
+        }
+
+    join(query, :left, [payment], chargeback in subquery(latest_chargebacks),
+      on: chargeback.payment_id == payment.id
+    )
+  end
+
   defp select_payment(query) do
     select(
       query,
-      [payment, intent, order, _account, provider, refund],
+      [payment, intent, order, _account, provider, refund, chargeback],
       %{
         id: payment.id,
         status: payment.status,
@@ -132,7 +158,12 @@ defmodule Clubeira.Billing.BackofficePaymentReader do
         refund_status: refund.status,
         refund_amount: refund.amount,
         refund_requested_at: refund.requested_at,
-        refund_completed_at: refund.completed_at
+        refund_completed_at: refund.completed_at,
+        chargeback_id: chargeback.id,
+        chargeback_status: chargeback.status,
+        chargeback_amount: chargeback.amount,
+        chargeback_opened_at: chargeback.opened_at,
+        chargeback_closed_at: chargeback.closed_at
       }
     )
   end
@@ -155,7 +186,8 @@ defmodule Clubeira.Billing.BackofficePaymentReader do
         purchaser_user_id: row.purchaser_user_id,
         placed_at: row.placed_at
       },
-      refund: refund_data(row)
+      refund: refund_data(row),
+      chargeback: chargeback_data(row)
     }
   end
 
@@ -168,6 +200,18 @@ defmodule Clubeira.Billing.BackofficePaymentReader do
       amount: row.refund_amount,
       requested_at: row.refund_requested_at,
       completed_at: row.refund_completed_at
+    }
+  end
+
+  defp chargeback_data(%{chargeback_id: nil}), do: nil
+
+  defp chargeback_data(row) do
+    %{
+      id: row.chargeback_id,
+      status: row.chargeback_status,
+      amount: row.chargeback_amount,
+      opened_at: row.chargeback_opened_at,
+      closed_at: row.chargeback_closed_at
     }
   end
 

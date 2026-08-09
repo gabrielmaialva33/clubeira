@@ -10,6 +10,7 @@ defmodule Clubeira.E2E.MemberCheckoutTest do
   alias Clubeira.Directory.Place
   alias Clubeira.Factory
   alias Clubeira.LegalFixtures
+  alias Clubeira.PrivacyFixtures
   alias Clubeira.Repo
   alias Clubeira.ReviewsFixtures
 
@@ -42,6 +43,7 @@ defmodule Clubeira.E2E.MemberCheckoutTest do
   } do
     fixture = BillingFixtures.create!()
     terms = LegalFixtures.registration_terms!()
+    privacy_purpose = PrivacyFixtures.consent_purpose!()
 
     assert %Req.Response{
              status: 200,
@@ -96,6 +98,61 @@ defmodule Clubeira.E2E.MemberCheckoutTest do
              )
 
     assert {:ok, _verified_at, 0} = DateTime.from_iso8601(verified_at)
+
+    assert %Req.Response{
+             status: 200,
+             body: %{
+               "data" => %{
+                 "display_name" => "Membro da jornada E2E",
+                 "identifiers" => [%{"kind" => "cpf"}],
+                 "contact_points" => [%{"kind" => "phone", "primary" => true}]
+               }
+             }
+           } =
+             Req.put!("#{base_url}/api/v1/me/profile",
+               headers: [{"authorization", "Bearer #{token}"}],
+               json: %{
+                 "display_name" => "Membro da jornada E2E",
+                 "birth_date" => "1990-05-20",
+                 "cpf" => "529.982.247-25",
+                 "phone" => "+55 (11) 99999-0101"
+               },
+               retry: false
+             )
+
+    assert %Req.Response{
+             status: 200,
+             body: %{"data" => %{"state" => "granted"}}
+           } =
+             Req.put!("#{base_url}/api/v1/me/privacy/consents/#{privacy_purpose.code}",
+               headers: [{"authorization", "Bearer #{token}"}],
+               json: %{
+                 "state" => "granted",
+                 "legal_document_version_id" => privacy_purpose.version_id
+               },
+               retry: false
+             )
+
+    privacy_request_id = Ecto.UUID.generate(version: 7)
+
+    assert %Req.Response{
+             status: 201,
+             body: %{
+               "data" => %{
+                 "client_request_id" => ^privacy_request_id,
+                 "request_type" => "access",
+                 "status" => "received"
+               }
+             }
+           } =
+             Req.post!("#{base_url}/api/v1/me/privacy/requests",
+               headers: [{"authorization", "Bearer #{token}"}],
+               json: %{
+                 "client_request_id" => privacy_request_id,
+                 "request_type" => "access"
+               },
+               retry: false
+             )
 
     checkout_url = "#{base_url}/api/v1/polos/#{fixture.polo_route.slug}/orders"
 
@@ -447,6 +504,26 @@ defmodule Clubeira.E2E.MemberCheckoutTest do
 
     assert is_binary(device_id)
 
+    device_key = device_key_attributes(installation_token)
+
+    assert %Req.Response{
+             status: 201,
+             body: %{
+               "data" => %{
+                 "device_installation_id" => ^device_id,
+                 "thumbprint" => device_thumbprint,
+                 "attestation" => %{"kind" => "none", "status" => "unverified"}
+               }
+             }
+           } =
+             Req.put!("#{base_url}/api/v1/me/devices/#{device_id}/key",
+               headers: [{"authorization", "Bearer #{token}"}],
+               json: device_key.attributes,
+               retry: false
+             )
+
+    assert device_thumbprint == device_key.thumbprint
+
     assert %Req.Response{
              status: 201,
              body: %{"data" => %{"grant" => grant, "expires_at" => grant_expires_at}}
@@ -759,6 +836,31 @@ defmodule Clubeira.E2E.MemberCheckoutTest do
         Application.delete_env(:clubeira, MercadoPago)
       end
     end)
+  end
+
+  defp device_key_attributes(installation_token) do
+    {public_key, private_key} = :crypto.generate_key(:eddsa, :ed25519)
+    encoded_public_key = Base.url_encode64(public_key, padding: false)
+
+    proof =
+      :crypto.sign(
+        :eddsa,
+        :none,
+        "clubeira-device-key:v1:#{installation_token}:#{encoded_public_key}",
+        [private_key, :ed25519]
+      )
+
+    %{
+      attributes: %{
+        "installation_token" => installation_token,
+        "public_key" => encoded_public_key,
+        "proof" => Base.url_encode64(proof, padding: false)
+      },
+      thumbprint:
+        :sha256
+        |> :crypto.hash(public_key)
+        |> Base.url_encode64(padding: false)
+    }
   end
 
   defp expect_pix_lifecycle!(

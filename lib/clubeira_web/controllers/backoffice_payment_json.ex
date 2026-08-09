@@ -20,7 +20,8 @@ defmodule ClubeiraWeb.BackofficePaymentJSON do
       refunded_at: datetime_to_string(payment.refunded_at),
       recorded_at: datetime_to_string(payment.recorded_at),
       order: order_data(payment.order),
-      refund: refund_data(payment.refund)
+      refund: refund_data(payment.refund),
+      chargeback: chargeback_data(payment.chargeback)
     }
   end
 
@@ -43,6 +44,18 @@ defmodule ClubeiraWeb.BackofficePaymentJSON do
       amount: decimal_to_string(refund.amount),
       requested_at: datetime_to_string(refund.requested_at),
       completed_at: datetime_to_string(refund.completed_at)
+    }
+  end
+
+  defp chargeback_data(nil), do: nil
+
+  defp chargeback_data(chargeback) do
+    %{
+      id: chargeback.id,
+      status: chargeback.status,
+      amount: decimal_to_string(chargeback.amount),
+      opened_at: datetime_to_string(chargeback.opened_at),
+      closed_at: datetime_to_string(chargeback.closed_at)
     }
   end
 

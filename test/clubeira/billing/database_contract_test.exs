@@ -28,12 +28,6 @@ defmodule Clubeira.Billing.DatabaseContractTest do
     assert definitions["payment_provider_events_account_fkey"] =~
              "REFERENCES merchant_accounts(id, payment_provider_id)"
 
-    assert definitions["payment_provider_events_polo_merchant_account_fkey"] =~
-             "FOREIGN KEY (polo_id, merchant_account_id)"
-
-    assert definitions["payment_provider_events_polo_merchant_account_fkey"] =~
-             "REFERENCES polo_merchant_accounts(polo_id, merchant_account_id)"
-
     assert definitions["payment_intents_polo_merchant_account_fkey"] =~
              "FOREIGN KEY (polo_id, merchant_account_id)"
 
@@ -42,6 +36,23 @@ defmodule Clubeira.Billing.DatabaseContractTest do
 
     assert definitions["payments_intent_fkey"] =~
              "REFERENCES payment_intents(id, polo_id, merchant_account_id)"
+
+    assert %{rows: [[trigger_definition, function_definition]]} =
+             Repo.query!("""
+             SELECT
+               pg_get_triggerdef(trigger.oid),
+               pg_get_functiondef(trigger.tgfoid)
+             FROM pg_trigger AS trigger
+             WHERE trigger.tgrelid = 'public.payment_provider_events'::regclass
+               AND trigger.tgname = 'payment_provider_events_account_scope_check'
+               AND NOT trigger.tgisinternal
+             """)
+
+    assert trigger_definition =~ "CONSTRAINT TRIGGER payment_provider_events_account_scope_check"
+    assert function_definition =~ "polo_merchant_accounts"
+    assert function_definition =~ "polo_platform_subscriptions"
+    assert function_definition =~ "account_kind = 'consumer'"
+    assert function_definition =~ "account_kind = 'platform'"
   end
 
   test "cycle and allocation references preserve package dimensions" do
@@ -106,6 +117,44 @@ defmodule Clubeira.Billing.DatabaseContractTest do
     assert indexes["refunds_succeeded_payment_uidx"] =~ "status = 'succeeded'"
   end
 
+  test "recurring billing reservations and invoices preserve tenant and merchant identity" do
+    constraints = constraint_definitions()
+    indexes = index_definitions()
+
+    assert constraints["billing_agreements_order_item_fkey"] =~
+             "FOREIGN KEY (order_item_id, polo_id, product_offering_version_id)"
+
+    assert constraints["billing_agreements_polo_merchant_account_fkey"] =~
+             "FOREIGN KEY (polo_id, merchant_account_id)"
+
+    assert constraints["billing_agreements_reservation_check"] =~ "request_sha256"
+
+    assert constraints["consumer_invoices_polo_merchant_account_fkey"] =~
+             "FOREIGN KEY (polo_id, merchant_account_id)"
+
+    assert constraints["consumer_invoices_provider_identity_check"] =~
+             "merchant_account_id IS NOT NULL"
+
+    assert indexes["billing_agreements_order_item_uidx"] =~ "(polo_id, order_item_id)"
+
+    assert indexes["billing_agreements_actor_idempotency_uidx"] =~
+             "(polo_id, user_id, idempotency_key)"
+
+    assert indexes["consumer_invoices_provider_reference_uidx"] =~
+             "(merchant_account_id, provider_reference)"
+  end
+
+  test "chargebacks require terminal timestamps and make the financial loss explicit" do
+    constraints = constraint_definitions()
+
+    assert constraints["chargebacks_closed_at_check"] =~ "under_review"
+    assert constraints["chargebacks_closed_at_check"] =~ "closed_at IS NOT NULL"
+    assert constraints["payments_charged_back_at_check"] =~ "status = 'charged_back'"
+    assert constraints["payments_status_check"] =~ "charged_back"
+    assert constraints["orders_status_check"] =~ "charged_back"
+    assert constraints["entitlement_ledger_entries_kind_check"] =~ "chargeback_revocation"
+  end
+
   test "backoffice payment feeds have indexes matching both keyset query shapes" do
     indexes = index_definitions()
 
@@ -127,7 +176,6 @@ defmodule Clubeira.Billing.DatabaseContractTest do
         'order_items_price_fkey',
         'access_contracts_order_item_fkey',
         'payment_provider_events_account_fkey',
-        'payment_provider_events_polo_merchant_account_fkey',
         'payment_intents_polo_merchant_account_fkey',
         'payment_intents_payment_method_check',
         'payment_intents_next_action_check',
@@ -135,6 +183,15 @@ defmodule Clubeira.Billing.DatabaseContractTest do
         'payments_intent_fkey',
         'refunds_payment_fkey',
         'refunds_resolution_check',
+        'billing_agreements_order_item_fkey',
+        'billing_agreements_polo_merchant_account_fkey',
+        'billing_agreements_reservation_check',
+        'consumer_invoices_polo_merchant_account_fkey',
+        'consumer_invoices_provider_identity_check',
+        'chargebacks_closed_at_check',
+        'payments_charged_back_at_check',
+        'payments_status_check',
+        'orders_status_check',
         'benefit_cycles_package_assignment_fkey',
         'entitlement_allocations_package_item_fkey',
         'entitlement_ledger_entries_kind_check'
@@ -159,7 +216,10 @@ defmodule Clubeira.Billing.DatabaseContractTest do
           'refunds_backoffice_payment_feed_idx',
           'refunds_actor_idempotency_uidx',
           'refunds_live_payment_uidx',
-          'refunds_succeeded_payment_uidx'
+          'refunds_succeeded_payment_uidx',
+          'billing_agreements_order_item_uidx',
+          'billing_agreements_actor_idempotency_uidx',
+          'consumer_invoices_provider_reference_uidx'
         )
       """)
 
