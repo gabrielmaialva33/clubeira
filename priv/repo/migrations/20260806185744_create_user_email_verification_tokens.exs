@@ -1,11 +1,7 @@
-defmodule Clubeira.Repo.Migrations.AddEmailVerification do
+defmodule Clubeira.Repo.Migrations.CreateUserEmailVerificationTokens do
   use Ecto.Migration
 
   def change do
-    alter table(:users) do
-      add :email_verified_at, :timestamptz
-    end
-
     create table(:user_email_verification_tokens, primary_key: false) do
       add :id, :uuid, primary_key: true, default: fragment("uuidv7()")
       add :user_id, references(:users, type: :uuid, on_delete: :restrict), null: false

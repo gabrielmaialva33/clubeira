@@ -9,6 +9,7 @@ defmodule Clubeira.Repo.Migrations.CreateUsers do
       add :email, :citext, null: false
       add :status, :text, null: false, default: "pending"
       add :authenticated_at, :timestamptz
+      add :email_verified_at, :timestamptz
       add :disabled_at, :timestamptz
 
       timestamps(@timestamps_opts)
