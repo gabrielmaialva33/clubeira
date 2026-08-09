@@ -28,4 +28,20 @@ defmodule Clubeira.Subscriptions.BenefitCycle do
     field :closed_at, :utc_datetime_usec
     field :inserted_at, :utc_datetime_usec
   end
+
+  @type t :: %__MODULE__{
+          id: Ecto.UUID.t(),
+          polo_id: Ecto.UUID.t(),
+          access_contract_id: Ecto.UUID.t(),
+          benefit_package_version_id: Ecto.UUID.t(),
+          offering_package_assignment_id: Ecto.UUID.t(),
+          polo_policy_version_id: Ecto.UUID.t(),
+          sequence: pos_integer(),
+          benefits_during: Postgrex.Range.t(),
+          status: String.t(),
+          delinquency_grace_until: DateTime.t() | nil,
+          activated_at: DateTime.t() | nil,
+          closed_at: DateTime.t() | nil,
+          inserted_at: DateTime.t()
+        }
 end

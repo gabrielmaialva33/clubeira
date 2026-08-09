@@ -9,7 +9,7 @@ defmodule ClubeiraWeb.BackofficeProductOfferingController do
   alias ClubeiraWeb.ErrorJSON
   alias Plug.Conn.Status
 
-  @offering_fields ~w(code name description)
+  @offering_fields ~w(code name description renewal_policy)
   @cycle_fields ~w(policy interval_unit interval_count)
   @effective_fields ~w(starts_at ends_at)
   @price_fields ~w(currency amount)

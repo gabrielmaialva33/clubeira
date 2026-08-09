@@ -9,10 +9,10 @@ defmodule Clubeira.Subscriptions.ProductOfferingPublishRequest do
 
   @primary_key false
   @fields ~w(
-    code name description cycle_policy cycle_interval_unit cycle_interval_count
+    code name description renewal_policy cycle_policy cycle_interval_unit cycle_interval_count
     effective_from effective_until currency amount idempotency_key
   )a
-  @required_fields @fields -- [:effective_until]
+  @required_fields @fields -- [:effective_until, :renewal_policy]
   @code_pattern ~r/^[a-z0-9]+(?:-[a-z0-9]+)*$/
   @atom_keys %{
     "allowance_per_cycle" => :allowance_per_cycle,
@@ -33,6 +33,7 @@ defmodule Clubeira.Subscriptions.ProductOfferingPublishRequest do
     "offering" => :offering,
     "policy" => :policy,
     "price" => :price,
+    "renewal_policy" => :renewal_policy,
     "starts_at" => :starts_at
   }
 
@@ -40,6 +41,7 @@ defmodule Clubeira.Subscriptions.ProductOfferingPublishRequest do
     field :code, :string
     field :name, :string
     field :description, :string
+    field :renewal_policy, :string, default: "none"
     field :cycle_policy, :string
     field :cycle_interval_unit, :string
     field :cycle_interval_count, :integer
@@ -56,6 +58,7 @@ defmodule Clubeira.Subscriptions.ProductOfferingPublishRequest do
           code: String.t(),
           name: String.t(),
           description: String.t(),
+          renewal_policy: String.t(),
           cycle_policy: String.t(),
           cycle_interval_unit: String.t(),
           cycle_interval_count: pos_integer(),
@@ -85,6 +88,7 @@ defmodule Clubeira.Subscriptions.ProductOfferingPublishRequest do
       |> validate_format(:code, @code_pattern)
       |> validate_length(:name, min: 2, max: 200)
       |> validate_length(:description, min: 3, max: 5_000)
+      |> validate_inclusion(:renewal_policy, ~w(none manual automatic))
       |> validate_inclusion(:cycle_policy, ~w(calendar anniversary))
       |> validate_inclusion(:cycle_interval_unit, ~w(day month year))
       |> validate_number(:cycle_interval_count, greater_than: 0, less_than: 32_768)
@@ -123,6 +127,7 @@ defmodule Clubeira.Subscriptions.ProductOfferingPublishRequest do
       code: value(offering, "code"),
       name: value(offering, "name"),
       description: value(offering, "description"),
+      renewal_policy: value(offering, "renewal_policy") || "none",
       cycle_policy: value(cycle, "policy"),
       cycle_interval_unit: value(cycle, "interval_unit"),
       cycle_interval_count: value(cycle, "interval_count"),

@@ -117,6 +117,55 @@ defmodule Clubeira.Subscriptions.Provisioner do
     )
   end
 
+  @spec materialize_renewal!(
+          module(),
+          Scope.t(),
+          AccessContract.t(),
+          ProvisioningPlan.t(),
+          DateTime.t()
+        ) :: %{contract: AccessContract.t(), cycle: BenefitCycle.t(), allocations: [map()]}
+  def materialize_renewal!(
+        repo,
+        %Scope{} = scope,
+        %AccessContract{} = contract,
+        %ProvisioningPlan{} = plan,
+        now
+      ) do
+    last_cycle = lock_last_cycle!(repo, scope, contract.id)
+    ensure_contiguous_renewal!(last_cycle, plan.benefits_during)
+
+    last_cycle
+    |> Ecto.Changeset.change(status: "closed", closed_at: now)
+    |> repo.update!()
+
+    cycle =
+      %BenefitCycle{
+        polo_id: scope.polo_id,
+        access_contract_id: contract.id,
+        benefit_package_version_id: plan.configuration.package_version.id,
+        offering_package_assignment_id: plan.configuration.assignment.id,
+        polo_policy_version_id: plan.configuration.policy.id,
+        sequence: last_cycle.sequence + 1,
+        benefits_during: plan.benefits_during,
+        status: "active",
+        activated_at: now,
+        inserted_at: now
+      }
+      |> repo.insert!()
+
+    subject = insert_subject!(repo, scope, contract, cycle, now)
+    allocations = insert_allocations!(repo, scope, subject, plan.allocation_specs, now)
+
+    updated_contract =
+      contract
+      |> Ecto.Changeset.change(status: "active", updated_at: now)
+      |> repo.update!()
+
+    record_renewal!(repo, scope, updated_contract, cycle, allocations, now)
+
+    %{contract: updated_contract, cycle: cycle, allocations: allocations}
+  end
+
   defp lock_configuration(repo, scope, offering_version, activated_at) do
     with {:ok, polo} <- lock_polo(repo, scope.polo_id),
          :ok <- ensure_payment_activation(offering_version),
@@ -373,6 +422,84 @@ defmodule Clubeira.Subscriptions.Provisioner do
 
     record_activation!(repo, scope, order, payment, contract, cycle, allocations, now)
     contract
+  end
+
+  defp lock_last_cycle!(repo, scope, contract_id) do
+    BenefitCycle
+    |> where(
+      [cycle],
+      cycle.polo_id == ^scope.polo_id and cycle.access_contract_id == ^contract_id
+    )
+    |> order_by([cycle], desc: cycle.sequence)
+    |> limit(1)
+    |> lock("FOR UPDATE")
+    |> repo.one!()
+  end
+
+  defp ensure_contiguous_renewal!(last_cycle, next_period) do
+    if last_cycle.status == "active" and
+         last_cycle.benefits_during.upper == next_period.lower do
+      :ok
+    else
+      raise "renewal cycle is not contiguous with the active contract cycle"
+    end
+  end
+
+  defp record_renewal!(repo, scope, contract, cycle, allocations, now) do
+    sequence = next_contract_event_sequence(repo, scope, contract.id)
+
+    payload = %{
+      "access_contract_id" => contract.id,
+      "benefit_cycle_id" => cycle.id,
+      "cycle_sequence" => cycle.sequence,
+      "allocation_count" => length(allocations),
+      "renewed_at" => DateTime.to_iso8601(now)
+    }
+
+    %ContractEvent{
+      polo_id: scope.polo_id,
+      access_contract_id: contract.id,
+      sequence: sequence,
+      event_type: "renewed",
+      actor_user_id: scope.actor_user_id,
+      payload: payload,
+      occurred_at: now,
+      inserted_at: now
+    }
+    |> repo.insert!()
+
+    Events.emit!(repo, %{
+      polo_id: scope.polo_id,
+      aggregate_type: "access_contract",
+      aggregate_id: contract.id,
+      aggregate_version: sequence,
+      event_type: "subscription.renewed",
+      topic: "subscriptions.renewed",
+      message_key: contract.id,
+      payload: payload,
+      metadata: request_metadata(scope),
+      occurred_at: now
+    })
+
+    Audit.record_tenant!(repo, scope, %{
+      action: "subscription.renewed",
+      resource_type: "access_contract",
+      resource_id: contract.id,
+      metadata: payload,
+      occurred_at: now
+    })
+  end
+
+  defp next_contract_event_sequence(repo, scope, contract_id) do
+    current =
+      ContractEvent
+      |> where(
+        [event],
+        event.polo_id == ^scope.polo_id and event.access_contract_id == ^contract_id
+      )
+      |> repo.aggregate(:max, :sequence)
+
+    (current || 0) + 1
   end
 
   defp insert_contract!(repo, scope, order, order_item, configuration, activated_at, now) do

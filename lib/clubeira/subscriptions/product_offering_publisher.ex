@@ -200,7 +200,7 @@ defmodule Clubeira.Subscriptions.ProductOfferingPublisher do
         cycle_policy: request.cycle_policy,
         cycle_interval_unit: request.cycle_interval_unit,
         cycle_interval_count: request.cycle_interval_count,
-        renewal_policy: "none",
+        renewal_policy: request.renewal_policy,
         minimum_beneficiaries: 1,
         maximum_beneficiaries: 1,
         status: "published",
@@ -599,12 +599,13 @@ defmodule Clubeira.Subscriptions.ProductOfferingPublisher do
       end)
 
     Idempotency.fingerprint({
-      1,
+      2,
       scope.polo_id,
       scope.actor_user_id,
       request.code,
       request.name,
       request.description,
+      request.renewal_policy,
       request.cycle_policy,
       request.cycle_interval_unit,
       request.cycle_interval_count,

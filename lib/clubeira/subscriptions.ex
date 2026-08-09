@@ -25,6 +25,7 @@ defmodule Clubeira.Subscriptions do
   alias Clubeira.Subscriptions.BackofficeSubscriptionReader
   alias Clubeira.Subscriptions.BenefitCycle
   alias Clubeira.Subscriptions.BenefitPackageItem
+  alias Clubeira.Subscriptions.ContractLifecycle
   alias Clubeira.Subscriptions.CycleEntitlementSubject
   alias Clubeira.Subscriptions.EntitlementAllocation
   alias Clubeira.Subscriptions.EntitlementScopePlace
@@ -65,6 +66,15 @@ defmodule Clubeira.Subscriptions do
           {:ok, ProductOfferingLifecycle.result()} | {:error, term()}
   defdelegate transition_product_offering(scope, offering_id, attributes),
     to: ProductOfferingLifecycle,
+    as: :transition
+
+  @doc """
+  Suspends or reactivates one access contract with temporal evidence.
+  """
+  @spec transition_contract(TenantScope.t(), Ecto.UUID.t(), map()) ::
+          {:ok, map()} | {:error, term()}
+  defdelegate transition_contract(scope, contract_id, attributes),
+    to: ContractLifecycle,
     as: :transition
 
   @doc """
