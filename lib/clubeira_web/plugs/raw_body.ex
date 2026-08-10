@@ -12,8 +12,8 @@ defmodule ClubeiraWeb.Plugs.RawBody do
           | {:error, term()}
   def read_body(%Conn{} = conn, options) do
     case Conn.read_body(conn, options) do
-      {:ok, body, conn} -> {:ok, body, maybe_cache(conn, body)}
-      {:more, body, conn} -> {:more, body, conn}
+      {:ok, body, conn} -> {:ok, body, maybe_append(conn, body)}
+      {:more, body, conn} -> {:more, body, maybe_append(conn, body)}
       {:error, _reason} = error -> error
     end
   end
@@ -21,8 +21,10 @@ defmodule ClubeiraWeb.Plugs.RawBody do
   @spec get(Conn.t()) :: binary()
   def get(%Conn{} = conn), do: Map.get(conn.private, @private_key, "")
 
-  defp maybe_cache(%Conn{request_path: @webhook_path_prefix <> _rest} = conn, body),
-    do: Conn.put_private(conn, @private_key, body)
+  defp maybe_append(%Conn{request_path: @webhook_path_prefix <> _rest} = conn, body) do
+    cached = Map.get(conn.private, @private_key, "")
+    Conn.put_private(conn, @private_key, cached <> body)
+  end
 
-  defp maybe_cache(conn, _body), do: conn
+  defp maybe_append(conn, _body), do: conn
 end
