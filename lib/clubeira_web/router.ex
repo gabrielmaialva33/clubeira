@@ -103,6 +103,7 @@ defmodule ClubeiraWeb.Router do
   scope "/api/v1", ClubeiraWeb do
     pipe_through :api
 
+    get "/polos", PoloController, :index
     get "/polos/:polo_slug/catalog", CatalogController, :show
     get "/polos/:polo_slug/checkout-options", CatalogController, :checkout_options
     get "/polos/:polo_slug/places", PlaceController, :index
@@ -118,6 +119,7 @@ defmodule ClubeiraWeb.Router do
 
     delete "/auth/session", AuthSessionController, :delete
     get "/me", AccountController, :show
+    get "/me/access", AccessBootstrapController, :show
     get "/me/profile", ProfileController, :show
     put "/me/profile", ProfileController, :update
     get "/me/privacy/consents", PrivacyController, :index_consents

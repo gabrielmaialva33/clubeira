@@ -123,6 +123,64 @@ defmodule Clubeira.E2E.BackofficeOperationsTest do
     refute Map.has_key?(audit_event, "metadata")
   end
 
+  test "web and app clients bootstrap public and staff navigation over real HTTP", %{
+    base_url: base_url
+  } do
+    fixture = RedemptionsFixtures.create!()
+    admin_scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    admin = Repo.get!(User, admin_scope.actor_user_id)
+    assert {:ok, _credential} = Accounts.set_password(admin, @password)
+
+    assert %Req.Response{
+             status: 200,
+             body: %{
+               "data" => [
+                 %{
+                   "id" => polo_id,
+                   "slug" => polo_slug,
+                   "city" => %{"country_code" => "BR"}
+                 }
+               ]
+             }
+           } = Req.get!("#{base_url}/api/v1/polos", retry: false)
+
+    assert polo_id == fixture.ids.polo
+    assert polo_slug == fixture.polo_slug
+
+    assert %Req.Response{
+             status: 201,
+             body: %{"data" => %{"access_token" => admin_token}}
+           } =
+             Req.post!("#{base_url}/api/v1/auth/sessions",
+               json: %{"email" => admin.email, "password" => @password},
+               retry: false
+             )
+
+    assert %Req.Response{
+             status: 200,
+             body: %{
+               "data" => %{
+                 "platform" => %{"roles" => [], "capabilities" => []},
+                 "polos" => [
+                   %{
+                     "id" => ^polo_id,
+                     "slug" => ^polo_slug,
+                     "roles" => ["admin"],
+                     "capabilities" => capabilities
+                   }
+                 ]
+               }
+             }
+           } =
+             Req.get!("#{base_url}/api/v1/me/access",
+               headers: [{"authorization", "Bearer #{admin_token}"}],
+               retry: false
+             )
+
+    assert "manage_operations" in capabilities
+    assert "manage_partners" in capabilities
+  end
+
   defp emit_dead_letter!(fixture) do
     {:ok, message_id} =
       Repo.transact_in_polo(fixture.scope, fn repo ->
