@@ -1,0 +1,66 @@
+Ok:
+  description: Operação concluída.
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/DataEnvelope'
+Created:
+  description: Recurso criado.
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/DataEnvelope'
+Accepted:
+  description: Solicitação aceita sem revelar se a identidade existe.
+NoContent:
+  description: Operação concluída sem corpo de resposta.
+Redirect:
+  description: Redireciona para a mídia verificada no storage.
+  headers:
+    Location:
+      description: URL temporária da mídia.
+      schema:
+        type: string
+        format: uri
+BadRequest:
+  $ref: '#/ErrorResponse'
+  description: Requisição malformada ou paginação inválida.
+Unauthorized:
+  $ref: '#/ErrorResponse'
+  description: Credencial ausente, inválida, revogada ou expirada.
+Forbidden:
+  $ref: '#/ErrorResponse'
+  description: Ator autenticado sem papel ou capability necessária.
+NotFound:
+  $ref: '#/ErrorResponse'
+  description: Recurso não encontrado no escopo autorizado.
+Conflict:
+  $ref: '#/ErrorResponse'
+  description: Estado concorrente, replay incompatível ou transição inválida.
+UnprocessableEntity:
+  $ref: '#/ErrorResponse'
+  description: Entrada válida como JSON, mas inválida para o domínio.
+TooManyRequests:
+  description: Limite de tentativas excedido.
+  headers:
+    Retry-After:
+      description: Segundos mínimos antes de uma nova tentativa.
+      schema:
+        type: integer
+        minimum: 1
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorEnvelope'
+BadGateway:
+  $ref: '#/ErrorResponse'
+  description: O PSP respondeu com um contrato inválido ou rejeitou a operação.
+ServiceUnavailable:
+  $ref: '#/ErrorResponse'
+  description: Dependência obrigatória indisponível.
+ErrorResponse:
+  description: Erro da API.
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorEnvelope'

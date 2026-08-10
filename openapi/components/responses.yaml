@@ -1,0 +1,108 @@
+SessionCreated:
+  $ref: ./responses/auth.yaml#/SessionCreated
+AccountOk:
+  $ref: ./responses/member/account.yaml#/AccountOk
+AccessOk:
+  $ref: ./responses/member/account.yaml#/AccessOk
+ProfileOk:
+  $ref: ./responses/member/account.yaml#/ProfileOk
+ConsentListOk:
+  $ref: ./responses/member/account.yaml#/ConsentListOk
+ConsentOk:
+  $ref: ./responses/member/account.yaml#/ConsentOk
+PrivacyRequestListOk:
+  $ref: ./responses/member/account.yaml#/PrivacyRequestListOk
+PrivacyRequestOk:
+  $ref: ./responses/member/account.yaml#/PrivacyRequestOk
+PrivacyRequestCreated:
+  $ref: ./responses/member/account.yaml#/PrivacyRequestCreated
+PublicPolosOk:
+  $ref: ./responses/public.yaml#/PublicPolosOk
+LegalDocumentsOk:
+  $ref: ./responses/public.yaml#/LegalDocumentsOk
+CatalogOk:
+  $ref: ./responses/public.yaml#/CatalogOk
+CheckoutOptionsOk:
+  $ref: ./responses/public.yaml#/CheckoutOptionsOk
+PublicPlacesOk:
+  $ref: ./responses/public.yaml#/PublicPlacesOk
+PublicReviewsOk:
+  $ref: ./responses/public.yaml#/PublicReviewsOk
+CheckoutCreated:
+  $ref: ./responses/member/billing.yaml#/CheckoutCreated
+PaymentIntentCreated:
+  $ref: ./responses/member/billing.yaml#/PaymentIntentCreated
+BillingAgreementCreated:
+  $ref: ./responses/member/billing.yaml#/BillingAgreementCreated
+BillingAgreementsOk:
+  $ref: ./responses/member/billing.yaml#/BillingAgreementsOk
+MemberSubscriptionsOk:
+  $ref: ./responses/member/subscriptions.yaml#/MemberSubscriptionsOk
+MemberOrdersOk:
+  $ref: ./responses/member/subscriptions.yaml#/MemberOrdersOk
+WalletOk:
+  $ref: ./responses/member/subscriptions.yaml#/WalletOk
+RedemptionDeviceOk:
+  $ref: ./responses/member/devices.yaml#/RedemptionDeviceOk
+RedemptionDeviceCreated:
+  $ref: ./responses/member/devices.yaml#/RedemptionDeviceCreated
+DeviceKeyOk:
+  $ref: ./responses/member/devices.yaml#/DeviceKeyOk
+DeviceKeyCreated:
+  $ref: ./responses/member/devices.yaml#/DeviceKeyCreated
+RedemptionGrantCreated:
+  $ref: ./responses/member/redemptions.yaml#/RedemptionGrantCreated
+RedemptionCreated:
+  $ref: ./responses/member/redemptions.yaml#/RedemptionCreated
+MemberRedemptionsOk:
+  $ref: ./responses/member/redemptions.yaml#/MemberRedemptionsOk
+ReviewCreated:
+  $ref: ./responses/reviews.yaml#/ReviewCreated
+ReviewMediaOk:
+  $ref: ./responses/reviews.yaml#/ReviewMediaOk
+ReviewMediaCreated:
+  $ref: ./responses/reviews.yaml#/ReviewMediaCreated
+ReviewReportCreated:
+  $ref: ./responses/reviews.yaml#/ReviewReportCreated
+BackofficePlacesOk:
+  $ref: ./responses/backoffice/directory.yaml#/BackofficePlacesOk
+BackofficeBenefitOffersOk:
+  $ref: ./responses/backoffice/catalog.yaml#/BackofficeBenefitOffersOk
+BackofficeProductOfferingsOk:
+  $ref: ./responses/backoffice/catalog.yaml#/BackofficeProductOfferingsOk
+PartnerAgreementsOk:
+  $ref: ./responses/backoffice/partnerships.yaml#/PartnerAgreementsOk
+PartnerAgreementOk:
+  $ref: ./responses/backoffice/partnerships.yaml#/PartnerAgreementOk
+BackofficePaymentsOk:
+  $ref: ./responses/backoffice/billing.yaml#/BackofficePaymentsOk
+BackofficeSubscriptionsOk:
+  $ref: ./responses/backoffice/billing.yaml#/BackofficeSubscriptionsOk
+OutboxMessagesOk:
+  $ref: ./responses/backoffice/operations.yaml#/OutboxMessagesOk
+AuditEventsOk:
+  $ref: ./responses/backoffice/operations.yaml#/AuditEventsOk
+BackofficeValidationPointsOk:
+  $ref: ./responses/backoffice/validation.yaml#/BackofficeValidationPointsOk
+ModerationReviewsOk:
+  $ref: ./responses/backoffice/reviews.yaml#/ModerationReviewsOk
+ModerationReportsOk:
+  $ref: ./responses/backoffice/reviews.yaml#/ModerationReportsOk
+PartnerReviewResponseOk:
+  $ref: ./responses/partner.yaml#/PartnerReviewResponseOk
+ProcessingPurposesOk:
+  $ref: ./responses/platform.yaml#/ProcessingPurposesOk
+ProcessingPurposeOk:
+  $ref: ./responses/platform.yaml#/ProcessingPurposeOk
+PlatformPrivacyRequestsOk:
+  $ref: ./responses/platform.yaml#/PlatformPrivacyRequestsOk
+PlatformPrivacyRequestOk:
+  $ref: ./responses/platform.yaml#/PlatformPrivacyRequestOk
+PlatformPlansOk:
+  $ref: ./responses/platform.yaml#/PlatformPlansOk
+PlatformPlanOk:
+  $ref: ./responses/platform.yaml#/PlatformPlanOk
+PlatformSubscriptionOk:
+  $ref: ./responses/platform.yaml#/PlatformSubscriptionOk
+PlatformBillingOk:
+  $ref: ./responses/platform.yaml#/PlatformBillingOk

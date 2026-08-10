@@ -1,0 +1,18 @@
+MemberSubscriptionsOk:
+  description: Página de contratos do membro em todos os polos.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/MemberSubscriptionsResponse
+MemberOrdersOk:
+  description: Página de pedidos do membro no polo.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/MemberOrdersResponse
+WalletOk:
+  description: Vouchers e saldo atual calculado a partir das alocações do polo.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/WalletResponse

@@ -1,0 +1,48 @@
+AccountOk:
+  description: Conta e validade da sessão atual.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/AccountResponse
+AccessOk:
+  description: Bootstrap atual de navegação e capabilities.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/AccessResponse
+ProfileOk:
+  description: Perfil civil sem identificadores ou contatos em claro.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/ProfileResponse
+ConsentListOk:
+  description: Estado atual das finalidades de consentimento.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/ConsentListResponse
+ConsentOk:
+  description: Novo estado append-only do consentimento.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/ConsentResponse
+PrivacyRequestListOk:
+  description: Solicitações LGPD da conta.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/PrivacyRequestListResponse
+PrivacyRequestOk:
+  description: Solicitação LGPD atual.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/PrivacyRequestResponse
+PrivacyRequestCreated:
+  description: Solicitação LGPD criada.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/PrivacyRequestResponse

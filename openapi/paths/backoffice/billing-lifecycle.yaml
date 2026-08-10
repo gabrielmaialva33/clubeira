@@ -1,0 +1,69 @@
+subscriptionLifecycleActions:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../../components/common.yaml#/parameters/ContractId
+  post:
+    operationId: transitionBackofficeSubscription
+    tags:
+      - Backoffice billing
+    summary: Pausa, retoma ou cancela um contrato
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/LifecycleAction
+    responses:
+      '200':
+        $ref: ../../components/common.yaml#/responses/Ok
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+paymentRefunds:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../../components/common.yaml#/parameters/PaymentId
+  post:
+    operationId: refundBackofficePayment
+    tags:
+      - Backoffice billing
+    summary: Solicita reembolso integral de um pagamento
+    description: Reserva o reembolso antes do I/O e só conclui a revogação após resposta normalizada ou webhook autenticado.
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/Refund
+    responses:
+      '201':
+        $ref: ../../components/common.yaml#/responses/Created
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+      '502':
+        $ref: ../../components/common.yaml#/responses/BadGateway
+      '503':
+        $ref: ../../components/common.yaml#/responses/ServiceUnavailable

@@ -1,0 +1,98 @@
+OutboxMessage:
+  type: object
+  required:
+    - id
+    - status
+    - topic
+    - attempt_count
+    - available_at
+    - published_at
+    - recorded_at
+    - has_error
+    - event
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    status:
+      type: string
+    topic:
+      type: string
+    attempt_count:
+      type: integer
+    available_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+    published_at:
+      $ref: ../../schemas.yaml#/NullableDateTime
+    recorded_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+    has_error:
+      type: boolean
+    event:
+      type: object
+      additionalProperties: true
+OutboxMessagesResponse:
+  type: object
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/OutboxMessage'
+    meta:
+      $ref: ../../common.yaml#/schemas/CollectionMeta
+AuditEvent:
+  type: object
+  required:
+    - id
+    - actor_user_id
+    - actor_kind
+    - action
+    - resource_type
+    - resource_id
+    - request_id
+    - correlation_id
+    - occurred_at
+    - recorded_at
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    actor_user_id:
+      oneOf:
+        - $ref: ../../common.yaml#/schemas/UUID
+        - type: 'null'
+    actor_kind:
+      type: string
+    action:
+      type: string
+    resource_type:
+      type: string
+    resource_id:
+      oneOf:
+        - $ref: ../../common.yaml#/schemas/UUID
+        - type: 'null'
+    request_id:
+      oneOf:
+        - $ref: ../../common.yaml#/schemas/UUID
+        - type: 'null'
+    correlation_id:
+      oneOf:
+        - $ref: ../../common.yaml#/schemas/UUID
+        - type: 'null'
+    occurred_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+    recorded_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+AuditEventsResponse:
+  type: object
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AuditEvent'
+    meta:
+      $ref: ../../common.yaml#/schemas/CollectionMeta

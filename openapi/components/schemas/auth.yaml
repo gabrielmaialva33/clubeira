@@ -1,0 +1,41 @@
+User:
+  type: object
+  required:
+    - id
+    - email
+    - email_verified_at
+  properties:
+    id:
+      $ref: ../common.yaml#/schemas/UUID
+    email:
+      type: string
+      format: email
+    email_verified_at:
+      oneOf:
+        - $ref: ../common.yaml#/schemas/DateTime
+        - type: 'null'
+SessionData:
+  type: object
+  required:
+    - access_token
+    - token_type
+    - expires_at
+    - user
+  properties:
+    access_token:
+      type: string
+      description: Token opaco devolvido somente na criação da sessão.
+    token_type:
+      type: string
+      const: Bearer
+    expires_at:
+      $ref: ../common.yaml#/schemas/DateTime
+    user:
+      $ref: '#/User'
+SessionResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      $ref: '#/SessionData'

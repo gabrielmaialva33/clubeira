@@ -11,16 +11,16 @@ authSessions:
       content:
         application/json:
           schema:
-            $ref: ../components.yaml#/schemas/SessionCredentials
+            $ref: ../components/common.yaml#/schemas/SessionCredentials
     responses:
       '201':
-        $ref: ../responses.yaml#/SessionCreated
+        $ref: ../components/responses.yaml#/SessionCreated
       '401':
-        $ref: ../components.yaml#/responses/Unauthorized
+        $ref: ../components/common.yaml#/responses/Unauthorized
       '422':
-        $ref: ../components.yaml#/responses/UnprocessableEntity
+        $ref: ../components/common.yaml#/responses/UnprocessableEntity
       '429':
-        $ref: ../components.yaml#/responses/TooManyRequests
+        $ref: ../components/common.yaml#/responses/TooManyRequests
 
 registrations:
   post:
@@ -35,16 +35,16 @@ registrations:
       content:
         application/json:
           schema:
-            $ref: ../components.yaml#/schemas/Registration
+            $ref: ../components/common.yaml#/schemas/Registration
     responses:
       '201':
-        $ref: ../responses.yaml#/SessionCreated
+        $ref: ../components/responses.yaml#/SessionCreated
       '422':
-        $ref: ../components.yaml#/responses/UnprocessableEntity
+        $ref: ../components/common.yaml#/responses/UnprocessableEntity
       '429':
-        $ref: ../components.yaml#/responses/TooManyRequests
+        $ref: ../components/common.yaml#/responses/TooManyRequests
       '503':
-        $ref: ../components.yaml#/responses/ServiceUnavailable
+        $ref: ../components/common.yaml#/responses/ServiceUnavailable
 
 passwordResetRequests:
   post:
@@ -59,14 +59,14 @@ passwordResetRequests:
       content:
         application/json:
           schema:
-            $ref: ../components.yaml#/schemas/Email
+            $ref: ../components/common.yaml#/schemas/Email
     responses:
       '202':
-        $ref: ../components.yaml#/responses/Accepted
+        $ref: ../components/common.yaml#/responses/Accepted
       '429':
-        $ref: ../components.yaml#/responses/TooManyRequests
+        $ref: ../components/common.yaml#/responses/TooManyRequests
       '503':
-        $ref: ../components.yaml#/responses/ServiceUnavailable
+        $ref: ../components/common.yaml#/responses/ServiceUnavailable
 
 passwordResets:
   post:
@@ -80,14 +80,14 @@ passwordResets:
       content:
         application/json:
           schema:
-            $ref: ../components.yaml#/schemas/PasswordReset
+            $ref: ../components/common.yaml#/schemas/PasswordReset
     responses:
       '204':
-        $ref: ../components.yaml#/responses/NoContent
+        $ref: ../components/common.yaml#/responses/NoContent
       '422':
-        $ref: ../components.yaml#/responses/UnprocessableEntity
+        $ref: ../components/common.yaml#/responses/UnprocessableEntity
       '429':
-        $ref: ../components.yaml#/responses/TooManyRequests
+        $ref: ../components/common.yaml#/responses/TooManyRequests
 
 emailVerifications:
   post:
@@ -101,12 +101,12 @@ emailVerifications:
       content:
         application/json:
           schema:
-            $ref: ../components.yaml#/schemas/Token
+            $ref: ../components/common.yaml#/schemas/Token
     responses:
       '204':
-        $ref: ../components.yaml#/responses/NoContent
+        $ref: ../components/common.yaml#/responses/NoContent
       '422':
-        $ref: ../components.yaml#/responses/UnprocessableEntity
+        $ref: ../components/common.yaml#/responses/UnprocessableEntity
 
 emailVerificationRequests:
   post:
@@ -116,11 +116,11 @@ emailVerificationRequests:
     summary: Reenvia a confirmação de e-mail
     responses:
       '202':
-        $ref: ../components.yaml#/responses/Accepted
+        $ref: ../components/common.yaml#/responses/Accepted
       '401':
-        $ref: ../components.yaml#/responses/Unauthorized
+        $ref: ../components/common.yaml#/responses/Unauthorized
       '503':
-        $ref: ../components.yaml#/responses/ServiceUnavailable
+        $ref: ../components/common.yaml#/responses/ServiceUnavailable
 
 authSession:
   delete:
@@ -130,6 +130,6 @@ authSession:
     summary: Revoga a sessão atual
     responses:
       '204':
-        $ref: ../components.yaml#/responses/NoContent
+        $ref: ../components/common.yaml#/responses/NoContent
       '401':
-        $ref: ../components.yaml#/responses/Unauthorized
+        $ref: ../components/common.yaml#/responses/Unauthorized

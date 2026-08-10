@@ -1,0 +1,21 @@
+PartnerAgreementListResponse:
+  type: object
+  required:
+    - data
+    - page
+  properties:
+    data:
+      type: array
+      items:
+        type: object
+        additionalProperties: true
+    page:
+      $ref: ../../common.yaml#/schemas/Page
+PartnerAgreementResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      type: object
+      additionalProperties: true

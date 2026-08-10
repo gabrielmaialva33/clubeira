@@ -1,0 +1,160 @@
+ProcessingPurposeData:
+  type: object
+  required:
+    - id
+    - code
+    - name
+    - legal_basis
+    - legal_document_version_id
+    - status
+    - inserted_at
+    - updated_at
+  properties:
+    id:
+      $ref: ../common.yaml#/schemas/UUID
+    code:
+      type: string
+    name:
+      type: string
+    legal_basis:
+      type: string
+    legal_document_version_id:
+      $ref: ../common.yaml#/schemas/UUID
+    status:
+      type: string
+    inserted_at:
+      $ref: ../common.yaml#/schemas/DateTime
+    updated_at:
+      $ref: ../common.yaml#/schemas/DateTime
+ProcessingPurposeResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      $ref: '#/ProcessingPurposeData'
+ProcessingPurposesResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/ProcessingPurposeData'
+PlatformPrivacyRequestsResponse:
+  type: object
+  required:
+    - data
+    - page
+  properties:
+    data:
+      type: array
+      items:
+        $ref: ../schemas.yaml#/PrivacyRequestData
+    page:
+      $ref: ../common.yaml#/schemas/Page
+PlatformPlan:
+  type: object
+  required:
+    - id
+    - code
+    - name
+    - status
+    - version
+  properties:
+    id:
+      $ref: ../common.yaml#/schemas/UUID
+    code:
+      type: string
+    name:
+      type: string
+    status:
+      type: string
+    version:
+      type: object
+      additionalProperties: true
+PlatformPlanResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      $ref: '#/PlatformPlan'
+PlatformPlansResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/PlatformPlan'
+PlatformSubscriptionData:
+  type: object
+  required:
+    - id
+    - status
+    - platform_plan_version_id
+    - platform_price_id
+    - next_action
+    - next_charge_at
+    - current_period
+    - inserted_at
+    - updated_at
+  properties:
+    id:
+      $ref: ../common.yaml#/schemas/UUID
+    status:
+      type: string
+    platform_plan_version_id:
+      $ref: ../common.yaml#/schemas/UUID
+    platform_price_id:
+      $ref: ../common.yaml#/schemas/UUID
+    next_action:
+      type: object
+      additionalProperties: true
+    next_charge_at:
+      $ref: ../schemas.yaml#/NullableDateTime
+    current_period:
+      $ref: ../schemas.yaml#/NullablePeriod
+    inserted_at:
+      $ref: ../common.yaml#/schemas/DateTime
+    updated_at:
+      $ref: ../common.yaml#/schemas/DateTime
+PlatformSubscriptionResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      type: object
+      required:
+        - provider
+        - subscription
+      properties:
+        provider:
+          type: string
+        subscription:
+          $ref: '#/PlatformSubscriptionData'
+PlatformBillingResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      type: object
+      required:
+        - subscription
+        - invoices
+      properties:
+        subscription:
+          type:
+            - object
+            - 'null'
+          additionalProperties: true
+        invoices:
+          type: array
+          items:
+            type: object
+            additionalProperties: true

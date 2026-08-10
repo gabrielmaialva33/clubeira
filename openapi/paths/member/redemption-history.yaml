@@ -1,0 +1,37 @@
+redemptionHistory:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+  get:
+    operationId: listCurrentRedemptions
+    tags:
+      - Redemptions
+    summary: Lista resgates do membro no polo
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/Limit
+      - $ref: ../../components/common.yaml#/parameters/After
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/MemberRedemptionsOk
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '503':
+        $ref: ../../components/common.yaml#/responses/ServiceUnavailable
+wallet:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+  get:
+    operationId: getCurrentWallet
+    tags:
+      - Redemptions
+    summary: Retorna vouchers e saldos atuais do membro no polo
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/WalletOk
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound

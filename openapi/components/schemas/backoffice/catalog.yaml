@@ -1,0 +1,83 @@
+BackofficeBenefitOffer:
+  type: object
+  required:
+    - id
+    - code
+    - name
+    - benefit_kind
+    - status
+    - recorded_at
+    - latest_version
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    code:
+      type: string
+    name:
+      type: string
+    benefit_kind:
+      type: string
+    status:
+      type: string
+    recorded_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+    latest_version:
+      type:
+        - object
+        - 'null'
+      additionalProperties: true
+BackofficeBenefitOffersResponse:
+  type: object
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/BackofficeBenefitOffer'
+    meta:
+      $ref: ../../common.yaml#/schemas/CollectionMeta
+BackofficeProductOffering:
+  type: object
+  required:
+    - id
+    - code
+    - scope_kind
+    - sales_channel
+    - status
+    - revision
+    - recorded_at
+    - latest_version
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    code:
+      type: string
+    scope_kind:
+      type: string
+    sales_channel:
+      type: string
+    status:
+      type: string
+    revision:
+      type: integer
+    recorded_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+    latest_version:
+      type:
+        - object
+        - 'null'
+      additionalProperties: true
+BackofficeProductOfferingsResponse:
+  type: object
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/BackofficeProductOffering'
+    meta:
+      $ref: ../../common.yaml#/schemas/CollectionMeta

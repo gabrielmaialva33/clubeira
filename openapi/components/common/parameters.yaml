@@ -1,0 +1,195 @@
+PoloSlug:
+  name: polo_slug
+  in: path
+  required: true
+  description: Slug público e estável do polo.
+  schema:
+    type: string
+    minLength: 1
+PlaceId:
+  name: place_id
+  in: path
+  required: true
+  schema:
+    $ref: './schemas.yaml#/UUID'
+ReviewId:
+  name: review_id
+  in: path
+  required: true
+  schema:
+    $ref: './schemas.yaml#/UUID'
+MediaId:
+  name: media_id
+  in: path
+  required: true
+  schema:
+    $ref: './schemas.yaml#/UUID'
+MerchantAccountId:
+  name: merchant_account_id
+  in: path
+  required: true
+  schema:
+    $ref: './schemas.yaml#/UUID'
+PurposeCode:
+  name: purpose_code
+  in: path
+  required: true
+  schema:
+    type: string
+    minLength: 1
+OrderId:
+  name: order_id
+  in: path
+  required: true
+  schema:
+    $ref: './schemas.yaml#/UUID'
+DeviceId:
+  name: device_id
+  in: path
+  required: true
+  schema:
+    $ref: './schemas.yaml#/UUID'
+RequestId:
+  name: request_id
+  in: path
+  required: true
+  schema:
+    $ref: './schemas.yaml#/UUID'
+PlanCode:
+  name: plan_code
+  in: path
+  required: true
+  schema:
+    type: string
+    minLength: 1
+Version:
+  name: version
+  in: path
+  required: true
+  schema:
+    type: integer
+    minimum: 1
+AccessId:
+  name: access_id
+  in: path
+  required: true
+  schema:
+    $ref: './schemas.yaml#/UUID'
+ProductOfferingId:
+  name: product_offering_id
+  in: path
+  required: true
+  schema:
+    $ref: './schemas.yaml#/UUID'
+AgreementId:
+  name: agreement_id
+  in: path
+  required: true
+  schema:
+    $ref: './schemas.yaml#/UUID'
+MessageId:
+  name: message_id
+  in: path
+  required: true
+  schema:
+    $ref: './schemas.yaml#/UUID'
+ContractId:
+  name: contract_id
+  in: path
+  required: true
+  schema:
+    $ref: './schemas.yaml#/UUID'
+PaymentId:
+  name: payment_id
+  in: path
+  required: true
+  schema:
+    $ref: './schemas.yaml#/UUID'
+ValidationPointId:
+  name: validation_point_id
+  in: path
+  required: true
+  schema:
+    $ref: './schemas.yaml#/UUID'
+CredentialId:
+  name: credential_id
+  in: path
+  required: true
+  schema:
+    $ref: './schemas.yaml#/UUID'
+ReviewReportId:
+  name: review_report_id
+  in: path
+  required: true
+  schema:
+    $ref: './schemas.yaml#/UUID'
+IdempotencyKey:
+  name: Idempotency-Key
+  in: header
+  required: true
+  description: Chave opaca que identifica semanticamente a mutação para o ator e escopo.
+  schema:
+    type: string
+    minLength: 1
+    maxLength: 255
+OptionalIdempotencyKey:
+  name: Idempotency-Key
+  in: header
+  required: false
+  description: Chave opaca opcional; quando presente protege contra replay semântico.
+  schema:
+    type: string
+    minLength: 1
+    maxLength: 255
+Limit:
+  name: limit
+  in: query
+  description: Quantidade máxima de itens por página.
+  schema:
+    type: integer
+    minimum: 1
+    maximum: 100
+    default: 20
+After:
+  name: after
+  in: query
+  description: Cursor opaco retornado em `meta.page.next_cursor`.
+  schema:
+    type: string
+Locale:
+  name: locale
+  in: query
+  description: Locale BCP 47 usado para selecionar conteúdo legal.
+  schema:
+    type: string
+    example: pt-BR
+Status:
+  name: status
+  in: query
+  schema:
+    type: string
+Code:
+  name: code
+  in: query
+  schema:
+    type: string
+PlaceIdFilter:
+  name: place_id
+  in: query
+  schema:
+    $ref: './schemas.yaml#/UUID'
+Topic:
+  name: topic
+  in: query
+  schema:
+    type: string
+Action:
+  name: action
+  in: query
+  schema:
+    type: string
+ResourceType:
+  name: resource_type
+  in: query
+  schema:
+    type: string

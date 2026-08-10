@@ -1,0 +1,36 @@
+PublicPolosOk:
+  description: Página de polos públicos ativos.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/PublicPoloListResponse
+LegalDocumentsOk:
+  description: Documentos legais efetivos exigidos no cadastro.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/LegalDocumentListResponse
+CatalogOk:
+  description: Catálogo público vigente do polo.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/CatalogResponse
+CheckoutOptionsOk:
+  description: Opções que podem ser enviadas diretamente ao checkout autenticado.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/CheckoutOptionsResponse
+PublicPlacesOk:
+  description: Diretório público paginado do polo.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/PublicPlacesResponse
+PublicReviewsOk:
+  description: Página de avaliações publicadas.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/PublicReviewsResponse

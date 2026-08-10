@@ -1,0 +1,86 @@
+RedemptionGrantData:
+  type: object
+  required:
+    - grant
+    - expires_at
+  properties:
+    grant:
+      type: string
+    expires_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+RedemptionGrantResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      $ref: '#/RedemptionGrantData'
+RedemptionData:
+  type: object
+  required:
+    - id
+    - entitlement_allocation_id
+    - validation_point_id
+    - units
+    - redeemed_at
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    entitlement_allocation_id:
+      $ref: ../../common.yaml#/schemas/UUID
+    validation_point_id:
+      $ref: ../../common.yaml#/schemas/UUID
+    units:
+      type: integer
+      minimum: 1
+    redeemed_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+RedemptionResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      $ref: '#/RedemptionData'
+MemberRedemption:
+  type: object
+  required:
+    - id
+    - polo_place_id
+    - units
+    - redeemed_at
+    - place
+    - benefit
+    - review
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    polo_place_id:
+      $ref: ../../common.yaml#/schemas/UUID
+    units:
+      type: integer
+    redeemed_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+    place:
+      type: object
+      additionalProperties: true
+    benefit:
+      type: object
+      additionalProperties: true
+    review:
+      type:
+        - object
+        - 'null'
+      additionalProperties: true
+MemberRedemptionsResponse:
+  type: object
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/MemberRedemption'
+    meta:
+      $ref: ../../common.yaml#/schemas/CollectionMeta

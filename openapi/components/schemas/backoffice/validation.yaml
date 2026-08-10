@@ -1,0 +1,47 @@
+BackofficeValidationPoint:
+  type: object
+  required:
+    - id
+    - polo_place_id
+    - name
+    - kind
+    - status
+    - revision
+    - recorded_at
+    - place
+    - credential
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    polo_place_id:
+      $ref: ../../common.yaml#/schemas/UUID
+    name:
+      type: string
+    kind:
+      type: string
+    status:
+      type: string
+    revision:
+      type: integer
+    recorded_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+    place:
+      type: object
+      additionalProperties: true
+    credential:
+      type:
+        - object
+        - 'null'
+      additionalProperties: true
+BackofficeValidationPointsResponse:
+  type: object
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/BackofficeValidationPoint'
+    meta:
+      $ref: ../../common.yaml#/schemas/CollectionMeta

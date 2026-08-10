@@ -1,0 +1,18 @@
+RedemptionGrantCreated:
+  description: Grant assinado e de curta duração.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/RedemptionGrantResponse
+RedemptionCreated:
+  description: Resgate consumido atomicamente.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/RedemptionResponse
+MemberRedemptionsOk:
+  description: Página de resgates do membro no polo.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/MemberRedemptionsResponse

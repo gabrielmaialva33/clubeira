@@ -7,19 +7,19 @@ polos:
     description: Retorna somente identidades públicas e cidade; roles e contratos não participam desta descoberta.
     security: []
     parameters:
-      - $ref: ../components.yaml#/parameters/Limit
-      - $ref: ../components.yaml#/parameters/After
+      - $ref: ../components/common.yaml#/parameters/Limit
+      - $ref: ../components/common.yaml#/parameters/After
     responses:
       '200':
-        $ref: ../responses.yaml#/PublicPolosOk
+        $ref: ../components/responses.yaml#/PublicPolosOk
       '400':
-        $ref: ../components.yaml#/responses/BadRequest
+        $ref: ../components/common.yaml#/responses/BadRequest
       '503':
-        $ref: ../components.yaml#/responses/ServiceUnavailable
+        $ref: ../components/common.yaml#/responses/ServiceUnavailable
 
 catalog:
   parameters:
-    - $ref: ../components.yaml#/parameters/PoloSlug
+    - $ref: ../components/common.yaml#/parameters/PoloSlug
   get:
     operationId: getPublicCatalog
     tags:
@@ -27,19 +27,19 @@ catalog:
     summary: Lista ofertas publicadas do polo
     security: []
     parameters:
-      - $ref: ../components.yaml#/parameters/Limit
-      - $ref: ../components.yaml#/parameters/After
+      - $ref: ../components/common.yaml#/parameters/Limit
+      - $ref: ../components/common.yaml#/parameters/After
     responses:
       '200':
-        $ref: ../responses.yaml#/CatalogOk
+        $ref: ../components/responses.yaml#/CatalogOk
       '400':
-        $ref: ../components.yaml#/responses/BadRequest
+        $ref: ../components/common.yaml#/responses/BadRequest
       '404':
-        $ref: ../components.yaml#/responses/NotFound
+        $ref: ../components/common.yaml#/responses/NotFound
 
 checkoutOptions:
   parameters:
-    - $ref: ../components.yaml#/parameters/PoloSlug
+    - $ref: ../components/common.yaml#/parameters/PoloSlug
   get:
     operationId: listCheckoutOptions
     tags:
@@ -47,19 +47,19 @@ checkoutOptions:
     summary: Lista versões e preços disponíveis para checkout
     security: []
     parameters:
-      - $ref: ../components.yaml#/parameters/Limit
-      - $ref: ../components.yaml#/parameters/After
+      - $ref: ../components/common.yaml#/parameters/Limit
+      - $ref: ../components/common.yaml#/parameters/After
     responses:
       '200':
-        $ref: ../responses.yaml#/CheckoutOptionsOk
+        $ref: ../components/responses.yaml#/CheckoutOptionsOk
       '400':
-        $ref: ../components.yaml#/responses/BadRequest
+        $ref: ../components/common.yaml#/responses/BadRequest
       '404':
-        $ref: ../components.yaml#/responses/NotFound
+        $ref: ../components/common.yaml#/responses/NotFound
 
 places:
   parameters:
-    - $ref: ../components.yaml#/parameters/PoloSlug
+    - $ref: ../components/common.yaml#/parameters/PoloSlug
   get:
     operationId: listPublicPlaces
     tags:
@@ -67,20 +67,20 @@ places:
     summary: Lista estabelecimentos públicos do polo
     security: []
     parameters:
-      - $ref: ../components.yaml#/parameters/Limit
-      - $ref: ../components.yaml#/parameters/After
+      - $ref: ../components/common.yaml#/parameters/Limit
+      - $ref: ../components/common.yaml#/parameters/After
     responses:
       '200':
-        $ref: ../responses.yaml#/PublicPlacesOk
+        $ref: ../components/responses.yaml#/PublicPlacesOk
       '400':
-        $ref: ../components.yaml#/responses/BadRequest
+        $ref: ../components/common.yaml#/responses/BadRequest
       '404':
-        $ref: ../components.yaml#/responses/NotFound
+        $ref: ../components/common.yaml#/responses/NotFound
 
 placeReviews:
   parameters:
-    - $ref: ../components.yaml#/parameters/PoloSlug
-    - $ref: ../components.yaml#/parameters/PlaceId
+    - $ref: ../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../components/common.yaml#/parameters/PlaceId
   get:
     operationId: listPublicPlaceReviews
     tags:
@@ -88,15 +88,15 @@ placeReviews:
     summary: Lista avaliações publicadas de um lugar
     security: []
     parameters:
-      - $ref: ../components.yaml#/parameters/Limit
-      - $ref: ../components.yaml#/parameters/After
+      - $ref: ../components/common.yaml#/parameters/Limit
+      - $ref: ../components/common.yaml#/parameters/After
     responses:
       '200':
-        $ref: ../responses.yaml#/PublicReviewsOk
+        $ref: ../components/responses.yaml#/PublicReviewsOk
       '400':
-        $ref: ../components.yaml#/responses/BadRequest
+        $ref: ../components/common.yaml#/responses/BadRequest
       '404':
-        $ref: ../components.yaml#/responses/NotFound
+        $ref: ../components/common.yaml#/responses/NotFound
   post:
     operationId: submitVerifiedReview
     tags:
@@ -104,29 +104,29 @@ placeReviews:
     summary: Publica uma avaliação vinculada a um resgate
     description: O usuário só pode avaliar conforme a política histórica do polo e a prova de resgate informada.
     parameters:
-      - $ref: ../components.yaml#/parameters/IdempotencyKey
+      - $ref: ../components/common.yaml#/parameters/IdempotencyKey
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: ../components.yaml#/schemas/Review
+            $ref: ../components/common.yaml#/schemas/Review
     responses:
       '201':
-        $ref: ../responses.yaml#/ReviewCreated
+        $ref: ../components/responses.yaml#/ReviewCreated
       '401':
-        $ref: ../components.yaml#/responses/Unauthorized
+        $ref: ../components/common.yaml#/responses/Unauthorized
       '404':
-        $ref: ../components.yaml#/responses/NotFound
+        $ref: ../components/common.yaml#/responses/NotFound
       '409':
-        $ref: ../components.yaml#/responses/Conflict
+        $ref: ../components/common.yaml#/responses/Conflict
       '422':
-        $ref: ../components.yaml#/responses/UnprocessableEntity
+        $ref: ../components/common.yaml#/responses/UnprocessableEntity
 
 reviewMedia:
   parameters:
-    - $ref: ../components.yaml#/parameters/PoloSlug
-    - $ref: ../components.yaml#/parameters/MediaId
+    - $ref: ../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../components/common.yaml#/parameters/MediaId
   get:
     operationId: redirectToPublicReviewMedia
     tags:
@@ -135,11 +135,11 @@ reviewMedia:
     security: []
     responses:
       '302':
-        $ref: ../components.yaml#/responses/Redirect
+        $ref: ../components/common.yaml#/responses/Redirect
       '404':
-        $ref: ../components.yaml#/responses/NotFound
+        $ref: ../components/common.yaml#/responses/NotFound
       '503':
-        $ref: ../components.yaml#/responses/ServiceUnavailable
+        $ref: ../components/common.yaml#/responses/ServiceUnavailable
 
 registrationLegalDocuments:
   get:
@@ -149,16 +149,16 @@ registrationLegalDocuments:
     summary: Lista documentos legais exigidos no cadastro
     security: []
     parameters:
-      - $ref: ../components.yaml#/parameters/Locale
+      - $ref: ../components/common.yaml#/parameters/Locale
     responses:
       '200':
-        $ref: ../responses.yaml#/LegalDocumentsOk
+        $ref: ../components/responses.yaml#/LegalDocumentsOk
       '400':
-        $ref: ../components.yaml#/responses/BadRequest
+        $ref: ../components/common.yaml#/responses/BadRequest
 
 redemptionConfirmations:
   parameters:
-    - $ref: ../components.yaml#/parameters/PoloSlug
+    - $ref: ../components/common.yaml#/parameters/PoloSlug
   post:
     operationId: confirmRedemption
     tags:
@@ -168,28 +168,28 @@ redemptionConfirmations:
     security:
       - validationPointAuth: []
     parameters:
-      - $ref: ../components.yaml#/parameters/OptionalIdempotencyKey
+      - $ref: ../components/common.yaml#/parameters/OptionalIdempotencyKey
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: ../components.yaml#/schemas/RedemptionConfirmation
+            $ref: ../components/common.yaml#/schemas/RedemptionConfirmation
     responses:
       '201':
-        $ref: ../responses.yaml#/RedemptionCreated
+        $ref: ../components/responses.yaml#/RedemptionCreated
       '401':
-        $ref: ../components.yaml#/responses/Unauthorized
+        $ref: ../components/common.yaml#/responses/Unauthorized
       '404':
-        $ref: ../components.yaml#/responses/NotFound
+        $ref: ../components/common.yaml#/responses/NotFound
       '409':
-        $ref: ../components.yaml#/responses/Conflict
+        $ref: ../components/common.yaml#/responses/Conflict
       '422':
-        $ref: ../components.yaml#/responses/UnprocessableEntity
+        $ref: ../components/common.yaml#/responses/UnprocessableEntity
 
 mercadoPagoWebhook:
   parameters:
-    - $ref: ../components.yaml#/parameters/MerchantAccountId
+    - $ref: ../components/common.yaml#/parameters/MerchantAccountId
   post:
     operationId: receiveMercadoPagoWebhook
     tags:
@@ -210,17 +210,17 @@ mercadoPagoWebhook:
       content:
         application/json:
           schema:
-            $ref: ../components.yaml#/schemas/MercadoPagoWebhook
+            $ref: ../components/common.yaml#/schemas/MercadoPagoWebhook
     responses:
       '200':
         description: Evento autenticado e aceito, inclusive quando já havia sido processado.
       '400':
-        $ref: ../components.yaml#/responses/BadRequest
+        $ref: ../components/common.yaml#/responses/BadRequest
       '401':
-        $ref: ../components.yaml#/responses/Unauthorized
+        $ref: ../components/common.yaml#/responses/Unauthorized
       '422':
-        $ref: ../components.yaml#/responses/UnprocessableEntity
+        $ref: ../components/common.yaml#/responses/UnprocessableEntity
       '502':
-        $ref: ../components.yaml#/responses/BadGateway
+        $ref: ../components/common.yaml#/responses/BadGateway
       '503':
-        $ref: ../components.yaml#/responses/ServiceUnavailable
+        $ref: ../components/common.yaml#/responses/ServiceUnavailable

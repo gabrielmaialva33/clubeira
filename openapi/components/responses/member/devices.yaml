@@ -1,0 +1,24 @@
+RedemptionDeviceOk:
+  description: Instalação já autorizada para o contrato.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/RedemptionDeviceResponse
+RedemptionDeviceCreated:
+  description: Instalação autorizada para o contrato.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/RedemptionDeviceResponse
+DeviceKeyOk:
+  description: Chave pública corrente do dispositivo.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/DeviceKeyResponse
+DeviceKeyCreated:
+  description: Primeira chave pública registrada para o dispositivo.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/DeviceKeyResponse

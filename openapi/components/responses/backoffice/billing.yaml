@@ -1,0 +1,12 @@
+BackofficePaymentsOk:
+  description: Página segura do read model financeiro do polo.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/BackofficePaymentsResponse
+BackofficeSubscriptionsOk:
+  description: Página do inventário operacional de contratos do polo.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/BackofficeSubscriptionsResponse

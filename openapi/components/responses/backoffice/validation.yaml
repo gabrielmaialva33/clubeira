@@ -1,0 +1,6 @@
+BackofficeValidationPointsOk:
+  description: Página de pontos e metadados não secretos das credenciais.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/BackofficeValidationPointsResponse

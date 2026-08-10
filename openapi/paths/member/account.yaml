@@ -1,0 +1,130 @@
+account:
+  get:
+    operationId: getCurrentAccount
+    tags:
+      - Account
+    summary: Retorna a conta autenticada
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/AccountOk
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+access:
+  get:
+    operationId: getCurrentAccessBootstrap
+    tags:
+      - Account
+    summary: Retorna polos, roles e capabilities atuais para navegação
+    description: É um bootstrap de cliente, não uma autorização reutilizável; cada comando reautoriza no banco.
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/AccessOk
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '503':
+        $ref: ../../components/common.yaml#/responses/ServiceUnavailable
+profile:
+  get:
+    operationId: getCurrentProfile
+    tags:
+      - Account
+    summary: Retorna o perfil civil da conta
+    description: CPF e telefone são representados apenas por presença/verificação, nunca em claro.
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/ProfileOk
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+  put:
+    operationId: putCurrentProfile
+    tags:
+      - Account
+    summary: Cria ou atualiza o perfil civil
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/Profile
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/ProfileOk
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+privacyConsents:
+  get:
+    operationId: listCurrentConsents
+    tags:
+      - Privacy
+    summary: Lista o estado atual dos consentimentos
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/ConsentListOk
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+privacyConsent:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PurposeCode
+  put:
+    operationId: putCurrentConsent
+    tags:
+      - Privacy
+    summary: Concede ou retira consentimento
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/Consent
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/ConsentOk
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+privacyRequests:
+  get:
+    operationId: listCurrentPrivacyRequests
+    tags:
+      - Privacy
+    summary: Lista solicitações LGPD da conta
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/PrivacyRequestListOk
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+  post:
+    operationId: createPrivacyRequest
+    tags:
+      - Privacy
+    summary: Abre uma solicitação LGPD idempotente
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/PrivacyRequest
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/PrivacyRequestOk
+      '201':
+        $ref: ../../components/responses.yaml#/PrivacyRequestCreated
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity

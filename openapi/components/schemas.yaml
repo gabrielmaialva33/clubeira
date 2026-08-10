@@ -1,0 +1,212 @@
+User:
+  $ref: ./schemas/auth.yaml#/User
+SessionData:
+  $ref: ./schemas/auth.yaml#/SessionData
+SessionResponse:
+  $ref: ./schemas/auth.yaml#/SessionResponse
+AccountData:
+  $ref: ./schemas/member/account.yaml#/AccountData
+AccountResponse:
+  $ref: ./schemas/member/account.yaml#/AccountResponse
+AccessScope:
+  $ref: ./schemas/member/account.yaml#/AccessScope
+PoloAccess:
+  $ref: ./schemas/member/account.yaml#/PoloAccess
+AccessResponse:
+  $ref: ./schemas/member/account.yaml#/AccessResponse
+ProfileIdentifier:
+  $ref: ./schemas/member/account.yaml#/ProfileIdentifier
+ProfileContactPoint:
+  $ref: ./schemas/member/account.yaml#/ProfileContactPoint
+ProfileData:
+  $ref: ./schemas/member/account.yaml#/ProfileData
+ProfileResponse:
+  $ref: ./schemas/member/account.yaml#/ProfileResponse
+ConsentData:
+  $ref: ./schemas/member/account.yaml#/ConsentData
+ConsentResponse:
+  $ref: ./schemas/member/account.yaml#/ConsentResponse
+ConsentListResponse:
+  $ref: ./schemas/member/account.yaml#/ConsentListResponse
+PrivacyRequestEvent:
+  $ref: ./schemas/member/account.yaml#/PrivacyRequestEvent
+PrivacyRequestData:
+  $ref: ./schemas/member/account.yaml#/PrivacyRequestData
+PrivacyRequestResponse:
+  $ref: ./schemas/member/account.yaml#/PrivacyRequestResponse
+PrivacyRequestListResponse:
+  $ref: ./schemas/member/account.yaml#/PrivacyRequestListResponse
+PoloIdentity:
+  $ref: ./schemas/public.yaml#/PoloIdentity
+CityIdentity:
+  $ref: ./schemas/public.yaml#/CityIdentity
+PublicPolo:
+  $ref: ./schemas/public.yaml#/PublicPolo
+PublicPoloListResponse:
+  $ref: ./schemas/public.yaml#/PublicPoloListResponse
+LegalDocument:
+  $ref: ./schemas/public.yaml#/LegalDocument
+LegalDocumentListResponse:
+  $ref: ./schemas/public.yaml#/LegalDocumentListResponse
+PageMeta:
+  $ref: ./schemas/public.yaml#/PageMeta
+OfferPlace:
+  $ref: ./schemas/public.yaml#/OfferPlace
+PublicBenefitOffer:
+  $ref: ./schemas/public.yaml#/PublicBenefitOffer
+CatalogResponse:
+  $ref: ./schemas/public.yaml#/CatalogResponse
+CheckoutOption:
+  $ref: ./schemas/public.yaml#/CheckoutOption
+CheckoutOptionsResponse:
+  $ref: ./schemas/public.yaml#/CheckoutOptionsResponse
+PublicPlaceProfile:
+  $ref: ./schemas/public.yaml#/PublicPlaceProfile
+OpeningWindow:
+  $ref: ./schemas/public.yaml#/OpeningWindow
+ClockWindow:
+  $ref: ./schemas/public.yaml#/ClockWindow
+PublicPlace:
+  $ref: ./schemas/public.yaml#/PublicPlace
+PublicPlacesResponse:
+  $ref: ./schemas/public.yaml#/PublicPlacesResponse
+CheckoutOrder:
+  $ref: ./schemas/member/billing.yaml#/CheckoutOrder
+CheckoutOrderResponse:
+  $ref: ./schemas/member/billing.yaml#/CheckoutOrderResponse
+PaymentIntentData:
+  $ref: ./schemas/member/billing.yaml#/PaymentIntentData
+PaymentIntentResponse:
+  $ref: ./schemas/member/billing.yaml#/PaymentIntentResponse
+NullableDateTime:
+  $ref: ./schemas/member/billing.yaml#/NullableDateTime
+NullablePeriod:
+  $ref: ./schemas/member/billing.yaml#/NullablePeriod
+BillingAgreementStart:
+  $ref: ./schemas/member/billing.yaml#/BillingAgreementStart
+BillingAgreementStartResponse:
+  $ref: ./schemas/member/billing.yaml#/BillingAgreementStartResponse
+BillingInvoice:
+  $ref: ./schemas/member/billing.yaml#/BillingInvoice
+BillingAgreement:
+  $ref: ./schemas/member/billing.yaml#/BillingAgreement
+BillingAgreementsResponse:
+  $ref: ./schemas/member/billing.yaml#/BillingAgreementsResponse
+MemberSubscription:
+  $ref: ./schemas/member/subscriptions.yaml#/MemberSubscription
+MemberSubscriptionsResponse:
+  $ref: ./schemas/member/subscriptions.yaml#/MemberSubscriptionsResponse
+OrderItem:
+  $ref: ./schemas/member/subscriptions.yaml#/OrderItem
+MemberOrder:
+  $ref: ./schemas/member/subscriptions.yaml#/MemberOrder
+MemberOrdersResponse:
+  $ref: ./schemas/member/subscriptions.yaml#/MemberOrdersResponse
+WalletVoucher:
+  $ref: ./schemas/member/subscriptions.yaml#/WalletVoucher
+WalletResponse:
+  $ref: ./schemas/member/subscriptions.yaml#/WalletResponse
+RedemptionDeviceData:
+  $ref: ./schemas/member/devices.yaml#/RedemptionDeviceData
+RedemptionDeviceResponse:
+  $ref: ./schemas/member/devices.yaml#/RedemptionDeviceResponse
+DeviceKeyData:
+  $ref: ./schemas/member/devices.yaml#/DeviceKeyData
+DeviceKeyResponse:
+  $ref: ./schemas/member/devices.yaml#/DeviceKeyResponse
+RedemptionGrantData:
+  $ref: ./schemas/member/redemptions.yaml#/RedemptionGrantData
+RedemptionGrantResponse:
+  $ref: ./schemas/member/redemptions.yaml#/RedemptionGrantResponse
+RedemptionData:
+  $ref: ./schemas/member/redemptions.yaml#/RedemptionData
+RedemptionResponse:
+  $ref: ./schemas/member/redemptions.yaml#/RedemptionResponse
+MemberRedemption:
+  $ref: ./schemas/member/redemptions.yaml#/MemberRedemption
+MemberRedemptionsResponse:
+  $ref: ./schemas/member/redemptions.yaml#/MemberRedemptionsResponse
+ReviewSubmission:
+  $ref: ./schemas/reviews.yaml#/ReviewSubmission
+ReviewSubmissionResponse:
+  $ref: ./schemas/reviews.yaml#/ReviewSubmissionResponse
+ReviewMediaData:
+  $ref: ./schemas/reviews.yaml#/ReviewMediaData
+ReviewMediaResponse:
+  $ref: ./schemas/reviews.yaml#/ReviewMediaResponse
+PublicReviewResponseData:
+  $ref: ./schemas/reviews.yaml#/PublicReviewResponseData
+PublicReview:
+  $ref: ./schemas/reviews.yaml#/PublicReview
+PublicReviewsResponse:
+  $ref: ./schemas/reviews.yaml#/PublicReviewsResponse
+ReviewReportData:
+  $ref: ./schemas/reviews.yaml#/ReviewReportData
+ReviewReportResponse:
+  $ref: ./schemas/reviews.yaml#/ReviewReportResponse
+BackofficePlace:
+  $ref: ./schemas/backoffice/directory.yaml#/BackofficePlace
+BackofficePlacesResponse:
+  $ref: ./schemas/backoffice/directory.yaml#/BackofficePlacesResponse
+BackofficeBenefitOffer:
+  $ref: ./schemas/backoffice/catalog.yaml#/BackofficeBenefitOffer
+BackofficeBenefitOffersResponse:
+  $ref: ./schemas/backoffice/catalog.yaml#/BackofficeBenefitOffersResponse
+BackofficeProductOffering:
+  $ref: ./schemas/backoffice/catalog.yaml#/BackofficeProductOffering
+BackofficeProductOfferingsResponse:
+  $ref: ./schemas/backoffice/catalog.yaml#/BackofficeProductOfferingsResponse
+PartnerAgreementListResponse:
+  $ref: ./schemas/backoffice/partnerships.yaml#/PartnerAgreementListResponse
+PartnerAgreementResponse:
+  $ref: ./schemas/backoffice/partnerships.yaml#/PartnerAgreementResponse
+BackofficePayment:
+  $ref: ./schemas/backoffice/billing.yaml#/BackofficePayment
+BackofficePaymentsResponse:
+  $ref: ./schemas/backoffice/billing.yaml#/BackofficePaymentsResponse
+BackofficeSubscription:
+  $ref: ./schemas/backoffice/billing.yaml#/BackofficeSubscription
+BackofficeSubscriptionsResponse:
+  $ref: ./schemas/backoffice/billing.yaml#/BackofficeSubscriptionsResponse
+OutboxMessage:
+  $ref: ./schemas/backoffice/operations.yaml#/OutboxMessage
+OutboxMessagesResponse:
+  $ref: ./schemas/backoffice/operations.yaml#/OutboxMessagesResponse
+AuditEvent:
+  $ref: ./schemas/backoffice/operations.yaml#/AuditEvent
+AuditEventsResponse:
+  $ref: ./schemas/backoffice/operations.yaml#/AuditEventsResponse
+BackofficeValidationPoint:
+  $ref: ./schemas/backoffice/validation.yaml#/BackofficeValidationPoint
+BackofficeValidationPointsResponse:
+  $ref: ./schemas/backoffice/validation.yaml#/BackofficeValidationPointsResponse
+ModerationReview:
+  $ref: ./schemas/backoffice/reviews.yaml#/ModerationReview
+ModerationReviewsResponse:
+  $ref: ./schemas/backoffice/reviews.yaml#/ModerationReviewsResponse
+ModerationReportsResponse:
+  $ref: ./schemas/backoffice/reviews.yaml#/ModerationReportsResponse
+PartnerReviewResponseData:
+  $ref: ./schemas/partner.yaml#/PartnerReviewResponseData
+PartnerReviewResponseEnvelope:
+  $ref: ./schemas/partner.yaml#/PartnerReviewResponseEnvelope
+ProcessingPurposeData:
+  $ref: ./schemas/platform.yaml#/ProcessingPurposeData
+ProcessingPurposeResponse:
+  $ref: ./schemas/platform.yaml#/ProcessingPurposeResponse
+ProcessingPurposesResponse:
+  $ref: ./schemas/platform.yaml#/ProcessingPurposesResponse
+PlatformPrivacyRequestsResponse:
+  $ref: ./schemas/platform.yaml#/PlatformPrivacyRequestsResponse
+PlatformPlan:
+  $ref: ./schemas/platform.yaml#/PlatformPlan
+PlatformPlanResponse:
+  $ref: ./schemas/platform.yaml#/PlatformPlanResponse
+PlatformPlansResponse:
+  $ref: ./schemas/platform.yaml#/PlatformPlansResponse
+PlatformSubscriptionData:
+  $ref: ./schemas/platform.yaml#/PlatformSubscriptionData
+PlatformSubscriptionResponse:
+  $ref: ./schemas/platform.yaml#/PlatformSubscriptionResponse
+PlatformBillingResponse:
+  $ref: ./schemas/platform.yaml#/PlatformBillingResponse

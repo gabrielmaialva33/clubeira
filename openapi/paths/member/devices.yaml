@@ -1,0 +1,66 @@
+redemptionDevices:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+  post:
+    operationId: enrollRedemptionDevice
+    tags:
+      - Devices
+    summary: Autoriza uma instalação para resgates do contrato
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/RedemptionDevice
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/RedemptionDeviceOk
+      '201':
+        $ref: ../../components/responses.yaml#/RedemptionDeviceCreated
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+deviceKey:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/DeviceId
+  get:
+    operationId: getCurrentDeviceKey
+    tags:
+      - Devices
+    summary: Retorna a chave pública ativa do dispositivo
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/DeviceKeyOk
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+  put:
+    operationId: putCurrentDeviceKey
+    tags:
+      - Devices
+    summary: Registra ou substitui a chave pública com prova de posse
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/DeviceKey
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/DeviceKeyOk
+      '201':
+        $ref: ../../components/responses.yaml#/DeviceKeyCreated
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity

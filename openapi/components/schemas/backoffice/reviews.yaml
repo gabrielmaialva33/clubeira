@@ -1,0 +1,72 @@
+ModerationReview:
+  type: object
+  required:
+    - id
+    - place_id
+    - author_user_id
+    - source_redemption_id
+    - verification_kind
+    - status
+    - revision_number
+    - rating
+    - title
+    - body
+    - submitted_at
+    - published_at
+    - rejected_at
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    place_id:
+      $ref: ../../common.yaml#/schemas/UUID
+    author_user_id:
+      $ref: ../../common.yaml#/schemas/UUID
+    source_redemption_id:
+      oneOf:
+        - $ref: ../../common.yaml#/schemas/UUID
+        - type: 'null'
+    verification_kind:
+      type: string
+    status:
+      type: string
+    revision_number:
+      type: integer
+    rating:
+      type: integer
+    title:
+      type:
+        - string
+        - 'null'
+    body:
+      type: string
+    submitted_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+    published_at:
+      $ref: ../../schemas.yaml#/NullableDateTime
+    rejected_at:
+      $ref: ../../schemas.yaml#/NullableDateTime
+ModerationReviewsResponse:
+  type: object
+  required:
+    - data
+    - page
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/ModerationReview'
+    page:
+      $ref: ../../common.yaml#/schemas/Page
+ModerationReportsResponse:
+  type: object
+  required:
+    - data
+    - page
+  properties:
+    data:
+      type: array
+      items:
+        type: object
+        additionalProperties: true
+    page:
+      $ref: ../../common.yaml#/schemas/Page

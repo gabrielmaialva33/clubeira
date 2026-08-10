@@ -1,0 +1,77 @@
+partnerAgreements:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+  get:
+    operationId: listPartnerAgreements
+    tags:
+      - Backoffice partners
+    summary: Lista convênios comerciais do polo
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/Limit
+      - $ref: ../../components/common.yaml#/parameters/After
+      - $ref: ../../components/common.yaml#/parameters/Status
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/PartnerAgreementsOk
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+      '503':
+        $ref: ../../components/common.yaml#/responses/ServiceUnavailable
+  post:
+    operationId: publishPartnerAgreement
+    tags:
+      - Backoffice partners
+    summary: Publica um convênio e seus escopos comerciais
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/PartnerAgreement
+    responses:
+      '200':
+        $ref: ../../components/common.yaml#/responses/Ok
+      '201':
+        $ref: ../../components/common.yaml#/responses/Created
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+      '503':
+        $ref: ../../components/common.yaml#/responses/ServiceUnavailable
+partnerAgreement:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../../components/common.yaml#/parameters/AgreementId
+  get:
+    operationId: getPartnerAgreement
+    tags:
+      - Backoffice partners
+    summary: Retorna um convênio e todos os seus escopos
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/PartnerAgreementOk
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '503':
+        $ref: ../../components/common.yaml#/responses/ServiceUnavailable

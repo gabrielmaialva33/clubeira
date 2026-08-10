@@ -1,0 +1,24 @@
+CheckoutCreated:
+  description: Pedido criado e aguardando a próxima etapa de pagamento.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/CheckoutOrderResponse
+PaymentIntentCreated:
+  description: Intent local criado com a próxima ação normalizada do PSP.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/PaymentIntentResponse
+BillingAgreementCreated:
+  description: Acordo recorrente iniciado no PSP.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/BillingAgreementStartResponse
+BillingAgreementsOk:
+  description: Cobranças recorrentes e faturas do membro no polo.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/BillingAgreementsResponse

@@ -1,0 +1,82 @@
+outboxMessages:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+  get:
+    operationId: listBackofficeOutboxMessages
+    tags:
+      - Backoffice operations
+    summary: Lista o estado operacional da outbox do polo
+    description: Disponível somente ao admin do polo; omite payload, erro e identidade do worker.
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/Limit
+      - $ref: ../../components/common.yaml#/parameters/After
+      - $ref: ../../components/common.yaml#/parameters/Status
+      - $ref: ../../components/common.yaml#/parameters/Topic
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/OutboxMessagesOk
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+      '503':
+        $ref: ../../components/common.yaml#/responses/ServiceUnavailable
+outboxMessageRetries:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../../components/common.yaml#/parameters/MessageId
+  post:
+    operationId: retryBackofficeOutboxMessage
+    tags:
+      - Backoffice operations
+    summary: Reagenda uma mensagem em dead-letter
+    description: A mutação é idempotente, auditada e não emite outro evento para evitar recursão.
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    responses:
+      '200':
+        $ref: ../../components/common.yaml#/responses/Ok
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+auditEvents:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+  get:
+    operationId: listBackofficeAuditEvents
+    tags:
+      - Backoffice operations
+    summary: Lista eventos de auditoria seguros do polo
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/Limit
+      - $ref: ../../components/common.yaml#/parameters/After
+      - $ref: ../../components/common.yaml#/parameters/Action
+      - $ref: ../../components/common.yaml#/parameters/ResourceType
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/AuditEventsOk
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+      '503':
+        $ref: ../../components/common.yaml#/responses/ServiceUnavailable

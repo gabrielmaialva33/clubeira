@@ -1,0 +1,472 @@
+PoloIdentity:
+  type: object
+  required:
+    - id
+    - slug
+    - name
+    - timezone
+  properties:
+    id:
+      $ref: ../common.yaml#/schemas/UUID
+    slug:
+      type: string
+    name:
+      type: string
+    timezone:
+      type: string
+    status:
+      type: string
+CityIdentity:
+  type: object
+  required:
+    - id
+    - name
+    - subdivision_code
+    - country_code
+    - timezone
+  properties:
+    id:
+      $ref: ../common.yaml#/schemas/UUID
+    name:
+      type: string
+    subdivision_code:
+      type: string
+    country_code:
+      type: string
+      minLength: 2
+      maxLength: 2
+    timezone:
+      type: string
+PublicPolo:
+  allOf:
+    - $ref: '#/PoloIdentity'
+    - type: object
+      required:
+        - city
+      properties:
+        city:
+          $ref: '#/CityIdentity'
+PublicPoloListResponse:
+  type: object
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/PublicPolo'
+    meta:
+      $ref: ../common.yaml#/schemas/CollectionMeta
+LegalDocument:
+  type: object
+  required:
+    - id
+    - code
+    - document_kind
+    - locale
+    - version
+    - content_uri
+    - content_sha256
+    - required
+  properties:
+    id:
+      $ref: ../common.yaml#/schemas/UUID
+    code:
+      type: string
+    document_kind:
+      type: string
+    locale:
+      type: string
+    version:
+      type: integer
+      minimum: 1
+    content_uri:
+      type: string
+    content_sha256:
+      type: string
+      pattern: '^[0-9a-f]{64}$'
+    required:
+      type: boolean
+      const: true
+LegalDocumentListResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/LegalDocument'
+PageMeta:
+  type: object
+  required:
+    - page
+  properties:
+    page:
+      $ref: ../common.yaml#/schemas/Page
+OfferPlace:
+  type: object
+  required:
+    - polo_place_id
+    - place_id
+    - slug
+    - name
+  properties:
+    polo_place_id:
+      $ref: ../common.yaml#/schemas/UUID
+    place_id:
+      $ref: ../common.yaml#/schemas/UUID
+    slug:
+      type: string
+    name:
+      type: string
+PublicBenefitOffer:
+  type: object
+  required:
+    - offer_id
+    - offer_version_id
+    - version
+    - code
+    - name
+    - title
+    - description
+    - terms
+    - redemption_instructions
+    - benefit
+    - effective_during
+    - places
+  properties:
+    offer_id:
+      $ref: ../common.yaml#/schemas/UUID
+    offer_version_id:
+      $ref: ../common.yaml#/schemas/UUID
+    version:
+      type: integer
+      minimum: 1
+    code:
+      type: string
+    name:
+      type: string
+    title:
+      type: string
+    description:
+      type: string
+    terms:
+      type: string
+    redemption_instructions:
+      type: string
+    benefit:
+      type: object
+      required:
+        - kind
+        - percentage
+        - amount
+        - currency
+      properties:
+        kind:
+          type: string
+        percentage:
+          type:
+            - string
+            - 'null'
+        amount:
+          type:
+            - string
+            - 'null'
+        currency:
+          type:
+            - string
+            - 'null'
+    effective_during:
+      $ref: ../common.yaml#/schemas/EffectivePeriod
+    places:
+      type: array
+      items:
+        $ref: '#/OfferPlace'
+CatalogResponse:
+  type: object
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      type: object
+      required:
+        - polo
+        - offers
+      properties:
+        polo:
+          $ref: '#/PoloIdentity'
+        offers:
+          type: array
+          items:
+            $ref: '#/PublicBenefitOffer'
+    meta:
+      $ref: '#/PageMeta'
+CheckoutOption:
+  type: object
+  required:
+    - product_offering_version_id
+    - offering_price_id
+    - name
+    - description
+    - cycle
+    - renewal_policy
+    - price
+  properties:
+    product_offering_version_id:
+      $ref: ../common.yaml#/schemas/UUID
+    offering_price_id:
+      $ref: ../common.yaml#/schemas/UUID
+    name:
+      type: string
+    description:
+      type: string
+    cycle:
+      type: object
+      required:
+        - policy
+        - interval_unit
+        - interval_count
+      properties:
+        policy:
+          type: string
+        interval_unit:
+          type:
+            - string
+            - 'null'
+        interval_count:
+          type:
+            - integer
+            - 'null'
+    renewal_policy:
+      type: string
+    price:
+      type: object
+      required:
+        - key
+        - currency
+        - amount
+        - billing_model
+        - interval_unit
+        - interval_count
+        - installments
+      properties:
+        key:
+          type: string
+        currency:
+          type: string
+        amount:
+          type: string
+        billing_model:
+          type: string
+        interval_unit:
+          type:
+            - string
+            - 'null'
+        interval_count:
+          type:
+            - integer
+            - 'null'
+        installments:
+          type: integer
+CheckoutOptionsResponse:
+  type: object
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      type: object
+      required:
+        - polo
+        - options
+      properties:
+        polo:
+          $ref: '#/PoloIdentity'
+        options:
+          type: array
+          items:
+            $ref: '#/CheckoutOption'
+    meta:
+      $ref: '#/PageMeta'
+PublicPlaceProfile:
+  type: object
+  required:
+    - revision
+    - contact
+    - categories
+    - weekly_hours
+    - special_hours
+  properties:
+    revision:
+      type: integer
+      minimum: 1
+    contact:
+      type: object
+      required:
+        - email
+        - phone
+      properties:
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+    categories:
+      type: array
+      items:
+        type: object
+        required:
+          - key
+          - name
+        properties:
+          key:
+            type: string
+          name:
+            type: string
+    weekly_hours:
+      type: array
+      items:
+        $ref: '#/OpeningWindow'
+    special_hours:
+      type: array
+      items:
+        type: object
+        required:
+          - date
+          - kind
+          - windows
+        properties:
+          date:
+            type: string
+            format: date
+          kind:
+            type: string
+          windows:
+            type: array
+            items:
+              $ref: '#/ClockWindow'
+OpeningWindow:
+  allOf:
+    - $ref: '#/ClockWindow'
+    - type: object
+      required:
+        - weekday
+      properties:
+        weekday:
+          type: integer
+          minimum: 1
+          maximum: 7
+ClockWindow:
+  type: object
+  required:
+    - opens_at
+    - closes_at
+    - closes_next_day
+  properties:
+    opens_at:
+      type: string
+      format: time
+    closes_at:
+      type: string
+      format: time
+    closes_next_day:
+      type: boolean
+PublicPlace:
+  type: object
+  required:
+    - polo_place_id
+    - place_id
+    - slug
+    - name
+    - timezone
+    - address
+    - brands
+    - operators
+  properties:
+    polo_place_id:
+      $ref: ../common.yaml#/schemas/UUID
+    place_id:
+      $ref: ../common.yaml#/schemas/UUID
+    slug:
+      type: string
+    name:
+      type: string
+    timezone:
+      type: string
+    address:
+      type: object
+      required:
+        - street
+        - number
+        - complement
+        - district
+        - postal_code
+        - latitude
+        - longitude
+        - city
+      properties:
+        street:
+          type: string
+        number:
+          type:
+            - string
+            - 'null'
+        complement:
+          type:
+            - string
+            - 'null'
+        district:
+          type:
+            - string
+            - 'null'
+        postal_code:
+          type:
+            - string
+            - 'null'
+        latitude:
+          type:
+            - string
+            - 'null'
+        longitude:
+          type:
+            - string
+            - 'null'
+        city:
+          $ref: '#/CityIdentity'
+    brands:
+      type: array
+      items:
+        type: object
+        additionalProperties: true
+    operators:
+      type: array
+      items:
+        type: object
+        additionalProperties: true
+    profile:
+      oneOf:
+        - $ref: '#/PublicPlaceProfile'
+        - type: 'null'
+PublicPlacesResponse:
+  type: object
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      type: object
+      required:
+        - polo
+        - places
+      properties:
+        polo:
+          $ref: '#/PoloIdentity'
+        places:
+          type: array
+          items:
+            $ref: '#/PublicPlace'
+    meta:
+      $ref: '#/PageMeta'

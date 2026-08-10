@@ -1,0 +1,257 @@
+AccountData:
+  type: object
+  required:
+    - user
+    - session
+  properties:
+    user:
+      $ref: ../../schemas.yaml#/User
+    session:
+      type: object
+      required:
+        - expires_at
+      properties:
+        expires_at:
+          $ref: ../../common.yaml#/schemas/DateTime
+AccountResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      $ref: '#/AccountData'
+AccessScope:
+  type: object
+  required:
+    - roles
+    - capabilities
+  properties:
+    roles:
+      type: array
+      items:
+        type: string
+    capabilities:
+      type: array
+      items:
+        type: string
+PoloAccess:
+  allOf:
+    - $ref: '#/AccessScope'
+    - type: object
+      required:
+        - id
+        - slug
+        - name
+        - timezone
+        - status
+      properties:
+        id:
+          $ref: ../../common.yaml#/schemas/UUID
+        slug:
+          type: string
+        name:
+          type: string
+        timezone:
+          type: string
+        status:
+          type: string
+AccessResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      type: object
+      required:
+        - platform
+        - polos
+      properties:
+        platform:
+          $ref: '#/AccessScope'
+        polos:
+          type: array
+          items:
+            $ref: '#/PoloAccess'
+ProfileIdentifier:
+  type: object
+  required:
+    - kind
+    - verified_at
+  properties:
+    kind:
+      type: string
+    verified_at:
+      oneOf:
+        - $ref: ../../common.yaml#/schemas/DateTime
+        - type: 'null'
+ProfileContactPoint:
+  type: object
+  required:
+    - kind
+    - primary
+    - verified_at
+  properties:
+    kind:
+      type: string
+    primary:
+      type: boolean
+    verified_at:
+      oneOf:
+        - $ref: ../../common.yaml#/schemas/DateTime
+        - type: 'null'
+ProfileData:
+  type: object
+  required:
+    - id
+    - display_name
+    - birth_date
+    - status
+    - identifiers
+    - contact_points
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    display_name:
+      type: string
+    birth_date:
+      type:
+        - string
+        - 'null'
+      format: date
+    status:
+      type: string
+    identifiers:
+      type: array
+      items:
+        $ref: '#/ProfileIdentifier'
+    contact_points:
+      type: array
+      items:
+        $ref: '#/ProfileContactPoint'
+ProfileResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      $ref: '#/ProfileData'
+ConsentData:
+  type: object
+  required:
+    - processing_purpose
+    - state
+    - legal_document_version_id
+    - occurred_at
+  properties:
+    processing_purpose:
+      type: object
+      required:
+        - code
+        - name
+        - legal_basis
+        - current_legal_document_version_id
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        legal_basis:
+          type: string
+        current_legal_document_version_id:
+          $ref: ../../common.yaml#/schemas/UUID
+    state:
+      type: string
+    legal_document_version_id:
+      oneOf:
+        - $ref: ../../common.yaml#/schemas/UUID
+        - type: 'null'
+    occurred_at:
+      oneOf:
+        - $ref: ../../common.yaml#/schemas/DateTime
+        - type: 'null'
+ConsentResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      $ref: '#/ConsentData'
+ConsentListResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/ConsentData'
+PrivacyRequestEvent:
+  type: object
+  required:
+    - event_type
+    - payload
+    - occurred_at
+  properties:
+    event_type:
+      type: string
+    payload:
+      type: object
+      additionalProperties: true
+    occurred_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+PrivacyRequestData:
+  type: object
+  required:
+    - id
+    - client_request_id
+    - request_type
+    - status
+    - due_at
+    - completed_at
+    - rejection_reason
+    - inserted_at
+    - updated_at
+    - events
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    client_request_id:
+      type: string
+    request_type:
+      type: string
+    status:
+      type: string
+    due_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+    completed_at:
+      oneOf:
+        - $ref: ../../common.yaml#/schemas/DateTime
+        - type: 'null'
+    rejection_reason:
+      type:
+        - string
+        - 'null'
+    inserted_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+    updated_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+    events:
+      type: array
+      items:
+        $ref: '#/PrivacyRequestEvent'
+PrivacyRequestResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      $ref: '#/PrivacyRequestData'
+PrivacyRequestListResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/PrivacyRequestData'

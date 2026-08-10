@@ -1,0 +1,6 @@
+BackofficePlacesOk:
+  description: Página de participações e perfis operacionais do polo.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/BackofficePlacesResponse

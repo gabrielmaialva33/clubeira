@@ -1,0 +1,41 @@
+BackofficePlace:
+  type: object
+  required:
+    - polo_place_id
+    - status
+    - revision
+    - recorded_at
+    - participation
+    - place
+    - profile
+  properties:
+    polo_place_id:
+      $ref: ../../common.yaml#/schemas/UUID
+    status:
+      type: string
+    revision:
+      type: integer
+    recorded_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+    participation:
+      $ref: ../../common.yaml#/schemas/EffectivePeriod
+    place:
+      type: object
+      additionalProperties: true
+    profile:
+      type:
+        - object
+        - 'null'
+      additionalProperties: true
+BackofficePlacesResponse:
+  type: object
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/BackofficePlace'
+    meta:
+      $ref: ../../common.yaml#/schemas/CollectionMeta

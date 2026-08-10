@@ -1,0 +1,59 @@
+RedemptionDeviceData:
+  type: object
+  required:
+    - id
+    - access_contract_id
+    - platform
+    - status
+    - authorized_at
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    access_contract_id:
+      $ref: ../../common.yaml#/schemas/UUID
+    platform:
+      type: string
+    status:
+      type: string
+    authorized_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+RedemptionDeviceResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      $ref: '#/RedemptionDeviceData'
+DeviceKeyData:
+  type: object
+  required:
+    - id
+    - device_installation_id
+    - thumbprint
+    - attestation
+    - valid_from
+    - valid_until
+    - revoked_at
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    device_installation_id:
+      $ref: ../../common.yaml#/schemas/UUID
+    thumbprint:
+      type: string
+    attestation:
+      type: object
+      additionalProperties: true
+    valid_from:
+      $ref: ../../common.yaml#/schemas/DateTime
+    valid_until:
+      $ref: ../../schemas.yaml#/NullableDateTime
+    revoked_at:
+      $ref: ../../schemas.yaml#/NullableDateTime
+DeviceKeyResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      $ref: '#/DeviceKeyData'

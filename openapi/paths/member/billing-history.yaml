@@ -1,0 +1,22 @@
+orderHistory:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+  get:
+    operationId: listCurrentOrders
+    tags:
+      - Billing
+    summary: Lista pedidos do membro no polo
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/Limit
+      - $ref: ../../components/common.yaml#/parameters/After
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/MemberOrdersOk
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '503':
+        $ref: ../../components/common.yaml#/responses/ServiceUnavailable

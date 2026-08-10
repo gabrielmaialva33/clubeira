@@ -1,0 +1,6 @@
+PartnerReviewResponseOk:
+  description: Resposta pública versionada do parceiro.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/PartnerReviewResponseEnvelope

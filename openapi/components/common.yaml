@@ -1,0 +1,185 @@
+parameters:
+  PoloSlug:
+    $ref: ./common/parameters.yaml#/PoloSlug
+  PlaceId:
+    $ref: ./common/parameters.yaml#/PlaceId
+  ReviewId:
+    $ref: ./common/parameters.yaml#/ReviewId
+  MediaId:
+    $ref: ./common/parameters.yaml#/MediaId
+  MerchantAccountId:
+    $ref: ./common/parameters.yaml#/MerchantAccountId
+  PurposeCode:
+    $ref: ./common/parameters.yaml#/PurposeCode
+  OrderId:
+    $ref: ./common/parameters.yaml#/OrderId
+  DeviceId:
+    $ref: ./common/parameters.yaml#/DeviceId
+  RequestId:
+    $ref: ./common/parameters.yaml#/RequestId
+  PlanCode:
+    $ref: ./common/parameters.yaml#/PlanCode
+  Version:
+    $ref: ./common/parameters.yaml#/Version
+  AccessId:
+    $ref: ./common/parameters.yaml#/AccessId
+  ProductOfferingId:
+    $ref: ./common/parameters.yaml#/ProductOfferingId
+  AgreementId:
+    $ref: ./common/parameters.yaml#/AgreementId
+  MessageId:
+    $ref: ./common/parameters.yaml#/MessageId
+  ContractId:
+    $ref: ./common/parameters.yaml#/ContractId
+  PaymentId:
+    $ref: ./common/parameters.yaml#/PaymentId
+  ValidationPointId:
+    $ref: ./common/parameters.yaml#/ValidationPointId
+  CredentialId:
+    $ref: ./common/parameters.yaml#/CredentialId
+  ReviewReportId:
+    $ref: ./common/parameters.yaml#/ReviewReportId
+  IdempotencyKey:
+    $ref: ./common/parameters.yaml#/IdempotencyKey
+  OptionalIdempotencyKey:
+    $ref: ./common/parameters.yaml#/OptionalIdempotencyKey
+  Limit:
+    $ref: ./common/parameters.yaml#/Limit
+  After:
+    $ref: ./common/parameters.yaml#/After
+  Locale:
+    $ref: ./common/parameters.yaml#/Locale
+  Status:
+    $ref: ./common/parameters.yaml#/Status
+  Code:
+    $ref: ./common/parameters.yaml#/Code
+  PlaceIdFilter:
+    $ref: ./common/parameters.yaml#/PlaceIdFilter
+  Topic:
+    $ref: ./common/parameters.yaml#/Topic
+  Action:
+    $ref: ./common/parameters.yaml#/Action
+  ResourceType:
+    $ref: ./common/parameters.yaml#/ResourceType
+responses:
+  Ok:
+    $ref: ./common/responses.yaml#/Ok
+  Created:
+    $ref: ./common/responses.yaml#/Created
+  Accepted:
+    $ref: ./common/responses.yaml#/Accepted
+  NoContent:
+    $ref: ./common/responses.yaml#/NoContent
+  Redirect:
+    $ref: ./common/responses.yaml#/Redirect
+  BadRequest:
+    $ref: ./common/responses.yaml#/BadRequest
+  Unauthorized:
+    $ref: ./common/responses.yaml#/Unauthorized
+  Forbidden:
+    $ref: ./common/responses.yaml#/Forbidden
+  NotFound:
+    $ref: ./common/responses.yaml#/NotFound
+  Conflict:
+    $ref: ./common/responses.yaml#/Conflict
+  UnprocessableEntity:
+    $ref: ./common/responses.yaml#/UnprocessableEntity
+  TooManyRequests:
+    $ref: ./common/responses.yaml#/TooManyRequests
+  BadGateway:
+    $ref: ./common/responses.yaml#/BadGateway
+  ServiceUnavailable:
+    $ref: ./common/responses.yaml#/ServiceUnavailable
+  ErrorResponse:
+    $ref: ./common/responses.yaml#/ErrorResponse
+schemas:
+  UUID:
+    $ref: ./common/schemas.yaml#/UUID
+  DateTime:
+    $ref: ./common/schemas.yaml#/DateTime
+  Money:
+    $ref: ./common/schemas.yaml#/Money
+  DataEnvelope:
+    $ref: ./common/schemas.yaml#/DataEnvelope
+  CollectionMeta:
+    $ref: ./common/schemas.yaml#/CollectionMeta
+  Page:
+    $ref: ./common/schemas.yaml#/Page
+  ErrorEnvelope:
+    $ref: ./common/schemas.yaml#/ErrorEnvelope
+  SessionCredentials:
+    $ref: ./common/schemas.yaml#/SessionCredentials
+  Registration:
+    $ref: ./common/schemas.yaml#/Registration
+  Email:
+    $ref: ./common/schemas.yaml#/Email
+  Token:
+    $ref: ./common/schemas.yaml#/Token
+  PasswordReset:
+    $ref: ./common/schemas.yaml#/PasswordReset
+  Profile:
+    $ref: ./common/schemas.yaml#/Profile
+  Consent:
+    $ref: ./common/schemas.yaml#/Consent
+  PrivacyRequest:
+    $ref: ./common/schemas.yaml#/PrivacyRequest
+  Checkout:
+    $ref: ./common/schemas.yaml#/Checkout
+  PaymentIntent:
+    $ref: ./common/schemas.yaml#/PaymentIntent
+  PlatformSubscription:
+    $ref: ./common/schemas.yaml#/PlatformSubscription
+  RedemptionDevice:
+    $ref: ./common/schemas.yaml#/RedemptionDevice
+  DeviceKey:
+    $ref: ./common/schemas.yaml#/DeviceKey
+  RedemptionGrant:
+    $ref: ./common/schemas.yaml#/RedemptionGrant
+  RedemptionConfirmation:
+    $ref: ./common/schemas.yaml#/RedemptionConfirmation
+  Review:
+    $ref: ./common/schemas.yaml#/Review
+  ReviewMedia:
+    $ref: ./common/schemas.yaml#/ReviewMedia
+  ReviewReport:
+    $ref: ./common/schemas.yaml#/ReviewReport
+  PartnerOnboarding:
+    $ref: ./common/schemas.yaml#/PartnerOnboarding
+  Address:
+    $ref: ./common/schemas.yaml#/Address
+  PartnerAccess:
+    $ref: ./common/schemas.yaml#/PartnerAccess
+  Reason:
+    $ref: ./common/schemas.yaml#/Reason
+  LifecycleAction:
+    $ref: ./common/schemas.yaml#/LifecycleAction
+  PlaceProfile:
+    $ref: ./common/schemas.yaml#/PlaceProfile
+  BenefitOffer:
+    $ref: ./common/schemas.yaml#/BenefitOffer
+  EffectivePeriod:
+    $ref: ./common/schemas.yaml#/EffectivePeriod
+  ProductOffering:
+    $ref: ./common/schemas.yaml#/ProductOffering
+  PartnerAgreement:
+    $ref: ./common/schemas.yaml#/PartnerAgreement
+  UUIDList:
+    $ref: ./common/schemas.yaml#/UUIDList
+  Refund:
+    $ref: ./common/schemas.yaml#/Refund
+  ValidationPoint:
+    $ref: ./common/schemas.yaml#/ValidationPoint
+  ValidationCredential:
+    $ref: ./common/schemas.yaml#/ValidationCredential
+  ModerationAction:
+    $ref: ./common/schemas.yaml#/ModerationAction
+  ProcessingPurpose:
+    $ref: ./common/schemas.yaml#/ProcessingPurpose
+  PrivacyTransition:
+    $ref: ./common/schemas.yaml#/PrivacyTransition
+  PlatformPlanVersion:
+    $ref: ./common/schemas.yaml#/PlatformPlanVersion
+  PartnerReviewResponse:
+    $ref: ./common/schemas.yaml#/PartnerReviewResponse
+  MercadoPagoWebhook:
+    $ref: ./common/schemas.yaml#/MercadoPagoWebhook

@@ -1,0 +1,183 @@
+partners:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+  post:
+    operationId: onboardPartner
+    tags:
+      - Backoffice partners
+    summary: Cadastra organização e lugar parceiro
+    description: Cria as entidades globais e a participação no polo atomicamente sem expor CNPJ na resposta.
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/PartnerOnboarding
+    responses:
+      '201':
+        $ref: ../../components/common.yaml#/responses/Created
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+partnerAccesses:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../../components/common.yaml#/parameters/PlaceId
+  post:
+    operationId: grantPartnerAccess
+    tags:
+      - Backoffice partners
+    summary: Concede acesso operacional a um usuário parceiro
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/PartnerAccess
+    responses:
+      '201':
+        $ref: ../../components/common.yaml#/responses/Created
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+partnerAccessRevocations:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../../components/common.yaml#/parameters/AccessId
+  post:
+    operationId: revokePartnerAccess
+    tags:
+      - Backoffice partners
+    summary: Revoga a membership do parceiro no polo
+    description: Não apaga afiliações globais nem acessos independentes em outros polos.
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/Reason
+    responses:
+      '200':
+        $ref: ../../components/common.yaml#/responses/Ok
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+places:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+  get:
+    operationId: listBackofficePlaces
+    tags:
+      - Backoffice partners
+    summary: Lista participações de lugares no polo
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/Limit
+      - $ref: ../../components/common.yaml#/parameters/After
+      - $ref: ../../components/common.yaml#/parameters/PlaceIdFilter
+      - $ref: ../../components/common.yaml#/parameters/Status
+      - name: profile_status
+        in: query
+        schema:
+          type: string
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/BackofficePlacesOk
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+      '503':
+        $ref: ../../components/common.yaml#/responses/ServiceUnavailable
+placeLifecycleActions:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../../components/common.yaml#/parameters/PlaceId
+  post:
+    operationId: transitionPlaceParticipation
+    tags:
+      - Backoffice partners
+    summary: Suspende, reativa ou aposenta a participação do lugar
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/LifecycleAction
+    responses:
+      '200':
+        $ref: ../../components/common.yaml#/responses/Ok
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+placeProfile:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../../components/common.yaml#/parameters/PlaceId
+  put:
+    operationId: putBackofficePlaceProfile
+    tags:
+      - Backoffice partners
+    summary: Publica contato, categorias e horários do lugar
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/PlaceProfile
+    responses:
+      '200':
+        $ref: ../../components/common.yaml#/responses/Ok
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity

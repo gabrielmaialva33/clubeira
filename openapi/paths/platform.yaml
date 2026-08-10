@@ -6,15 +6,15 @@ processingPurposes:
     summary: Lista finalidades globais de tratamento
     responses:
       '200':
-        $ref: ../responses.yaml#/ProcessingPurposesOk
+        $ref: ../components/responses.yaml#/ProcessingPurposesOk
       '401':
-        $ref: ../components.yaml#/responses/Unauthorized
+        $ref: ../components/common.yaml#/responses/Unauthorized
       '403':
-        $ref: ../components.yaml#/responses/Forbidden
+        $ref: ../components/common.yaml#/responses/Forbidden
 
 processingPurpose:
   parameters:
-    - $ref: ../components.yaml#/parameters/PurposeCode
+    - $ref: ../components/common.yaml#/parameters/PurposeCode
   put:
     operationId: putPlatformProcessingPurpose
     tags:
@@ -25,18 +25,18 @@ processingPurpose:
       content:
         application/json:
           schema:
-            $ref: ../components.yaml#/schemas/ProcessingPurpose
+            $ref: ../components/common.yaml#/schemas/ProcessingPurpose
     responses:
       '200':
-        $ref: ../responses.yaml#/ProcessingPurposeOk
+        $ref: ../components/responses.yaml#/ProcessingPurposeOk
       '401':
-        $ref: ../components.yaml#/responses/Unauthorized
+        $ref: ../components/common.yaml#/responses/Unauthorized
       '403':
-        $ref: ../components.yaml#/responses/Forbidden
+        $ref: ../components/common.yaml#/responses/Forbidden
       '409':
-        $ref: ../components.yaml#/responses/Conflict
+        $ref: ../components/common.yaml#/responses/Conflict
       '422':
-        $ref: ../components.yaml#/responses/UnprocessableEntity
+        $ref: ../components/common.yaml#/responses/UnprocessableEntity
 
 privacyRequests:
   get:
@@ -45,22 +45,22 @@ privacyRequests:
       - Platform privacy
     summary: Lista solicitações LGPD para operação da plataforma
     parameters:
-      - $ref: ../components.yaml#/parameters/Limit
-      - $ref: ../components.yaml#/parameters/After
-      - $ref: ../components.yaml#/parameters/Status
+      - $ref: ../components/common.yaml#/parameters/Limit
+      - $ref: ../components/common.yaml#/parameters/After
+      - $ref: ../components/common.yaml#/parameters/Status
     responses:
       '200':
-        $ref: ../responses.yaml#/PlatformPrivacyRequestsOk
+        $ref: ../components/responses.yaml#/PlatformPrivacyRequestsOk
       '401':
-        $ref: ../components.yaml#/responses/Unauthorized
+        $ref: ../components/common.yaml#/responses/Unauthorized
       '403':
-        $ref: ../components.yaml#/responses/Forbidden
+        $ref: ../components/common.yaml#/responses/Forbidden
       '422':
-        $ref: ../components.yaml#/responses/UnprocessableEntity
+        $ref: ../components/common.yaml#/responses/UnprocessableEntity
 
 privacyRequestTransitions:
   parameters:
-    - $ref: ../components.yaml#/parameters/RequestId
+    - $ref: ../components/common.yaml#/parameters/RequestId
   post:
     operationId: transitionPlatformPrivacyRequest
     tags:
@@ -71,20 +71,20 @@ privacyRequestTransitions:
       content:
         application/json:
           schema:
-            $ref: ../components.yaml#/schemas/PrivacyTransition
+            $ref: ../components/common.yaml#/schemas/PrivacyTransition
     responses:
       '200':
-        $ref: ../responses.yaml#/PlatformPrivacyRequestOk
+        $ref: ../components/responses.yaml#/PlatformPrivacyRequestOk
       '401':
-        $ref: ../components.yaml#/responses/Unauthorized
+        $ref: ../components/common.yaml#/responses/Unauthorized
       '403':
-        $ref: ../components.yaml#/responses/Forbidden
+        $ref: ../components/common.yaml#/responses/Forbidden
       '404':
-        $ref: ../components.yaml#/responses/NotFound
+        $ref: ../components/common.yaml#/responses/NotFound
       '409':
-        $ref: ../components.yaml#/responses/Conflict
+        $ref: ../components/common.yaml#/responses/Conflict
       '422':
-        $ref: ../components.yaml#/responses/UnprocessableEntity
+        $ref: ../components/common.yaml#/responses/UnprocessableEntity
 
 billingPlans:
   get:
@@ -94,16 +94,16 @@ billingPlans:
     summary: Lista planos SaaS versionados da plataforma
     responses:
       '200':
-        $ref: ../responses.yaml#/PlatformPlansOk
+        $ref: ../components/responses.yaml#/PlatformPlansOk
       '401':
-        $ref: ../components.yaml#/responses/Unauthorized
+        $ref: ../components/common.yaml#/responses/Unauthorized
       '403':
-        $ref: ../components.yaml#/responses/Forbidden
+        $ref: ../components/common.yaml#/responses/Forbidden
 
 billingPlanVersion:
   parameters:
-    - $ref: ../components.yaml#/parameters/PlanCode
-    - $ref: ../components.yaml#/parameters/Version
+    - $ref: ../components/common.yaml#/parameters/PlanCode
+    - $ref: ../components/common.yaml#/parameters/Version
   put:
     operationId: putPlatformBillingPlanVersion
     tags:
@@ -114,22 +114,22 @@ billingPlanVersion:
       content:
         application/json:
           schema:
-            $ref: ../components.yaml#/schemas/PlatformPlanVersion
+            $ref: ../components/common.yaml#/schemas/PlatformPlanVersion
     responses:
       '200':
-        $ref: ../responses.yaml#/PlatformPlanOk
+        $ref: ../components/responses.yaml#/PlatformPlanOk
       '401':
-        $ref: ../components.yaml#/responses/Unauthorized
+        $ref: ../components/common.yaml#/responses/Unauthorized
       '403':
-        $ref: ../components.yaml#/responses/Forbidden
+        $ref: ../components/common.yaml#/responses/Forbidden
       '409':
-        $ref: ../components.yaml#/responses/Conflict
+        $ref: ../components/common.yaml#/responses/Conflict
       '422':
-        $ref: ../components.yaml#/responses/UnprocessableEntity
+        $ref: ../components/common.yaml#/responses/UnprocessableEntity
 
 platformSubscription:
   parameters:
-    - $ref: ../components.yaml#/parameters/PoloSlug
+    - $ref: ../components/common.yaml#/parameters/PoloSlug
   post:
     operationId: startPoloPlatformSubscription
     tags:
@@ -140,28 +140,28 @@ platformSubscription:
       content:
         application/json:
           schema:
-            $ref: ../components.yaml#/schemas/PlatformSubscription
+            $ref: ../components/common.yaml#/schemas/PlatformSubscription
     responses:
       '200':
-        $ref: ../responses.yaml#/PlatformSubscriptionOk
+        $ref: ../components/responses.yaml#/PlatformSubscriptionOk
       '401':
-        $ref: ../components.yaml#/responses/Unauthorized
+        $ref: ../components/common.yaml#/responses/Unauthorized
       '403':
-        $ref: ../components.yaml#/responses/Forbidden
+        $ref: ../components/common.yaml#/responses/Forbidden
       '404':
-        $ref: ../components.yaml#/responses/NotFound
+        $ref: ../components/common.yaml#/responses/NotFound
       '409':
-        $ref: ../components.yaml#/responses/Conflict
+        $ref: ../components/common.yaml#/responses/Conflict
       '422':
-        $ref: ../components.yaml#/responses/UnprocessableEntity
+        $ref: ../components/common.yaml#/responses/UnprocessableEntity
       '502':
-        $ref: ../components.yaml#/responses/BadGateway
+        $ref: ../components/common.yaml#/responses/BadGateway
       '503':
-        $ref: ../components.yaml#/responses/ServiceUnavailable
+        $ref: ../components/common.yaml#/responses/ServiceUnavailable
 
 platformBilling:
   parameters:
-    - $ref: ../components.yaml#/parameters/PoloSlug
+    - $ref: ../components/common.yaml#/parameters/PoloSlug
   get:
     operationId: getPoloPlatformBilling
     tags:
@@ -169,14 +169,14 @@ platformBilling:
     summary: Retorna assinatura, faturas e pagamentos SaaS do polo
     responses:
       '200':
-        $ref: ../responses.yaml#/PlatformBillingOk
+        $ref: ../components/responses.yaml#/PlatformBillingOk
       '401':
-        $ref: ../components.yaml#/responses/Unauthorized
+        $ref: ../components/common.yaml#/responses/Unauthorized
       '403':
-        $ref: ../components.yaml#/responses/Forbidden
+        $ref: ../components/common.yaml#/responses/Forbidden
       '404':
-        $ref: ../components.yaml#/responses/NotFound
+        $ref: ../components/common.yaml#/responses/NotFound
       '409':
-        $ref: ../components.yaml#/responses/Conflict
+        $ref: ../components/common.yaml#/responses/Conflict
       '422':
-        $ref: ../components.yaml#/responses/UnprocessableEntity
+        $ref: ../components/common.yaml#/responses/UnprocessableEntity

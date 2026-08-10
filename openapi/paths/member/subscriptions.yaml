@@ -1,0 +1,18 @@
+subscriptions:
+  get:
+    operationId: listCurrentSubscriptions
+    tags:
+      - Subscriptions
+    summary: Lista contratos do membro em todos os polos
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/Limit
+      - $ref: ../../components/common.yaml#/parameters/After
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/MemberSubscriptionsOk
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '503':
+        $ref: ../../components/common.yaml#/responses/ServiceUnavailable

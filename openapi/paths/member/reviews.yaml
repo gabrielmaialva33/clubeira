@@ -1,0 +1,64 @@
+reviewMediaRegistration:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../../components/common.yaml#/parameters/PlaceId
+    - $ref: ../../components/common.yaml#/parameters/ReviewId
+  post:
+    operationId: registerReviewMedia
+    tags:
+      - Reviews
+    summary: Vincula uma mídia já verificada a uma avaliação
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/ReviewMedia
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/ReviewMediaOk
+      '201':
+        $ref: ../../components/responses.yaml#/ReviewMediaCreated
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+reviewReports:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../../components/common.yaml#/parameters/PlaceId
+    - $ref: ../../components/common.yaml#/parameters/ReviewId
+  post:
+    operationId: reportReview
+    tags:
+      - Reviews
+    summary: Denuncia uma avaliação publicada de outro autor
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/ReviewReport
+    responses:
+      '201':
+        $ref: ../../components/responses.yaml#/ReviewReportCreated
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity

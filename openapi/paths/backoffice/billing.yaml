@@ -1,0 +1,72 @@
+payments:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+  get:
+    operationId: listBackofficePayments
+    tags:
+      - Backoffice billing
+    summary: Lista pagamentos operacionais do polo
+    description: Não expõe motivo, idempotência nem referências externas do PSP.
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/Limit
+      - $ref: ../../components/common.yaml#/parameters/After
+      - $ref: ../../components/common.yaml#/parameters/Status
+      - name: order_number
+        in: query
+        schema:
+          type: string
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/BackofficePaymentsOk
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+      '503':
+        $ref: ../../components/common.yaml#/responses/ServiceUnavailable
+subscriptions:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+  get:
+    operationId: listBackofficeSubscriptions
+    tags:
+      - Backoffice billing
+    summary: Lista contratos operacionais do polo
+    description: Agrega apenas o ciclo corrente e não expõe PII nem referências do PSP.
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/Limit
+      - $ref: ../../components/common.yaml#/parameters/After
+      - $ref: ../../components/common.yaml#/parameters/Status
+      - name: order_number
+        in: query
+        schema:
+          type: string
+      - name: product_offering_version_id
+        in: query
+        schema:
+          $ref: ../../components/common.yaml#/schemas/UUID
+      - name: purchaser_user_id
+        in: query
+        schema:
+          $ref: ../../components/common.yaml#/schemas/UUID
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/BackofficeSubscriptionsOk
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+      '503':
+        $ref: ../../components/common.yaml#/responses/ServiceUnavailable

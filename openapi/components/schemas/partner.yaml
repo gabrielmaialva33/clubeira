@@ -1,0 +1,16 @@
+PartnerReviewResponseData:
+  allOf:
+    - $ref: ../schemas.yaml#/PublicReviewResponseData
+    - type: object
+      required:
+        - review_id
+      properties:
+        review_id:
+          $ref: ../common.yaml#/schemas/UUID
+PartnerReviewResponseEnvelope:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      $ref: '#/PartnerReviewResponseData'

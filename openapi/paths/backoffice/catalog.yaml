@@ -1,0 +1,149 @@
+placeBenefitOffers:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../../components/common.yaml#/parameters/PlaceId
+  post:
+    operationId: publishBenefitOffer
+    tags:
+      - Backoffice catalog
+    summary: Publica uma oferta de benefício para um lugar
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/BenefitOffer
+    responses:
+      '201':
+        $ref: ../../components/common.yaml#/responses/Created
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+benefitOffers:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+  get:
+    operationId: listBackofficeBenefitOffers
+    tags:
+      - Backoffice catalog
+    summary: Lista ofertas de benefício e suas versões atuais
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/Limit
+      - $ref: ../../components/common.yaml#/parameters/After
+      - $ref: ../../components/common.yaml#/parameters/Code
+      - $ref: ../../components/common.yaml#/parameters/PlaceIdFilter
+      - $ref: ../../components/common.yaml#/parameters/Status
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/BackofficeBenefitOffersOk
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+      '503':
+        $ref: ../../components/common.yaml#/responses/ServiceUnavailable
+productOfferings:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+  get:
+    operationId: listBackofficeProductOfferings
+    tags:
+      - Backoffice catalog
+    summary: Lista ofertas comerciais e a versão mais recente
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/Limit
+      - $ref: ../../components/common.yaml#/parameters/After
+      - $ref: ../../components/common.yaml#/parameters/Code
+      - $ref: ../../components/common.yaml#/parameters/Status
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/BackofficeProductOfferingsOk
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+      '503':
+        $ref: ../../components/common.yaml#/responses/ServiceUnavailable
+  post:
+    operationId: publishProductOffering
+    tags:
+      - Backoffice catalog
+    summary: Publica oferta, versão, preço e pacote de benefícios
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/ProductOffering
+    responses:
+      '201':
+        $ref: ../../components/common.yaml#/responses/Created
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+productOfferingLifecycleActions:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../../components/common.yaml#/parameters/ProductOfferingId
+  post:
+    operationId: transitionProductOffering
+    tags:
+      - Backoffice catalog
+    summary: Suspende, reativa ou aposenta uma oferta comercial
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/LifecycleAction
+    responses:
+      '200':
+        $ref: ../../components/common.yaml#/responses/Ok
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity

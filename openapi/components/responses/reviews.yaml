@@ -1,0 +1,24 @@
+ReviewCreated:
+  description: Avaliação verificada criada.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/ReviewSubmissionResponse
+ReviewMediaOk:
+  description: Mídia já vinculada à avaliação.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/ReviewMediaResponse
+ReviewMediaCreated:
+  description: Mídia vinculada à avaliação.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/ReviewMediaResponse
+ReviewReportCreated:
+  description: Denúncia criada.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/ReviewReportResponse

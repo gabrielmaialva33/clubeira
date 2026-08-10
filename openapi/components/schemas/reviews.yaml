@@ -1,0 +1,176 @@
+ReviewSubmission:
+  type: object
+  required:
+    - id
+    - place_id
+    - source_redemption_id
+    - verification_kind
+    - status
+    - revision_number
+    - rating
+    - title
+    - body
+    - submitted_at
+  properties:
+    id:
+      $ref: ../common.yaml#/schemas/UUID
+    place_id:
+      $ref: ../common.yaml#/schemas/UUID
+    source_redemption_id:
+      $ref: ../common.yaml#/schemas/UUID
+    verification_kind:
+      type: string
+    status:
+      type: string
+    revision_number:
+      type: integer
+      minimum: 1
+    rating:
+      type: integer
+      minimum: 1
+      maximum: 5
+    title:
+      type:
+        - string
+        - 'null'
+    body:
+      type: string
+    submitted_at:
+      $ref: ../common.yaml#/schemas/DateTime
+ReviewSubmissionResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      $ref: '#/ReviewSubmission'
+ReviewMediaData:
+  type: object
+  required:
+    - id
+    - kind
+    - content_type
+    - position
+    - inserted_at
+  properties:
+    id:
+      $ref: ../common.yaml#/schemas/UUID
+    kind:
+      type: string
+    content_type:
+      type: string
+    position:
+      type: integer
+    width:
+      type:
+        - integer
+        - 'null'
+    height:
+      type:
+        - integer
+        - 'null'
+    duration_ms:
+      type:
+        - integer
+        - 'null'
+    href:
+      type: string
+    inserted_at:
+      $ref: ../common.yaml#/schemas/DateTime
+ReviewMediaResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      $ref: '#/ReviewMediaData'
+PublicReviewResponseData:
+  type: object
+  required:
+    - id
+    - organization
+    - status
+    - revision_number
+    - body
+    - published_at
+    - updated_at
+  properties:
+    id:
+      $ref: ../common.yaml#/schemas/UUID
+    organization:
+      type: object
+      additionalProperties: true
+    status:
+      type: string
+    revision_number:
+      type: integer
+    body:
+      type: string
+    published_at:
+      $ref: ../common.yaml#/schemas/DateTime
+    updated_at:
+      $ref: ../common.yaml#/schemas/DateTime
+PublicReview:
+  type: object
+  required:
+    - id
+    - place_id
+    - verification_kind
+    - revision_number
+    - rating
+    - title
+    - body
+    - published_at
+    - response
+    - media
+  properties:
+    id:
+      $ref: ../common.yaml#/schemas/UUID
+    place_id:
+      $ref: ../common.yaml#/schemas/UUID
+    verification_kind:
+      type: string
+    revision_number:
+      type: integer
+    rating:
+      type: integer
+      minimum: 1
+      maximum: 5
+    title:
+      type:
+        - string
+        - 'null'
+    body:
+      type: string
+    published_at:
+      $ref: ../common.yaml#/schemas/DateTime
+    response:
+      oneOf:
+        - $ref: '#/PublicReviewResponseData'
+        - type: 'null'
+    media:
+      type: array
+      items:
+        $ref: '#/ReviewMediaData'
+PublicReviewsResponse:
+  type: object
+  required:
+    - data
+    - page
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/PublicReview'
+    page:
+      $ref: ../common.yaml#/schemas/Page
+ReviewReportData:
+  type: object
+  additionalProperties: true
+ReviewReportResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      $ref: '#/ReviewReportData'

@@ -1,0 +1,12 @@
+ModerationReviewsOk:
+  description: Página da fila de avaliações.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/ModerationReviewsResponse
+ModerationReportsOk:
+  description: Página da fila de denúncias.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/ModerationReportsResponse

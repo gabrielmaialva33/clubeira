@@ -1,0 +1,169 @@
+MemberSubscription:
+  type: object
+  required:
+    - id
+    - status
+    - starts_at
+    - activated_at
+    - ends_at
+    - cancelled_at
+    - offering
+    - current_cycle
+    - polo
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    status:
+      type: string
+    starts_at:
+      $ref: ../../schemas.yaml#/NullableDateTime
+    activated_at:
+      $ref: ../../schemas.yaml#/NullableDateTime
+    ends_at:
+      $ref: ../../schemas.yaml#/NullableDateTime
+    cancelled_at:
+      $ref: ../../schemas.yaml#/NullableDateTime
+    offering:
+      type: object
+      additionalProperties: true
+    current_cycle:
+      type:
+        - object
+        - 'null'
+      additionalProperties: true
+    polo:
+      $ref: ../../schemas.yaml#/PoloIdentity
+MemberSubscriptionsResponse:
+  type: object
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/MemberSubscription'
+    meta:
+      $ref: ../../common.yaml#/schemas/CollectionMeta
+OrderItem:
+  type: object
+  required:
+    - id
+    - product_offering_version_id
+    - offering_price_id
+    - name
+    - description
+    - quantity
+    - unit_amount
+    - total_amount
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    product_offering_version_id:
+      $ref: ../../common.yaml#/schemas/UUID
+    offering_price_id:
+      $ref: ../../common.yaml#/schemas/UUID
+    name:
+      type: string
+    description:
+      type: string
+    quantity:
+      type: integer
+    unit_amount:
+      type: string
+    total_amount:
+      type: string
+MemberOrder:
+  allOf:
+    - $ref: ../../schemas.yaml#/CheckoutOrder
+    - type: object
+      required:
+        - cancelled_at
+        - items
+      properties:
+        cancelled_at:
+          $ref: ../../schemas.yaml#/NullableDateTime
+        items:
+          type: array
+          items:
+            $ref: '#/OrderItem'
+MemberOrdersResponse:
+  type: object
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/MemberOrder'
+    meta:
+      $ref: ../../common.yaml#/schemas/CollectionMeta
+WalletVoucher:
+  type: object
+  required:
+    - allocation_id
+    - allocation_kind
+    - issued_units
+    - available_units
+    - contract
+    - cycle
+    - subject
+    - allowance
+    - offer
+    - places
+  properties:
+    allocation_id:
+      $ref: ../../common.yaml#/schemas/UUID
+    allocation_kind:
+      type: string
+    issued_units:
+      type: integer
+    available_units:
+      type: integer
+    contract:
+      type: object
+      additionalProperties: true
+    cycle:
+      type: object
+      additionalProperties: true
+    subject:
+      type: object
+      additionalProperties: true
+    allowance:
+      type: object
+      additionalProperties: true
+    offer:
+      type: object
+      additionalProperties: true
+    places:
+      type: array
+      items:
+        type: object
+        additionalProperties: true
+WalletResponse:
+  type: object
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      type: object
+      required:
+        - polo
+        - vouchers
+      properties:
+        polo:
+          $ref: ../../schemas.yaml#/PoloIdentity
+        vouchers:
+          type: array
+          items:
+            $ref: '#/WalletVoucher'
+    meta:
+      type: object
+      required:
+        - count
+      properties:
+        count:
+          type: integer
+          minimum: 0

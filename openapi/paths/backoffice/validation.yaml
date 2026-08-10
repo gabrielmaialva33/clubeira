@@ -1,0 +1,147 @@
+validationPoints:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+  get:
+    operationId: listBackofficeValidationPoints
+    tags:
+      - Backoffice validation
+    summary: Lista pontos de validação sem expor credenciais
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/Limit
+      - $ref: ../../components/common.yaml#/parameters/After
+      - $ref: ../../components/common.yaml#/parameters/PlaceIdFilter
+      - $ref: ../../components/common.yaml#/parameters/Status
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/BackofficeValidationPointsOk
+      '400':
+        $ref: ../../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+      '503':
+        $ref: ../../components/common.yaml#/responses/ServiceUnavailable
+placeValidationPoints:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../../components/common.yaml#/parameters/PlaceId
+  post:
+    operationId: provisionValidationPoint
+    tags:
+      - Backoffice validation
+    summary: Provisiona um ponto e o primeiro digest de credencial
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/ValidationPoint
+    responses:
+      '201':
+        $ref: ../../components/common.yaml#/responses/Created
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+validationPointLifecycleActions:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../../components/common.yaml#/parameters/ValidationPointId
+  post:
+    operationId: transitionValidationPoint
+    tags:
+      - Backoffice validation
+    summary: Suspende, reativa ou aposenta um ponto de validação
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/LifecycleAction
+    responses:
+      '200':
+        $ref: ../../components/common.yaml#/responses/Ok
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+validationCredentialRotations:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../../components/common.yaml#/parameters/CredentialId
+  post:
+    operationId: rotateValidationCredential
+    tags:
+      - Backoffice validation
+    summary: Rotaciona uma credencial de validação
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - credential
+            properties:
+              credential:
+                $ref: ../../components/common.yaml#/schemas/ValidationCredential
+    responses:
+      '201':
+        $ref: ../../components/common.yaml#/responses/Created
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+validationCredentialRevocations:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../../components/common.yaml#/parameters/CredentialId
+  post:
+    operationId: revokeValidationCredential
+    tags:
+      - Backoffice validation
+    summary: Revoga uma credencial de validação
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    responses:
+      '200':
+        $ref: ../../components/common.yaml#/responses/Ok
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../../components/common.yaml#/responses/Forbidden
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity

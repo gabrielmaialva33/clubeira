@@ -1,0 +1,23 @@
+redemptionGrants:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+  post:
+    operationId: issueRedemptionGrant
+    tags:
+      - Redemptions
+    summary: Emite um grant curto para uma alocação disponível
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/RedemptionGrant
+    responses:
+      '201':
+        $ref: ../../components/responses.yaml#/RedemptionGrantCreated
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity

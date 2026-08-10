@@ -1,0 +1,48 @@
+ProcessingPurposesOk:
+  description: Finalidades globais de tratamento.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/ProcessingPurposesResponse
+ProcessingPurposeOk:
+  description: Finalidade global de tratamento atualizada.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/ProcessingPurposeResponse
+PlatformPrivacyRequestsOk:
+  description: Página operacional de solicitações LGPD.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/PlatformPrivacyRequestsResponse
+PlatformPrivacyRequestOk:
+  description: Solicitação LGPD após a transição.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/PrivacyRequestResponse
+PlatformPlansOk:
+  description: Catálogo versionado de planos SaaS.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/PlatformPlansResponse
+PlatformPlanOk:
+  description: Plano SaaS publicado.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/PlatformPlanResponse
+PlatformSubscriptionOk:
+  description: Assinatura SaaS iniciada no PSP.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/PlatformSubscriptionResponse
+PlatformBillingOk:
+  description: Assinatura, faturas e pagamentos SaaS do polo.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/PlatformBillingResponse

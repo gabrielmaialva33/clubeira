@@ -1,0 +1,6 @@
+SessionCreated:
+  description: Sessão criada; o token cru aparece somente nesta resposta.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas.yaml#/SessionResponse

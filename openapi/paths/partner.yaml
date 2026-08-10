@@ -1,6 +1,6 @@
 places:
   parameters:
-    - $ref: ../components.yaml#/parameters/PoloSlug
+    - $ref: ../components/common.yaml#/parameters/PoloSlug
   get:
     operationId: listPartnerPlaces
     tags:
@@ -8,82 +8,82 @@ places:
     summary: Lista lugares operáveis pelo parceiro autenticado
     description: Exige membership tenant e afiliações globais vigentes de organização, lugar e operador.
     parameters:
-      - $ref: ../components.yaml#/parameters/Limit
-      - $ref: ../components.yaml#/parameters/After
+      - $ref: ../components/common.yaml#/parameters/Limit
+      - $ref: ../components/common.yaml#/parameters/After
     responses:
       '200':
-        $ref: ../responses.yaml#/BackofficePlacesOk
+        $ref: ../components/responses.yaml#/BackofficePlacesOk
       '400':
-        $ref: ../components.yaml#/responses/BadRequest
+        $ref: ../components/common.yaml#/responses/BadRequest
       '401':
-        $ref: ../components.yaml#/responses/Unauthorized
+        $ref: ../components/common.yaml#/responses/Unauthorized
       '403':
-        $ref: ../components.yaml#/responses/Forbidden
+        $ref: ../components/common.yaml#/responses/Forbidden
       '404':
-        $ref: ../components.yaml#/responses/NotFound
+        $ref: ../components/common.yaml#/responses/NotFound
       '503':
-        $ref: ../components.yaml#/responses/ServiceUnavailable
+        $ref: ../components/common.yaml#/responses/ServiceUnavailable
 
 reviewResponse:
   parameters:
-    - $ref: ../components.yaml#/parameters/PoloSlug
-    - $ref: ../components.yaml#/parameters/ReviewId
+    - $ref: ../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../components/common.yaml#/parameters/ReviewId
   put:
     operationId: putPartnerReviewResponse
     tags:
       - Partner
     summary: Publica ou revisa a resposta do parceiro
     parameters:
-      - $ref: ../components.yaml#/parameters/IdempotencyKey
+      - $ref: ../components/common.yaml#/parameters/IdempotencyKey
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: ../components.yaml#/schemas/PartnerReviewResponse
+            $ref: ../components/common.yaml#/schemas/PartnerReviewResponse
     responses:
       '200':
-        $ref: ../responses.yaml#/PartnerReviewResponseOk
+        $ref: ../components/responses.yaml#/PartnerReviewResponseOk
       '400':
-        $ref: ../components.yaml#/responses/BadRequest
+        $ref: ../components/common.yaml#/responses/BadRequest
       '401':
-        $ref: ../components.yaml#/responses/Unauthorized
+        $ref: ../components/common.yaml#/responses/Unauthorized
       '403':
-        $ref: ../components.yaml#/responses/Forbidden
+        $ref: ../components/common.yaml#/responses/Forbidden
       '404':
-        $ref: ../components.yaml#/responses/NotFound
+        $ref: ../components/common.yaml#/responses/NotFound
       '409':
-        $ref: ../components.yaml#/responses/Conflict
+        $ref: ../components/common.yaml#/responses/Conflict
       '422':
-        $ref: ../components.yaml#/responses/UnprocessableEntity
+        $ref: ../components/common.yaml#/responses/UnprocessableEntity
 
 placeProfile:
   parameters:
-    - $ref: ../components.yaml#/parameters/PoloSlug
-    - $ref: ../components.yaml#/parameters/PlaceId
+    - $ref: ../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../components/common.yaml#/parameters/PlaceId
   put:
     operationId: putPartnerPlaceProfile
     tags:
       - Partner
     summary: Publica o perfil de um lugar autorizado ao parceiro
     parameters:
-      - $ref: ../components.yaml#/parameters/IdempotencyKey
+      - $ref: ../components/common.yaml#/parameters/IdempotencyKey
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: ../components.yaml#/schemas/PlaceProfile
+            $ref: ../components/common.yaml#/schemas/PlaceProfile
     responses:
       '200':
-        $ref: ../components.yaml#/responses/Ok
+        $ref: ../components/common.yaml#/responses/Ok
       '401':
-        $ref: ../components.yaml#/responses/Unauthorized
+        $ref: ../components/common.yaml#/responses/Unauthorized
       '403':
-        $ref: ../components.yaml#/responses/Forbidden
+        $ref: ../components/common.yaml#/responses/Forbidden
       '404':
-        $ref: ../components.yaml#/responses/NotFound
+        $ref: ../components/common.yaml#/responses/NotFound
       '409':
-        $ref: ../components.yaml#/responses/Conflict
+        $ref: ../components/common.yaml#/responses/Conflict
       '422':
-        $ref: ../components.yaml#/responses/UnprocessableEntity
+        $ref: ../components/common.yaml#/responses/UnprocessableEntity

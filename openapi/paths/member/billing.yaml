@@ -1,0 +1,103 @@
+billing:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+  get:
+    operationId: getCurrentPoloBilling
+    tags:
+      - Billing
+    summary: Retorna os acordos de cobrança do membro no polo
+    responses:
+      '200':
+        $ref: ../../components/responses.yaml#/BillingAgreementsOk
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+orders:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+  post:
+    operationId: placeOrder
+    tags:
+      - Billing
+    summary: Cria um pedido para uma oferta publicada
+    description: Preço, versão, política e pacote são revalidados no relógio transacional do banco.
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/Checkout
+    responses:
+      '201':
+        $ref: ../../components/responses.yaml#/CheckoutCreated
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+paymentIntents:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../../components/common.yaml#/parameters/OrderId
+  post:
+    operationId: createPaymentIntent
+    tags:
+      - Billing
+    summary: Inicia o pagamento de um pedido
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../../components/common.yaml#/schemas/PaymentIntent
+    responses:
+      '201':
+        $ref: ../../components/responses.yaml#/PaymentIntentCreated
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+      '502':
+        $ref: ../../components/common.yaml#/responses/BadGateway
+      '503':
+        $ref: ../../components/common.yaml#/responses/ServiceUnavailable
+billingAgreements:
+  parameters:
+    - $ref: ../../components/common.yaml#/parameters/PoloSlug
+    - $ref: ../../components/common.yaml#/parameters/OrderId
+  post:
+    operationId: createBillingAgreement
+    tags:
+      - Billing
+    summary: Inicia um acordo de cobrança recorrente para o pedido
+    parameters:
+      - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
+    responses:
+      '201':
+        $ref: ../../components/responses.yaml#/BillingAgreementCreated
+      '401':
+        $ref: ../../components/common.yaml#/responses/Unauthorized
+      '404':
+        $ref: ../../components/common.yaml#/responses/NotFound
+      '409':
+        $ref: ../../components/common.yaml#/responses/Conflict
+      '422':
+        $ref: ../../components/common.yaml#/responses/UnprocessableEntity
+      '502':
+        $ref: ../../components/common.yaml#/responses/BadGateway
+      '503':
+        $ref: ../../components/common.yaml#/responses/ServiceUnavailable

@@ -1,0 +1,224 @@
+CheckoutOrder:
+  type: object
+  required:
+    - id
+    - order_number
+    - status
+    - currency
+    - subtotal_amount
+    - discount_amount
+    - total_amount
+    - placed_at
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    order_number:
+      type: string
+    status:
+      type: string
+    currency:
+      type: string
+    subtotal_amount:
+      type: string
+    discount_amount:
+      type: string
+    total_amount:
+      type: string
+    placed_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+CheckoutOrderResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      $ref: '#/CheckoutOrder'
+PaymentIntentData:
+  type: object
+  required:
+    - id
+    - order_id
+    - provider
+    - provider_reference
+    - payment_method
+    - status
+    - amount
+    - currency
+    - expires_at
+    - next_action
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    order_id:
+      $ref: ../../common.yaml#/schemas/UUID
+    provider:
+      type: string
+    provider_reference:
+      type:
+        - string
+        - 'null'
+    payment_method:
+      type:
+        - string
+        - 'null'
+    status:
+      type: string
+    amount:
+      type: string
+    currency:
+      type: string
+    expires_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+    next_action:
+      type: object
+      additionalProperties: true
+PaymentIntentResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      $ref: '#/PaymentIntentData'
+NullableDateTime:
+  oneOf:
+    - $ref: ../../common.yaml#/schemas/DateTime
+    - type: 'null'
+NullablePeriod:
+  oneOf:
+    - $ref: ../../common.yaml#/schemas/EffectivePeriod
+    - type: 'null'
+BillingAgreementStart:
+  type: object
+  required:
+    - id
+    - order_id
+    - product_offering_version_id
+    - provider
+    - status
+    - current_period
+    - next_charge_at
+    - next_action
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    order_id:
+      $ref: ../../common.yaml#/schemas/UUID
+    product_offering_version_id:
+      $ref: ../../common.yaml#/schemas/UUID
+    provider:
+      type: string
+    status:
+      type: string
+    current_period:
+      $ref: '#/NullablePeriod'
+    next_charge_at:
+      $ref: '#/NullableDateTime'
+    next_action:
+      type: object
+      additionalProperties: true
+BillingAgreementStartResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      $ref: '#/BillingAgreementStart'
+BillingInvoice:
+  type: object
+  required:
+    - id
+    - order_id
+    - invoice_number
+    - billing_period
+    - currency
+    - subtotal_amount
+    - discount_amount
+    - total_amount
+    - status
+    - issued_at
+    - due_at
+    - paid_at
+    - inserted_at
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    order_id:
+      oneOf:
+        - $ref: ../../common.yaml#/schemas/UUID
+        - type: 'null'
+    invoice_number:
+      type: string
+    billing_period:
+      $ref: '#/NullablePeriod'
+    currency:
+      type: string
+    subtotal_amount:
+      type: string
+    discount_amount:
+      type: string
+    total_amount:
+      type: string
+    status:
+      type: string
+    issued_at:
+      $ref: '#/NullableDateTime'
+    due_at:
+      $ref: '#/NullableDateTime'
+    paid_at:
+      $ref: '#/NullableDateTime'
+    inserted_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+BillingAgreement:
+  type: object
+  required:
+    - id
+    - status
+    - current_period
+    - next_charge_at
+    - cancelled_at
+    - inserted_at
+    - updated_at
+    - order
+    - product_offering_version
+    - invoices
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    status:
+      type: string
+    current_period:
+      $ref: '#/NullablePeriod'
+    next_charge_at:
+      $ref: '#/NullableDateTime'
+    cancelled_at:
+      $ref: '#/NullableDateTime'
+    inserted_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+    updated_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+    order:
+      type:
+        - object
+        - 'null'
+      additionalProperties: true
+    product_offering_version:
+      type: object
+      additionalProperties: true
+    invoices:
+      type: array
+      items:
+        $ref: '#/BillingInvoice'
+BillingAgreementsResponse:
+  type: object
+  required:
+    - data
+  properties:
+    data:
+      type: object
+      required:
+        - agreements
+      properties:
+        agreements:
+          type: array
+          items:
+            $ref: '#/BillingAgreement'

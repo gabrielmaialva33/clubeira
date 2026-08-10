@@ -1,0 +1,12 @@
+PartnerAgreementsOk:
+  description: Página de convênios comerciais.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/PartnerAgreementListResponse
+PartnerAgreementOk:
+  description: Convênio e seus escopos comerciais.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/PartnerAgreementResponse

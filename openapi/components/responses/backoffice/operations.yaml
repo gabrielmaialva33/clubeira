@@ -1,0 +1,12 @@
+OutboxMessagesOk:
+  description: Página do estado operacional seguro da outbox.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/OutboxMessagesResponse
+AuditEventsOk:
+  description: Página de auditoria sem metadata sensível.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/AuditEventsResponse

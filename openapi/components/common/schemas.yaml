@@ -1,0 +1,645 @@
+UUID:
+  type: string
+  format: uuid
+DateTime:
+  type: string
+  format: date-time
+Money:
+  type: string
+  pattern: '^-?\d+\.\d{2}$'
+  example: '49.90'
+DataEnvelope:
+  type: object
+  required:
+    - data
+  properties:
+    data: {}
+    meta:
+      $ref: '#/CollectionMeta'
+CollectionMeta:
+  type: object
+  required:
+    - count
+    - page
+  properties:
+    count:
+      type: integer
+      minimum: 0
+    page:
+      $ref: '#/Page'
+Page:
+  type: object
+  required:
+    - limit
+    - has_more
+    - next_cursor
+  properties:
+    limit:
+      type: integer
+      minimum: 1
+    has_more:
+      type: boolean
+    next_cursor:
+      type:
+        - string
+        - 'null'
+ErrorEnvelope:
+  type: object
+  required:
+    - errors
+  properties:
+    errors:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Mensagem localizada para exibição ou log.
+        code:
+          type: string
+          description: Código estável de máquina quando aplicável.
+SessionCredentials:
+  type: object
+  required:
+    - email
+    - password
+  properties:
+    email:
+      type: string
+      format: email
+      maxLength: 320
+    password:
+      type: string
+      format: password
+      minLength: 15
+      maxLength: 128
+Registration:
+  allOf:
+    - $ref: '#/SessionCredentials'
+    - type: object
+      required:
+        - legal_document_version_ids
+      properties:
+        legal_document_version_ids:
+          type: array
+          minItems: 1
+          maxItems: 16
+          uniqueItems: true
+          items:
+            $ref: '#/UUID'
+Email:
+  type: object
+  required:
+    - email
+  properties:
+    email:
+      type: string
+      format: email
+      maxLength: 320
+Token:
+  type: object
+  required:
+    - token
+  properties:
+    token:
+      type: string
+      minLength: 1
+PasswordReset:
+  allOf:
+    - $ref: '#/Token'
+    - type: object
+      required:
+        - password
+      properties:
+        password:
+          type: string
+          format: password
+          minLength: 15
+          maxLength: 128
+Profile:
+  type: object
+  properties:
+    display_name:
+      type: string
+    birth_date:
+      type: string
+      format: date
+    cpf:
+      type: string
+      description: CPF de entrada; nunca é devolvido em claro.
+    phone:
+      type: string
+      description: Telefone de entrada; nunca é devolvido em claro.
+Consent:
+  type: object
+  required:
+    - state
+    - legal_document_version_id
+  properties:
+    state:
+      type: string
+      enum:
+        - granted
+        - withdrawn
+    legal_document_version_id:
+      $ref: '#/UUID'
+PrivacyRequest:
+  type: object
+  required:
+    - client_request_id
+    - request_type
+  properties:
+    client_request_id:
+      type: string
+      minLength: 1
+    request_type:
+      type: string
+Checkout:
+  type: object
+  required:
+    - product_offering_version_id
+    - offering_price_id
+    - quantity
+  properties:
+    product_offering_version_id:
+      $ref: '#/UUID'
+    offering_price_id:
+      $ref: '#/UUID'
+    quantity:
+      type: integer
+      minimum: 1
+PaymentIntent:
+  type: object
+  required:
+    - payment_method
+  properties:
+    payment_method:
+      type: string
+      example: pix
+PlatformSubscription:
+  type: object
+  required:
+    - platform_price_id
+    - idempotency_key
+  properties:
+    platform_price_id:
+      $ref: '#/UUID'
+    idempotency_key:
+      type: string
+      minLength: 1
+RedemptionDevice:
+  type: object
+  required:
+    - access_contract_id
+    - installation_token
+    - platform
+  properties:
+    access_contract_id:
+      $ref: '#/UUID'
+    installation_token:
+      type: string
+      minLength: 1
+    platform:
+      type: string
+DeviceKey:
+  type: object
+  required:
+    - installation_token
+    - public_key
+    - proof
+  properties:
+    installation_token:
+      type: string
+      minLength: 1
+    public_key:
+      type: string
+      description: Chave pública Ed25519 codificada conforme o contrato do app.
+    proof:
+      type: string
+      description: Prova de posse da chave para o desafio de enrollment.
+RedemptionGrant:
+  type: object
+  required:
+    - entitlement_allocation_id
+    - installation_token
+  properties:
+    entitlement_allocation_id:
+      $ref: '#/UUID'
+    installation_token:
+      type: string
+      minLength: 1
+RedemptionConfirmation:
+  type: object
+  required:
+    - grant
+  properties:
+    grant:
+      type: string
+      description: Grant curto e assinado emitido ao membro.
+Review:
+  type: object
+  required:
+    - rating
+    - body
+    - source_redemption_id
+  properties:
+    rating:
+      type: integer
+      minimum: 1
+      maximum: 5
+    title:
+      type: string
+    body:
+      type: string
+    source_redemption_id:
+      $ref: '#/UUID'
+ReviewMedia:
+  type: object
+  required:
+    - storage_key
+    - position
+  properties:
+    storage_key:
+      type: string
+      minLength: 1
+    position:
+      type: integer
+      minimum: 0
+ReviewReport:
+  type: object
+  required:
+    - reason_code
+  properties:
+    reason_code:
+      type: string
+    details:
+      type: string
+PartnerOnboarding:
+  type: object
+  required:
+    - organization
+    - place
+  properties:
+    organization:
+      type: object
+      required:
+        - legal_name
+        - cnpj
+      properties:
+        legal_name:
+          type: string
+        trade_name:
+          type: string
+        cnpj:
+          type: string
+          description: CNPJ de entrada; não é exposto nas respostas operacionais.
+    place:
+      type: object
+      required:
+        - name
+        - slug
+        - address
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        address:
+          $ref: '#/Address'
+Address:
+  type: object
+  required:
+    - street
+  properties:
+    postal_code:
+      type: string
+    street:
+      type: string
+    number:
+      type: string
+    complement:
+      type: string
+    district:
+      type: string
+PartnerAccess:
+  type: object
+  required:
+    - email
+  properties:
+    email:
+      type: string
+      format: email
+Reason:
+  type: object
+  properties:
+    reason:
+      type: string
+LifecycleAction:
+  type: object
+  required:
+    - action
+  properties:
+    action:
+      type: string
+    reason:
+      type: string
+PlaceProfile:
+  type: object
+  required:
+    - contact
+    - category_keys
+    - weekly_hours
+    - special_hours
+  properties:
+    contact:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+    category_keys:
+      type: array
+      uniqueItems: true
+      items:
+        type: string
+    weekly_hours:
+      type: array
+      items:
+        type: object
+        additionalProperties: true
+    special_hours:
+      type: array
+      items:
+        type: object
+        additionalProperties: true
+BenefitOffer:
+  type: object
+  required:
+    - offer
+    - version
+  properties:
+    offer:
+      type: object
+      required:
+        - code
+        - name
+        - benefit_kind
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        benefit_kind:
+          type: string
+    version:
+      type: object
+      required:
+        - title
+        - description
+        - terms
+        - redemption_instructions
+        - effective_during
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        terms:
+          type: string
+        redemption_instructions:
+          type: string
+        percentage_value:
+          type: number
+        amount_value:
+          type: number
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        effective_during:
+          $ref: '#/EffectivePeriod'
+EffectivePeriod:
+  type: object
+  required:
+    - starts_at
+  properties:
+    starts_at:
+      $ref: '#/DateTime'
+    ends_at:
+      oneOf:
+        - $ref: '#/DateTime'
+        - type: 'null'
+ProductOffering:
+  type: object
+  required:
+    - offering
+    - price
+    - benefits
+  properties:
+    offering:
+      type: object
+      required:
+        - code
+        - name
+        - description
+        - renewal_policy
+        - cycle
+        - effective_during
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        renewal_policy:
+          type: string
+        cycle:
+          type: object
+          required:
+            - policy
+          properties:
+            policy:
+              type: string
+            interval_unit:
+              type: string
+            interval_count:
+              type: integer
+              minimum: 1
+        effective_during:
+          $ref: '#/EffectivePeriod'
+    price:
+      type: object
+      required:
+        - currency
+        - amount
+      properties:
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        amount:
+          type: number
+          minimum: 0
+    benefits:
+      type: array
+      minItems: 1
+      items:
+        type: object
+        required:
+          - benefit_offer_version_id
+          - allowance_per_cycle
+          - consumption_unit
+        properties:
+          benefit_offer_version_id:
+            $ref: '#/UUID'
+          allowance_per_cycle:
+            type: integer
+            minimum: 1
+          consumption_unit:
+            type: string
+PartnerAgreement:
+  type: object
+  required:
+    - agreement_number
+    - name
+    - valid_from
+    - settlement_model
+    - redemption_sla_seconds
+    - organization_ids
+  properties:
+    agreement_number:
+      type: string
+    name:
+      type: string
+    valid_from:
+      $ref: '#/DateTime'
+    valid_until:
+      oneOf:
+        - $ref: '#/DateTime'
+        - type: 'null'
+    signed_at:
+      $ref: '#/DateTime'
+    settlement_model:
+      type: string
+    redemption_sla_seconds:
+      type: integer
+      minimum: 1
+    organization_ids:
+      $ref: '#/UUIDList'
+    brand_ids:
+      $ref: '#/UUIDList'
+    polo_place_ids:
+      $ref: '#/UUIDList'
+    edition_ids:
+      $ref: '#/UUIDList'
+    benefit_offer_version_ids:
+      $ref: '#/UUIDList'
+UUIDList:
+  type: array
+  uniqueItems: true
+  items:
+    $ref: '#/UUID'
+Refund:
+  type: object
+  required:
+    - reason
+  properties:
+    reason:
+      type: string
+ValidationPoint:
+  type: object
+  required:
+    - name
+    - credential
+  properties:
+    name:
+      type: string
+    credential:
+      $ref: '#/ValidationCredential'
+ValidationCredential:
+  type: object
+  required:
+    - secret_sha256
+  properties:
+    secret_sha256:
+      type: string
+      description: SHA-256 da credencial; o segredo cru nunca é enviado nesta borda.
+    expires_at:
+      $ref: '#/DateTime'
+ModerationAction:
+  type: object
+  required:
+    - action
+    - reason
+  properties:
+    action:
+      type: string
+    reason:
+      type: string
+ProcessingPurpose:
+  type: object
+  required:
+    - name
+    - legal_basis
+    - legal_document_version_id
+    - status
+  properties:
+    name:
+      type: string
+    legal_basis:
+      type: string
+    legal_document_version_id:
+      $ref: '#/UUID'
+    status:
+      type: string
+PrivacyTransition:
+  type: object
+  required:
+    - action
+    - expected_status
+  properties:
+    action:
+      type: string
+    expected_status:
+      type: string
+    rejection_reason:
+      type: string
+PlatformPlanVersion:
+  type: object
+  description: Versão imutável do plano, preços e feature values publicados atomicamente.
+  additionalProperties: true
+PartnerReviewResponse:
+  type: object
+  required:
+    - body
+  properties:
+    body:
+      type: string
+      minLength: 1
+MercadoPagoWebhook:
+  type: object
+  description: Payload bruto autenticado; a API relê o recurso no PSP antes de normalizar o evento.
+  properties:
+    id:
+      oneOf:
+        - type: string
+        - type: integer
+    type:
+      type: string
+    action:
+      type: string
+    actions:
+      type: array
+      items:
+        type: string
+    data:
+      type: object
+      properties:
+        id:
+          oneOf:
+            - type: string
+            - type: integer

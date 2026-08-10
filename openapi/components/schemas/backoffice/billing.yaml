@@ -1,0 +1,119 @@
+BackofficePayment:
+  type: object
+  required:
+    - id
+    - status
+    - amount
+    - currency
+    - payment_method
+    - provider_code
+    - captured_at
+    - refunded_at
+    - recorded_at
+    - order
+    - refund
+    - chargeback
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    status:
+      type: string
+    amount:
+      type: string
+    currency:
+      type: string
+    payment_method:
+      type:
+        - string
+        - 'null'
+    provider_code:
+      type: string
+    captured_at:
+      $ref: ../../schemas.yaml#/NullableDateTime
+    refunded_at:
+      $ref: ../../schemas.yaml#/NullableDateTime
+    recorded_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+    order:
+      type: object
+      additionalProperties: true
+    refund:
+      type:
+        - object
+        - 'null'
+      additionalProperties: true
+    chargeback:
+      type:
+        - object
+        - 'null'
+      additionalProperties: true
+BackofficePaymentsResponse:
+  type: object
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/BackofficePayment'
+    meta:
+      $ref: ../../common.yaml#/schemas/CollectionMeta
+BackofficeSubscription:
+  type: object
+  required:
+    - id
+    - status
+    - purchaser_user_id
+    - starts_at
+    - activated_at
+    - ends_at
+    - cancelled_at
+    - recorded_at
+    - order
+    - offering
+    - current_cycle
+    - balance
+  properties:
+    id:
+      $ref: ../../common.yaml#/schemas/UUID
+    status:
+      type: string
+    purchaser_user_id:
+      $ref: ../../common.yaml#/schemas/UUID
+    starts_at:
+      $ref: ../../schemas.yaml#/NullableDateTime
+    activated_at:
+      $ref: ../../schemas.yaml#/NullableDateTime
+    ends_at:
+      $ref: ../../schemas.yaml#/NullableDateTime
+    cancelled_at:
+      $ref: ../../schemas.yaml#/NullableDateTime
+    recorded_at:
+      $ref: ../../common.yaml#/schemas/DateTime
+    order:
+      type: object
+      additionalProperties: true
+    offering:
+      type: object
+      additionalProperties: true
+    current_cycle:
+      type:
+        - object
+        - 'null'
+      additionalProperties: true
+    balance:
+      type: object
+      additionalProperties: true
+BackofficeSubscriptionsResponse:
+  type: object
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/BackofficeSubscription'
+    meta:
+      $ref: ../../common.yaml#/schemas/CollectionMeta

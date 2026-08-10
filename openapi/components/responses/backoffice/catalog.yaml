@@ -1,0 +1,12 @@
+BackofficeBenefitOffersOk:
+  description: Página de ofertas de benefício e versão mais recente.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/BackofficeBenefitOffersResponse
+BackofficeProductOfferingsOk:
+  description: Página de ofertas comerciais e versão mais recente.
+  content:
+    application/json:
+      schema:
+        $ref: ../../schemas.yaml#/BackofficeProductOfferingsResponse
