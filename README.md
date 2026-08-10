@@ -121,15 +121,18 @@ mix setup
 mix phx.server
 ```
 
-`mix setup` instala as dependências, sobe PostgreSQL 18 em `127.0.0.1:55432`,
-cria/migra o banco com a role de migration e carrega um cenário determinístico
-com os polos **Sobral** e **Londrina**.
+`mix setup` instala as dependências Elixir, sobe PostgreSQL 18 em
+`127.0.0.1:55432`, cria/migra o banco com a role de migration, carrega um
+cenário determinístico com os polos **Sobral** e **Londrina** e, por fim,
+instala as dependências Node, valida o contrato OpenAPI e compila os assets.
 
 | Endereço | O que é |
 |:--|:--|
 | <http://localhost:4000> | aplicação |
 | <http://localhost:4000/health> | liveness do processo |
 | <http://localhost:4000/ready> | readiness da role runtime e das migrations |
+| <http://localhost:4000/api/docs> | documentação navegável Redocly |
+| <http://localhost:4000/openapi/v1.json> | bundle OpenAPI 3.1 para clientes e SDKs |
 | <http://localhost:4000/api/v1/polos/sobral/catalog> | catálogo demo |
 | <http://localhost:4000/api/v1/polos/sobral/places> | parceiros do polo |
 | <http://localhost:4000/api/v1/polos/sobral/checkout-options> | opções de checkout |
@@ -850,7 +853,8 @@ sem vazar detalhe do PostgreSQL.
 ```bash
 mix test        # suíte completa
 mix test --failed
-mix quality     # format, compile, Credo, audits, Sobelow e cobertura >= 90%
+npm run api:check # lint Redocly e prova que o bundle publicado está atualizado
+mix quality     # OpenAPI, format, compile, Credo, audits, Sobelow e cobertura >= 90%
 mix dialyzer
 mix precommit   # formata e executa o quality gate
 ```

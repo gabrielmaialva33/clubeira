@@ -30,7 +30,7 @@ mix phx.server
 ```
 
 O alias executa, nesta ordem: dependências, container saudável, criação do
-banco, migrations, seeds, instalação e build dos assets. As seeds são
+banco, migrations, seeds, instalação e validação do Redocly e build dos assets. As seeds são
 determinísticas e idempotentes: representam Sobral, Londrina, uma franquia nos
 dois polos, um parceiro local apenas em Sobral e um membro com assinatura e
 ciclo independentes nos dois polos. Os três estabelecimentos já saem publicados
@@ -72,6 +72,28 @@ somente para uso local.
 Factories vivem em `support/factory.ex` e são compiladas apenas em `dev` e
 `test`. Dados estruturais das seeds sempre recebem IDs e valores estáveis;
 Faker fica restrito a texto de apresentação irrelevante para a regra testada.
+
+## Contrato HTTP e Redocly
+
+O contrato editável parte de `openapi/openapi.yaml` e é separado por domínio em
+`openapi/paths/`. O artefato servido aos clientes é
+`priv/static/openapi/v1.json`; a interface navegável em `/api/docs` carrega esse
+mesmo bundle, portanto não existe uma segunda cópia embutida da especificação.
+
+```sh
+npm run api:lint
+npm run api:bundle
+npm run api:check
+```
+
+Depois de alterar uma rota ou contrato, atualize a fonte e rode
+`npm run api:bundle`. O check gera outro bundle em diretório temporário e falha
+se o JSON publicado estiver obsoleto. O teste
+`test/clubeira_web/open_api_contract_test.exs` também compara método e caminho
+de todas as operações `/api/v1` com `ClubeiraWeb.Router.__routes__/0`; rota sem
+documentação e documentação sem rota quebram o gate. A CI fixa a mesma versão
+Node do `mise.toml`, instala pelo `package-lock.json` e executa esse check dentro
+de `mix quality`.
 
 ## Inventário administrativo de lugares
 
@@ -693,9 +715,10 @@ mix dialyzer
 mix precommit
 ```
 
-`mix quality` roda formatação em check, compilação com warnings como erro,
-dependências não usadas, Credo strict, auditoria de dependências, auditoria Hex,
-Sobelow e a suíte com cobertura backend mínima de 90%. Enquanto o produto não
+`mix quality` roda formatação em check, lint Redocly com verificação do bundle
+OpenAPI, compilação com warnings como erro, dependências não usadas, Credo
+strict, auditoria de dependências, auditoria Hex, Sobelow e a suíte com cobertura
+backend mínima de 90%. Enquanto o produto não
 possui frontend, somente o scaffold `ClubeiraWeb.CoreComponents` fica fora do
 denominador; controllers, JSON, domínio, workers e demais módulos continuam no
 gate. `mix precommit` formata antes de repetir o gate completo.
