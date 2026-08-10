@@ -367,6 +367,20 @@ export MERCADO_PAGO_ACCOUNTS_JSON='{
 export MERCADO_PAGO_SUBSCRIPTION_BACK_URL='https://app.example.com/assinaturas/retorno'
 ```
 
+O registry de adapters fica em `config/config.exs`. Depois que outro adapter,
+como Stripe, implementar `Clubeira.Billing.Gateways.Adapter` e for registrado
+por código, a seleção não exige mudança no core:
+
+```sh
+export CLUBEIRA_PIX_PROVIDER='stripe'
+export CLUBEIRA_SUBSCRIPTION_PROVIDER='stripe'
+```
+
+O boot aceita somente códigos minúsculos e o registry rejeita módulos que não
+implementem o contrato completo. A URL neutra do webhook é
+`/api/v1/webhooks/<provider_code>/<merchant_account_id>`; o adapter recebe o
+body bruto exato para verificar assinaturas que dependem dos bytes originais.
+
 Configuração vazia, JSON inválido, token curto ou segredo menor que 32 bytes
 fazem o boot falhar sem imprimir a credencial. O mapa aceita várias contas e
 nenhuma delas é persistida no PostgreSQL.

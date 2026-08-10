@@ -372,6 +372,7 @@ docker compose stop
 | `GET` | `/api/v1/polos/:slug/review-media/:media_id` | 🌐 |
 | `POST` | `/api/v1/polos/:slug/redemptions` | 🏪 |
 | `POST` | `/api/v1/webhooks/mercado-pago/:merchant_account_id` | 🔏 |
+| `POST` | `/api/v1/webhooks/:provider_code/:merchant_account_id` | 🔏 |
 | `GET` | `/api/v1/me/access` | 🔑 |
 | `GET` | `/api/v1/me/subscriptions` | 🔑 |
 | `GET` | `/api/v1/polos/:slug/me/billing` | 🔑 |
@@ -957,10 +958,10 @@ alterar a configuração versionada.
   para `Clubeira.Billing.place_order/2`;
 - `POST /api/v1/polos/:polo_slug/orders/:order_id/payment-intents` inicia Pix
   somente para o comprador autenticado e exige `Idempotency-Key`;
-- `POST /api/v1/webhooks/mercado-pago/:merchant_account_id` autentica a
-  assinatura, exige identidade consistente entre query e body e relê no
-  provedor Orders, cobranças autorizadas de assinatura ou chargebacks antes de
-  normalizar qualquer transição;
+- `POST /api/v1/webhooks/:provider_code/:merchant_account_id` preserva body,
+  query e headers originais, delega autenticação e normalização ao adaptador
+  registrado e relê o recurso no PSP antes de qualquer transição. A rota
+  `/webhooks/mercado-pago/...` permanece como alias compatível;
 - `POST /api/v1/polos/:polo_slug/orders/:order_id/billing-agreements` cria um
   `preapproval` somente para pedido do ator com `renewal_policy=automatic`.
   Cada `authorized_payment` aprovado gera nota do consumidor, pagamento, novo

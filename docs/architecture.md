@@ -495,6 +495,14 @@ nenhum `user_id` recebido do cliente participa da autorização.
 
 ## Pagamento Pix e borda do PSP
 
+`Clubeira.Billing.Gateways` é a porta neutra do core. Códigos de provider são
+resolvidos por um registry explícito para módulos que implementam
+`Clubeira.Billing.Gateways.Adapter`; nenhum valor externo vira atom. A seleção
+de provider por método de pagamento e por assinatura é configuração de runtime,
+enquanto credenciais, endpoints, payloads e autenticação de webhook pertencem
+ao adapter. Adicionar um PSP não altera checkout, settlement, reembolso ou as
+transações de domínio.
+
 `Clubeira.Billing.start_payment/2` reserva um `payment_intent` dentro da RLS,
 sob lock do pedido e com conta recebedora vigente. A chamada HTTP acontece
 depois do commit dessa reserva; o UUID do intent vira o `X-Idempotency-Key` da
@@ -509,12 +517,13 @@ FKs compostas e locks. Credenciais ficam em configuração de runtime por
 `provider_account_reference`; token e segredo de webhook não entram no banco,
 evento, auditoria ou log.
 
-`POST /api/v1/webhooks/mercado-pago/:merchant_account_id` confere a assinatura
-HMAC com `data.id`, `x-request-id` e `ts`, exige que query e body identifiquem a
-mesma order e então consulta `GET /v1/orders/:id` com a credencial da conta. O
-corpo da notificação nunca é prova de captura. O `x-request-id` autenticado é a
-identidade externa da entrega; retries idênticos e novas notificações do mesmo
-pagamento são reconciliados separadamente.
+`POST /api/v1/webhooks/:provider_code/:merchant_account_id` entrega ao adapter
+o body bruto exato, o JSON decodificado, query e headers. O adapter do Mercado
+Pago confere HMAC com `data.id`, `x-request-id` e `ts`, exige que query e body
+identifiquem o mesmo recurso e então relê order, cobrança autorizada ou
+chargeback com a credencial da conta. O corpo da notificação nunca é prova de
+captura. A rota histórica `/webhooks/mercado-pago/...` é apenas um alias para o
+mesmo pipeline.
 
 Uma captura `processed/accredited` entra em `PaymentSettler` e grava evento do
 provedor, intent, payment, pedido pago, contrato, ciclo, alocações, auditoria,
