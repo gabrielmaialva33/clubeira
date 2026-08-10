@@ -66,10 +66,11 @@ defmodule Clubeira.ConcurrencyCase do
   @spec run_concurrently(pid(), [(-> result)]) :: [result] when result: var
   def run_concurrently(repo, operations) do
     caller = self()
+    task_supervisor = start_supervised!(Task.Supervisor, id: make_ref())
 
     tasks =
       Enum.map(operations, fn operation ->
-        Task.async(fn ->
+        Task.Supervisor.async_nolink(task_supervisor, fn ->
           Repo.put_dynamic_repo(repo)
           send(caller, {:ready, self()})
 
@@ -99,6 +100,7 @@ defmodule Clubeira.ConcurrencyCase do
       |> Keyword.put(:name, nil)
       |> Keyword.put(:pool, DBConnection.ConnectionPool)
       |> Keyword.put(:pool_size, 2)
+      |> Keyword.put(:types, Clubeira.ConcurrencyMigrationTypes)
 
     {:ok, migrator_repo} = Repo.start_link(config)
 

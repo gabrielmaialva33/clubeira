@@ -9,6 +9,7 @@ defmodule Clubeira.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       test_coverage: [
         ignore_modules: [
+          Clubeira.ConcurrencyMigrationTypes,
           ClubeiraWeb.CoreComponents,
           ClubeiraWeb.Router.AuthRoutes,
           ClubeiraWeb.Router.BackofficeRoutes,

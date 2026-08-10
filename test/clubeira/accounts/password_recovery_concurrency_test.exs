@@ -1,5 +1,5 @@
 defmodule Clubeira.Accounts.PasswordRecoveryConcurrencyTest do
-  use ExUnit.Case, async: false
+  use Clubeira.ConcurrencyCase, async: false
 
   import Ecto.Query
 
@@ -15,45 +15,6 @@ defmodule Clubeira.Accounts.PasswordRecoveryConcurrencyTest do
   @old_password "uma-senha-antiga-para-concorrencia"
   @first_password "primeira-senha-forte-concorrente"
   @second_password "segunda-senha-forte-concorrente"
-
-  setup_all do
-    suffix = Ecto.UUID.generate() |> String.replace("-", "")
-    database = "clubeira_password_recovery_concurrency_#{suffix}"
-
-    with_admin_connection(fn admin ->
-      Postgrex.query!(admin, ~s|CREATE DATABASE "#{database}" TEMPLATE template0|, [])
-    end)
-
-    on_exit(fn ->
-      with_admin_connection(fn admin ->
-        Postgrex.query!(admin, ~s|DROP DATABASE "#{database}" WITH (FORCE)|, [])
-      end)
-    end)
-
-    repo =
-      Repo.config()
-      |> Keyword.put(:database, database)
-      |> Keyword.put(:name, nil)
-      |> Keyword.put(:pool, DBConnection.ConnectionPool)
-      |> Keyword.put(:pool_size, 6)
-      |> then(&start_supervised!({Repo, &1}))
-
-    Ecto.Migrator.run(
-      Repo,
-      Ecto.Migrator.migrations_path(Repo),
-      :up,
-      all: true,
-      dynamic_repo: repo,
-      log: false
-    )
-
-    {:ok, repo: repo}
-  end
-
-  setup %{repo: repo} do
-    Repo.put_dynamic_repo(repo)
-    :ok
-  end
 
   test "only one concurrent consumer can rotate the password", %{repo: repo} do
     user = Factory.insert(:user, email: "concurrent-reset@example.test")
@@ -142,49 +103,5 @@ defmodule Clubeira.Accounts.PasswordRecoveryConcurrencyTest do
              ),
              :count
            ) == 1
-  end
-
-  defp run_concurrently(repo, operations) do
-    caller = self()
-
-    tasks =
-      Enum.map(operations, fn operation ->
-        Task.async(fn ->
-          Repo.put_dynamic_repo(repo)
-          send(caller, {:ready, self()})
-
-          receive do
-            :run -> operation.()
-          end
-        end)
-      end)
-
-    ready_processes =
-      Enum.map(tasks, fn _task ->
-        receive do
-          {:ready, process} -> process
-        after
-          5_000 -> flunk("concurrent password reset worker did not become ready")
-        end
-      end)
-
-    Enum.each(ready_processes, &send(&1, :run))
-    Task.await_many(tasks, 15_000)
-  end
-
-  defp connection_options(database) do
-    Repo.config()
-    |> Keyword.take([:hostname, :port, :username, :password, :ssl, :socket_options])
-    |> Keyword.put(:database, database)
-  end
-
-  defp with_admin_connection(operation) do
-    {:ok, admin} = Postgrex.start_link(connection_options("postgres"))
-
-    try do
-      operation.(admin)
-    after
-      GenServer.stop(admin)
-    end
   end
 end
