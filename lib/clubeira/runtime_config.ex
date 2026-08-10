@@ -65,6 +65,17 @@ defmodule Clubeira.RuntimeConfig do
     end
   end
 
+  @spec provider_code!(String.t()) :: String.t()
+  def provider_code!(name) do
+    value = required_env!(name)
+
+    unless String.match?(value, ~r/^[a-z0-9][a-z0-9_-]{0,62}$/) do
+      raise "#{name} must be a lowercase provider code"
+    end
+
+    value
+  end
+
   @spec absolute_https_url!(String.t()) :: String.t()
   def absolute_https_url!(name) do
     value = required_env!(name)

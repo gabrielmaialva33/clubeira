@@ -22,13 +22,6 @@ defmodule Clubeira.Billing.Gateways.Adapter do
               Gateways.refund_request()
             ) :: {:ok, Gateways.refunded_payment()} | {:error, atom()}
 
-  @callback authenticate_webhook(
-              MerchantAccount.t(),
-              String.t(),
-              String.t(),
-              String.t()
-            ) :: :ok | {:error, atom()}
-
   @callback verify_webhook(MerchantAccount.t(), Gateways.webhook_envelope()) ::
               {:ok, Gateways.webhook_event()} | {:error, atom()}
 

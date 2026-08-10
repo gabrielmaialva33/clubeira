@@ -4,8 +4,8 @@ defmodule Clubeira.RuntimeConfigTest do
   alias Clubeira.RuntimeConfig
 
   @environment_variables ~w(
-    DATABASE_CA_CERT_FILE DATABASE_SSL PHX_HOST PLATFORM_BILLING_MERCHANT_ACCOUNT_ID POOL_SIZE
-    REVIEW_MEDIA_PUBLIC_BASE_URL
+    CLUBEIRA_PIX_PROVIDER DATABASE_CA_CERT_FILE DATABASE_SSL PHX_HOST
+    PLATFORM_BILLING_MERCHANT_ACCOUNT_ID POOL_SIZE REVIEW_MEDIA_PUBLIC_BASE_URL
   )
 
   setup do
@@ -116,5 +116,20 @@ defmodule Clubeira.RuntimeConfigTest do
 
     assert RuntimeConfig.absolute_https_url!("REVIEW_MEDIA_PUBLIC_BASE_URL") ==
              "https://cdn.example.test/reviews"
+  end
+
+  test "provider_code!/1 accepts canonical registry keys and rejects unsafe values" do
+    for invalid <- ["Stripe", "stripe/payment", " stripe", String.duplicate("a", 64)] do
+      System.put_env("CLUBEIRA_PIX_PROVIDER", invalid)
+
+      assert_raise RuntimeError,
+                   ~r/CLUBEIRA_PIX_PROVIDER must be a lowercase provider code/,
+                   fn ->
+                     RuntimeConfig.provider_code!("CLUBEIRA_PIX_PROVIDER")
+                   end
+    end
+
+    System.put_env("CLUBEIRA_PIX_PROVIDER", "stripe_connect")
+    assert RuntimeConfig.provider_code!("CLUBEIRA_PIX_PROVIDER") == "stripe_connect"
   end
 end

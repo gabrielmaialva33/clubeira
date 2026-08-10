@@ -1,5 +1,35 @@
 import Config
 
+gateway_options =
+  case System.get_env("CLUBEIRA_PIX_PROVIDER") do
+    nil ->
+      []
+
+    _configured ->
+      [
+        payment_providers: %{
+          "pix" => Clubeira.RuntimeConfig.provider_code!("CLUBEIRA_PIX_PROVIDER")
+        }
+      ]
+  end
+
+gateway_options =
+  case System.get_env("CLUBEIRA_SUBSCRIPTION_PROVIDER") do
+    nil ->
+      gateway_options
+
+    _configured ->
+      Keyword.put(
+        gateway_options,
+        :subscription_provider,
+        Clubeira.RuntimeConfig.provider_code!("CLUBEIRA_SUBSCRIPTION_PROVIDER")
+      )
+  end
+
+if gateway_options != [] do
+  config :clubeira, Clubeira.Billing.Gateways, gateway_options
+end
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration

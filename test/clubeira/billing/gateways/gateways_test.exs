@@ -36,6 +36,18 @@ defmodule Clubeira.Billing.GatewaysTest do
     assert {:error, :payment_gateway_unsupported} = Gateways.provider_for_subscription()
   end
 
+  test "rejects a registered module that does not implement the adapter contract" do
+    Application.put_env(:clubeira, Gateways,
+      adapters: %{"invalid" => String},
+      payment_providers: %{"pix" => "invalid"},
+      subscription_provider: "invalid"
+    )
+
+    assert {:error, :payment_gateway_unsupported} = Gateways.adapter_for("invalid")
+    assert {:error, :payment_gateway_unsupported} = Gateways.provider_for_payment("pix")
+    assert {:error, :payment_gateway_unsupported} = Gateways.provider_for_subscription()
+  end
+
   defp restore_configuration(nil), do: Application.delete_env(:clubeira, Gateways)
 
   defp restore_configuration(configuration),

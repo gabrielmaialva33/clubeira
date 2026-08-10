@@ -63,7 +63,6 @@ defmodule Clubeira.Billing.BillingAgreementStarter do
   defp start_reserved(scope, reservation) do
     request = %{
       amount: reservation.order.total_amount,
-      back_url: subscription_back_url(reservation.provider.code),
       currency: reservation.order.currency,
       external_reference: "#{scope.polo_id}_#{reservation.order.id}",
       idempotency_key: reservation.agreement.id,
@@ -341,15 +340,6 @@ defmodule Clubeira.Billing.BillingAgreementStarter do
          cycle_interval_count: count
        }),
        do: %{frequency: count * 12, type: "months"}
-
-  defp subscription_back_url(provider_code) do
-    case Application.get_env(:clubeira, Clubeira.Billing.Gateways.MercadoPago, [])[
-           :subscription_back_url
-         ] do
-      value when is_binary(value) -> value
-      _missing when provider_code == "mercado_pago" -> nil
-    end
-  end
 
   defp request_hash(scope, graph, request) do
     Idempotency.fingerprint({

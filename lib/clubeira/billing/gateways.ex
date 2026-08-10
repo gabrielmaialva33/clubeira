@@ -1,6 +1,7 @@
 defmodule Clubeira.Billing.Gateways do
   @moduledoc false
 
+  alias Clubeira.Billing.Gateways.Adapter
   alias Clubeira.Billing.MerchantAccount
 
   @type payment_request :: %{
@@ -21,7 +22,6 @@ defmodule Clubeira.Billing.Gateways do
 
   @type subscription_request :: %{
           required(:amount) => Decimal.t(),
-          required(:back_url) => String.t(),
           required(:currency) => String.t(),
           required(:external_reference) => String.t(),
           required(:idempotency_key) => Ecto.UUID.t(),
@@ -145,8 +145,13 @@ defmodule Clubeira.Billing.Gateways do
   @spec adapter_for(String.t()) :: {:ok, module()} | {:error, :payment_gateway_unsupported}
   def adapter_for(provider_code) when is_binary(provider_code) do
     case gateway_configuration() |> Keyword.get(:adapters, %{}) |> Map.fetch(provider_code) do
-      {:ok, adapter} when is_atom(adapter) -> {:ok, adapter}
-      _missing_or_invalid -> {:error, :payment_gateway_unsupported}
+      {:ok, adapter} when is_atom(adapter) ->
+        if valid_adapter?(adapter),
+          do: {:ok, adapter},
+          else: {:error, :payment_gateway_unsupported}
+
+      _missing_or_invalid ->
+        {:error, :payment_gateway_unsupported}
     end
   end
 
@@ -208,19 +213,6 @@ defmodule Clubeira.Billing.Gateways do
     end
   end
 
-  @spec authenticate_webhook(
-          String.t(),
-          MerchantAccount.t(),
-          String.t(),
-          String.t(),
-          String.t()
-        ) :: :ok | {:error, atom()}
-  def authenticate_webhook(provider, %MerchantAccount{} = account, data_id, request_id, signature) do
-    with {:ok, adapter} <- adapter_for(provider) do
-      adapter.authenticate_webhook(account, data_id, request_id, signature)
-    end
-  end
-
   @spec verify_webhook(String.t(), MerchantAccount.t(), webhook_envelope()) ::
           {:ok, webhook_event()} | {:error, atom()}
   def verify_webhook(provider, %MerchantAccount{} = account, envelope) when is_map(envelope) do
@@ -260,5 +252,12 @@ defmodule Clubeira.Billing.Gateways do
 
   defp gateway_configuration do
     Application.get_env(:clubeira, __MODULE__, [])
+  end
+
+  defp valid_adapter?(adapter) do
+    Code.ensure_loaded?(adapter) and
+      Enum.all?(Adapter.behaviour_info(:callbacks), fn {function, arity} ->
+        function_exported?(adapter, function, arity)
+      end)
   end
 end

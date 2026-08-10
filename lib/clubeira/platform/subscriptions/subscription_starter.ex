@@ -70,7 +70,6 @@ defmodule Clubeira.Platform.SubscriptionStarter do
   defp start_reserved(scope, reservation) do
     request = %{
       amount: reservation.price.amount,
-      back_url: subscription_back_url(reservation.provider.code),
       currency: reservation.price.currency,
       external_reference: "platform:#{scope.polo_id}:#{reservation.subscription.id}",
       idempotency_key: reservation.subscription.id,
@@ -326,15 +325,6 @@ defmodule Clubeira.Platform.SubscriptionStarter do
 
   defp recurring_interval(%Price{billing_interval_unit: "year", billing_interval_count: count}),
     do: %{frequency: count * 12, type: "months"}
-
-  defp subscription_back_url(provider_code) do
-    case Application.get_env(:clubeira, Clubeira.Billing.Gateways.MercadoPago, [])[
-           :subscription_back_url
-         ] do
-      value when is_binary(value) -> value
-      _missing when is_binary(provider_code) -> nil
-    end
-  end
 
   defp datetime(nil), do: nil
   defp datetime(value), do: DateTime.to_iso8601(value)
