@@ -92,6 +92,10 @@ cliente como prova de permissão.
 - `Clubeira.Subscriptions.list_product_offerings/2` mantém o lifecycle comercial
   operável fora da vitrine pública: exige `manage_partners`, pagina identidades
   antes de agregar a última versão e seus preços e nunca reinterpreta histórico.
+- `Clubeira.Operations` expõe auditoria e outbox somente ao `admin` do polo, com
+  keyset e DTOs sem payload, metadata, erro ou identidade do worker. Retry aceita
+  apenas `dead_letter`, é idempotente e grava auditoria na mesma transação, sem
+  emitir outro evento/outbox que criaria recursão operacional.
 - `Clubeira.Catalog.list_benefit_offers/2` liga publicação de benefícios à
   montagem comercial: exige `manage_partners`, pagina identidades antes de
   agregar a versão mais recente e seus lugares e trata `place_id` só como filtro.

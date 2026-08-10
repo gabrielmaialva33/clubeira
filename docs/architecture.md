@@ -818,6 +818,16 @@ ser entregues depois do lease; portanto a semântica é at-least-once e o
 consumer deve deduplicar por `event_id`. Falhas usam backoff exponencial
 limitado e terminam em `dead_letter` após o máximo configurado.
 
+O plano de controle tenant usa `Clubeira.Operations` para listar auditoria e
+estado da outbox sob a capability `manage_operations`, atualmente restrita ao
+papel `admin`. Os read models usam keyset e retornam somente identidade do
+agregado, tópico, estado e relógios operacionais: payloads, metadata,
+`last_error`, `message_key` e `locked_by` não atravessam a borda HTTP. O retry
+trava a mensagem ligada ao polo, aceita apenas `dead_letter`, reserva a chave
+idempotente antes de reler o estado e volta a mensagem para `pending` junto de
+uma auditoria append-only. Ele deliberadamente não emite evento de domínio nem
+outra outbox, evitando uma cadeia recursiva de mensagens operacionais.
+
 O envelope é assinado sobre os bytes exatos enviados, sem carregar o segredo:
 `v1=hex(HMAC-SHA256(secret, timestamp <> "." <> body))`. O consumer deve
 comparar em tempo constante, impor uma janela curta ao timestamp Unix e só

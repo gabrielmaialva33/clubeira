@@ -390,6 +390,9 @@ docker compose stop
 | `GET` | `/api/v1/polos/:slug/backoffice/subscriptions` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/subscriptions/:contract_id/lifecycle-actions` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/payments/:payment_id/refunds` | 🛡️ |
+| `GET` | `/api/v1/polos/:slug/backoffice/audit-events` | 🛡️ |
+| `GET` | `/api/v1/polos/:slug/backoffice/outbox-messages` | 🛡️ |
+| `POST` | `/api/v1/polos/:slug/backoffice/outbox-messages/:message_id/retries` | 🛡️ |
 | `POST` | `/api/v1/polos/:slug/backoffice/platform-subscription` | 🛡️ |
 | `GET` | `/api/v1/polos/:slug/backoffice/platform-billing` | 🛡️ |
 | `GET` | `/api/v1/polos/:slug/backoffice/validation-points` | 🛡️ |
@@ -949,6 +952,11 @@ alterar a configuração versionada.
   serializa `suspend` e `reactivate` sob lock, registra a faixa temporal de
   suspensão e mantém contrato, ciclos, auditoria, evento, outbox e resposta
   idempotente na mesma transação;
+- `GET /api/v1/polos/:polo_slug/backoffice/audit-events` e `outbox-messages`
+  exigem `admin`, isolam o polo por RLS, paginam por cursor opaco e omitem
+  metadata, payload, erro bruto e identidade do worker. O retry de uma
+  `dead_letter` exige `Idempotency-Key`, limpa somente o estado de transporte e
+  grava uma única auditoria atômica, sem criar evento/outbox recursivo;
 - `POST /api/v1/polos/:polo_slug/backoffice/payments/:payment_id/refunds`
   exige `admin`, motivo e `Idempotency-Key`, executa somente estorno integral e
   nunca aceita valor, conta ou referência externa do cliente;
@@ -1095,7 +1103,8 @@ alterar a configuração versionada.
   borda HTTP acima verifica grant e credencial antes de montar esse comando;
 - a outbox é persistida atomicamente e o worker opcional entrega envelopes por
   HTTPS com HMAC, deduplicação por `event_id`, retry exponencial, lease
-  recuperável e dead-letter;
+  recuperável e dead-letter; o backoffice do polo consegue localizar e
+  reencaminhar falhas sem receber payload ou diagnóstico interno;
 - `platform/billing/plans` exige uma role global da organização plataforma e
   publica versões, features tipadas e preço temporal sem reinterpretar versões
   anteriores. O admin financeiro do polo inicia a assinatura SaaS e acompanha

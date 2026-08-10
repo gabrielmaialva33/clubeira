@@ -536,6 +536,14 @@ Qualquer outro status ou erro de transporte agenda retry exponencial; depois de
 reprocessamento operacional. O corpo de erro do consumer e o segredo nunca são
 persistidos em `last_error`.
 
+O admin do polo consulta `backoffice/outbox-messages` por estado e tópico e usa
+`POST .../outbox-messages/:id/retries` com `Idempotency-Key` para devolver uma
+`dead_letter` a `pending`. A resposta nunca inclui payload, `last_error`,
+`message_key` ou `locked_by`; a mesma transação zera tentativas, limpa o lease e
+o erro sanitizado, agenda disponibilidade imediata e grava
+`outbox.message_requeued` na auditoria tenant. `backoffice/audit-events` permite
+confirmar o fato por ação e tipo de recurso sem expor metadata privada.
+
 ## Roles do banco
 
 O desenvolvimento inicia a aplicação como `clubeira_app`. Cada conexão valida
