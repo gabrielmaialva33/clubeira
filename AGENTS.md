@@ -20,19 +20,31 @@ Leia antes de alterar comportamento estrutural:
 
 ## Mapa do repositório
 
-- `lib/clubeira/`: contexts e domínio puro da aplicação;
-- `lib/clubeira_web/`: controllers, plugs, componentes e roteamento HTTP;
+- `lib/clubeira/`: contexts públicos na raiz e, nos domínios maiores, módulos
+  internos agrupados por capability (`billing/payments`,
+  `subscriptions/contracts`, `reviews/moderation`, por exemplo);
+- `lib/clubeira_web/controllers/`: bordas HTTP agrupadas por superfície (`auth`,
+  `member`, `backoffice`, `partner`, `platform`, `public` e integrações);
+- `lib/clubeira_web/router/`: macros de rotas por superfície; `router.ex`
+  concentra pipelines e a composição final;
+- `openapi/`: contrato raiz, índices de paths por superfície/capability e
+  components compartilhados seguindo a mesma taxonomia;
 - `priv/repo/migrations/`: schema normalizado, constraints, triggers e RLS;
 - `support/factory*`: factories reutilizadas por desenvolvimento, testes e
   seeds;
 - `support/seeds*`: cenários determinísticos e idempotentes;
-- `test/clubeira/`: testes de domínio, contratos do banco, RLS e concorrência;
+- `test/clubeira/`: testes de domínio espelhados por capability, com contratos
+  do banco, RLS e concorrência no nível do context;
+- `test/clubeira_web/controllers/`: testes HTTP espelhando as mesmas superfícies
+  dos controllers;
 - `test/e2e/`: fluxos black-box por TCP contra Bandit e PostgreSQL reais;
 - `test/support/`: DataCase, ConnCase, roles restritas e fixtures específicas;
 - `docker/postgres/`: bootstrap e verificação da role de runtime.
 
 Procure o context e o padrão existente antes de criar módulo, schema, helper ou
-abstração nova. Não mova regra de negócio para controller, LiveView ou seed.
+abstração nova. O arquivo `lib/clubeira/<context>.ex` é a fronteira pública;
+subdiretórios organizam capabilities internas sem criar outro context por
+acidente. Não mova regra de negócio para controller, LiveView ou seed.
 
 ## Invariantes de dados e multi-tenancy
 

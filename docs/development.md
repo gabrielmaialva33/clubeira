@@ -75,10 +75,28 @@ Faker fica restrito a texto de apresentação irrelevante para a regra testada.
 
 ## Contrato HTTP e Redocly
 
-O contrato editável parte de `openapi/openapi.yaml` e é separado por domínio em
-`openapi/paths/`. O artefato servido aos clientes é
+O contrato editável parte de `openapi/openapi.yaml`, separa operações por
+superfície e capability em `openapi/paths/` e mantém parâmetros, schemas e
+respostas reutilizáveis com a mesma taxonomia em `openapi/components/`. Os
+arquivos `paths/{member,backoffice}.yaml` e
+`components/{schemas,responses}.yaml` são índices pequenos; a definição fica no
+fragmento da capability. O artefato servido aos clientes é
 `priv/static/openapi/v1.json`; a interface navegável em `/api/docs` carrega esse
 mesmo bundle, portanto não existe uma segunda cópia embutida da especificação.
+
+A borda Phoenix segue a mesma divisão. Controllers ficam em
+`lib/clubeira_web/controllers/<superfície>/<capability>/`, os testes espelham
+essa árvore em `test/clubeira_web/controllers/` e as declarações ficam em
+`lib/clubeira_web/router/*_routes.ex`. `ClubeiraWeb.Router` concentra apenas os
+pipelines, a composição ordenada dessas superfícies e as rotas de
+desenvolvimento.
+
+Nos contexts maiores, `lib/clubeira/<context>.ex` continua sendo a fronteira
+pública e os módulos internos ficam agrupados por capability, como
+`billing/payments/`, `subscriptions/contracts/` e `reviews/moderation/`. Essa
+organização é física: ela melhora descoberta e navegação sem criar namespaces
+ou APIs públicas adicionais. Os testes de domínio espelham essas capabilities;
+testes de RLS, concorrência e contrato do banco permanecem no nível do context.
 
 ```sh
 npm run api:lint
@@ -726,6 +744,12 @@ gate. `mix precommit` formata antes de repetir o gate completo.
 Testes de banco usam SQL Sandbox. O setup cria e assume uma role PostgreSQL
 temporária sem bypass de RLS dentro da transação, para que a suíte não ganhe
 falso positivo por conectar como administrador.
+
+Testes de concorrência usam `Clubeira.ConcurrencyCase`, fora do SQL Sandbox.
+Cada suíte de capability recebe um banco migrado e uma role runtime restrita
+próprios; `run_concurrently/2` sincroniza os workers por barreira antes de
+disparar os comandos. Mantenha os cenários junto da capability que protegem e
+deixe no case compartilhado somente o ciclo de vida PostgreSQL e a sincronização.
 
 `test/e2e/member_checkout_test.exs` sobe um Bandit supervisionado em porta
 efêmera e usa `Req` sobre TCP contra o endpoint real. O cenário atravessa health,
