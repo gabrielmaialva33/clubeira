@@ -2,6 +2,8 @@ defmodule Clubeira.Tenancy.RlsContractTest do
   use Clubeira.DataCase, async: false
 
   alias Clubeira.Devices.UserDeviceAuthorization
+  alias Clubeira.Polos.Polo
+  alias Clubeira.Polos.PoloRole
   alias Clubeira.Polos.PoloRoute
   alias Clubeira.RedemptionsFixtures
   alias Clubeira.Repo
@@ -111,6 +113,67 @@ defmodule Clubeira.Tenancy.RlsContractTest do
              WHERE namespace.nspname = 'public'
                AND class.relname = 'polos'
              """)
+  end
+
+  test "client bootstrap policies add only the intended actor and public reads" do
+    assert %{rows: rows} =
+             Repo.query!("""
+             SELECT class.relname, policy.polname, policy.polcmd
+             FROM pg_policy AS policy
+             JOIN pg_class AS class ON class.oid = policy.polrelid
+             WHERE policy.polname IN (
+               'polo_memberships_actor_read',
+               'polo_membership_roles_actor_read',
+               'polo_roles_actor_read',
+               'polos_staff_actor_read',
+               'polos_public_active_read'
+             )
+             ORDER BY class.relname, policy.polname
+             """)
+
+    assert rows == [
+             ["polo_membership_roles", "polo_membership_roles_actor_read", "r"],
+             ["polo_memberships", "polo_memberships_actor_read", "r"],
+             ["polo_roles", "polo_roles_actor_read", "r"],
+             ["polos", "polos_public_active_read", "r"],
+             ["polos", "polos_staff_actor_read", "r"]
+           ]
+
+    assert %{rows: [[public_expression]]} =
+             Repo.query!("""
+             SELECT pg_get_expr(policy.polqual, policy.polrelid)
+             FROM pg_policy AS policy
+             WHERE policy.polrelid = 'public.polos'::regclass
+               AND policy.polname = 'polos_public_active_read'
+             """)
+
+    assert public_expression == "(status = 'active'::text)"
+  end
+
+  test "client bootstrap reads do not grant writes outside a tenant scope" do
+    fixture = RedemptionsFixtures.create!()
+    admin_scope = Clubeira.ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+
+    assert %Polo{id: polo_id} = Repo.get(Polo, fixture.ids.polo)
+
+    assert {0, nil} =
+             Repo.update_all(
+               from(polo in Polo, where: polo.id == ^fixture.ids.polo),
+               set: [name: "Polo adulterado"]
+             )
+
+    actor_scope = ActorScope.new!(admin_scope.actor_user_id, admin_scope.request_id)
+
+    assert {:ok, {0, nil}} =
+             Repo.transact_as_actor(actor_scope, fn ->
+               result =
+                 Repo.update_all(
+                   from(role in PoloRole, where: role.polo_id == ^polo_id),
+                   set: [name: "Role adulterada"]
+                 )
+
+               {:ok, result}
+             end)
   end
 
   test "outbox rows inherit forced tenant isolation through their domain event" do
