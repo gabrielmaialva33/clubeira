@@ -1,6 +1,14 @@
 defmodule ClubeiraWeb.Router do
   use ClubeiraWeb, :router
 
+  import ClubeiraWeb.Router.AuthRoutes
+  import ClubeiraWeb.Router.BackofficeRoutes
+  import ClubeiraWeb.Router.MemberRoutes
+  import ClubeiraWeb.Router.PartnerRoutes
+  import ClubeiraWeb.Router.PlatformRoutes
+  import ClubeiraWeb.Router.PublicRoutes
+  import ClubeiraWeb.Router.SystemRoutes
+
   @secure_headers %{
     "content-security-policy" =>
       "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; " <>
@@ -55,253 +63,15 @@ defmodule ClubeiraWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
-    get "/api/docs", ApiDocsController, :index
   end
 
-  scope "/", ClubeiraWeb do
-    pipe_through :api
-
-    get "/health", HealthController, :show
-    get "/ready", ReadinessController, :show
-  end
-
-  scope "/api/v1", ClubeiraWeb do
-    pipe_through [:api, :login_api]
-
-    post "/auth/sessions", AuthSessionController, :create
-  end
-
-  scope "/api/v1", ClubeiraWeb do
-    pipe_through [:api, :registration_api]
-
-    post "/auth/registrations", RegistrationController, :create
-  end
-
-  scope "/api/v1", ClubeiraWeb do
-    pipe_through [:api, :password_reset_request_api]
-
-    post "/auth/password-reset-requests", PasswordResetRequestController, :create
-  end
-
-  scope "/api/v1", ClubeiraWeb do
-    pipe_through [:api, :password_reset_api]
-
-    post "/auth/password-resets", PasswordResetController, :create
-  end
-
-  scope "/api/v1", ClubeiraWeb do
-    pipe_through [:api, :email_verification_api]
-
-    post "/auth/email-verifications", EmailVerificationController, :create
-  end
-
-  scope "/api/v1", ClubeiraWeb do
-    pipe_through [:api, :authenticated_api, :email_verification_request_api]
-
-    post "/auth/email-verification-requests", EmailVerificationRequestController, :create
-  end
-
-  scope "/api/v1", ClubeiraWeb do
-    pipe_through :api
-
-    get "/polos", PoloController, :index
-    get "/polos/:polo_slug/catalog", CatalogController, :show
-    get "/polos/:polo_slug/checkout-options", CatalogController, :checkout_options
-    get "/polos/:polo_slug/places", PlaceController, :index
-    get "/polos/:polo_slug/places/:place_id/reviews", ReviewController, :index
-    get "/polos/:polo_slug/review-media/:media_id", ReviewMediaController, :show
-    get "/legal/registration", LegalController, :registration
-    post "/polos/:polo_slug/redemptions", RedemptionConfirmationController, :create
-    post "/webhooks/mercado-pago/:merchant_account_id", PaymentWebhookController, :mercado_pago
-  end
-
-  scope "/api/v1", ClubeiraWeb do
-    pipe_through [:api, :authenticated_api]
-
-    delete "/auth/session", AuthSessionController, :delete
-    get "/me", AccountController, :show
-    get "/me/access", AccessBootstrapController, :show
-    get "/me/profile", ProfileController, :show
-    put "/me/profile", ProfileController, :update
-    get "/me/privacy/consents", PrivacyController, :index_consents
-    put "/me/privacy/consents/:purpose_code", PrivacyController, :update_consent
-    get "/me/privacy/requests", PrivacyController, :index_requests
-    post "/me/privacy/requests", PrivacyController, :create_request
-
-    get "/platform/privacy/processing-purposes",
-        PlatformPrivacyController,
-        :index_processing_purposes
-
-    put "/platform/privacy/processing-purposes/:purpose_code",
-        PlatformPrivacyController,
-        :put_processing_purpose
-
-    get "/platform/privacy/requests", PlatformPrivacyController, :index_requests
-
-    post "/platform/privacy/requests/:request_id/transitions",
-         PlatformPrivacyController,
-         :transition_request
-
-    get "/platform/billing/plans", PlatformBillingPlanController, :index
-
-    put "/platform/billing/plans/:plan_code/versions/:version",
-        PlatformBillingPlanController,
-        :put_version
-
-    get "/me/subscriptions", SubscriptionController, :index
-    get "/polos/:polo_slug/me/billing", BillingAgreementController, :index
-    post "/polos/:polo_slug/orders", CheckoutController, :create
-    post "/polos/:polo_slug/orders/:order_id/payment-intents", PaymentIntentController, :create
-
-    post "/polos/:polo_slug/orders/:order_id/billing-agreements",
-         BillingAgreementController,
-         :create
-
-    post "/polos/:polo_slug/backoffice/platform-subscription",
-         PlatformSubscriptionController,
-         :create
-
-    get "/polos/:polo_slug/backoffice/platform-billing",
-        PlatformBillingController,
-        :show
-
-    post "/polos/:polo_slug/me/redemption-devices", RedemptionDeviceController, :create
-    get "/me/devices/:device_id/key", DeviceKeyController, :show
-    put "/me/devices/:device_id/key", DeviceKeyController, :update
-    post "/polos/:polo_slug/me/redemption-grants", RedemptionGrantController, :create
-    post "/polos/:polo_slug/places/:place_id/reviews", ReviewController, :create
-
-    post "/polos/:polo_slug/places/:place_id/reviews/:review_id/media",
-         ReviewMediaController,
-         :create
-
-    post "/polos/:polo_slug/places/:place_id/reviews/:review_id/reports",
-         ReviewReportController,
-         :create
-
-    post "/polos/:polo_slug/backoffice/partners", BackofficePartnerController, :create
-
-    post "/polos/:polo_slug/backoffice/places/:place_id/partner-accesses",
-         BackofficePartnerAccessController,
-         :create
-
-    post "/polos/:polo_slug/backoffice/partner-accesses/:access_id/revocations",
-         BackofficePartnerAccessController,
-         :revoke
-
-    get "/polos/:polo_slug/backoffice/places", BackofficePlaceController, :index
-
-    post "/polos/:polo_slug/backoffice/places/:place_id/lifecycle-actions",
-         BackofficePlaceLifecycleController,
-         :create
-
-    put "/polos/:polo_slug/backoffice/places/:place_id/profile",
-        BackofficePlaceProfileController,
-        :update
-
-    post "/polos/:polo_slug/backoffice/places/:place_id/benefit-offers",
-         BackofficeBenefitOfferController,
-         :create
-
-    get "/polos/:polo_slug/backoffice/benefit-offers",
-        BackofficeBenefitOfferController,
-        :index
-
-    get "/polos/:polo_slug/backoffice/product-offerings",
-        BackofficeProductOfferingController,
-        :index
-
-    post "/polos/:polo_slug/backoffice/product-offerings",
-         BackofficeProductOfferingController,
-         :create
-
-    post "/polos/:polo_slug/backoffice/product-offerings/:product_offering_id/lifecycle-actions",
-         BackofficeProductOfferingLifecycleController,
-         :create
-
-    get "/polos/:polo_slug/backoffice/partner-agreements",
-        BackofficePartnerAgreementController,
-        :index
-
-    post "/polos/:polo_slug/backoffice/partner-agreements",
-         BackofficePartnerAgreementController,
-         :create
-
-    get "/polos/:polo_slug/backoffice/partner-agreements/:agreement_id",
-        BackofficePartnerAgreementController,
-        :show
-
-    get "/polos/:polo_slug/backoffice/payments", BackofficePaymentController, :index
-
-    get "/polos/:polo_slug/backoffice/subscriptions",
-        BackofficeSubscriptionController,
-        :index
-
-    get "/polos/:polo_slug/backoffice/outbox-messages",
-        BackofficeOperationsController,
-        :outbox_messages
-
-    post "/polos/:polo_slug/backoffice/outbox-messages/:message_id/retries",
-         BackofficeOperationsController,
-         :retry_outbox_message
-
-    get "/polos/:polo_slug/backoffice/audit-events",
-        BackofficeOperationsController,
-        :audit_events
-
-    post "/polos/:polo_slug/backoffice/subscriptions/:contract_id/lifecycle-actions",
-         BackofficeSubscriptionLifecycleController,
-         :create
-
-    post "/polos/:polo_slug/backoffice/payments/:payment_id/refunds",
-         BackofficePaymentRefundController,
-         :create
-
-    get "/polos/:polo_slug/backoffice/validation-points",
-        BackofficeValidationPointController,
-        :index
-
-    post "/polos/:polo_slug/backoffice/places/:place_id/validation-points",
-         BackofficeValidationPointController,
-         :create
-
-    post "/polos/:polo_slug/backoffice/validation-points/:validation_point_id/lifecycle-actions",
-         BackofficeValidationPointLifecycleController,
-         :create
-
-    post "/polos/:polo_slug/backoffice/validation-credentials/:credential_id/rotations",
-         BackofficeValidationCredentialRotationController,
-         :create
-
-    post "/polos/:polo_slug/backoffice/validation-credentials/:credential_id/revocations",
-         BackofficeValidationCredentialRevocationController,
-         :create
-
-    get "/polos/:polo_slug/backoffice/reviews", BackofficeReviewController, :index
-    get "/polos/:polo_slug/backoffice/review-reports", BackofficeReviewReportController, :index
-
-    post "/polos/:polo_slug/backoffice/review-reports/:review_report_id/moderation-actions",
-         BackofficeReviewReportController,
-         :create_action
-
-    post "/polos/:polo_slug/backoffice/reviews/:review_id/moderation-actions",
-         BackofficeReviewController,
-         :create_action
-
-    get "/polos/:polo_slug/partner/places", PartnerPlaceController, :index
-
-    put "/polos/:polo_slug/partner/reviews/:review_id/response",
-        PartnerReviewResponseController,
-        :update
-
-    put "/polos/:polo_slug/partner/places/:place_id/profile",
-        BackofficePlaceProfileController,
-        :update
-
-    get "/polos/:polo_slug/me/orders", OrderController, :index
-    get "/polos/:polo_slug/me/redemptions", RedemptionController, :index
-    get "/polos/:polo_slug/me/vouchers", WalletController, :index
-  end
+  system_routes()
+  auth_routes()
+  public_routes()
+  member_routes()
+  platform_routes()
+  backoffice_routes()
+  partner_routes()
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:clubeira, :dev_routes) do

@@ -7,7 +7,18 @@ defmodule Clubeira.MixProject do
       version: "0.1.0",
       elixir: "~> 1.20.2",
       elixirc_paths: elixirc_paths(Mix.env()),
-      test_coverage: [ignore_modules: [ClubeiraWeb.CoreComponents]],
+      test_coverage: [
+        ignore_modules: [
+          ClubeiraWeb.CoreComponents,
+          ClubeiraWeb.Router.AuthRoutes,
+          ClubeiraWeb.Router.BackofficeRoutes,
+          ClubeiraWeb.Router.MemberRoutes,
+          ClubeiraWeb.Router.PartnerRoutes,
+          ClubeiraWeb.Router.PlatformRoutes,
+          ClubeiraWeb.Router.PublicRoutes,
+          ClubeiraWeb.Router.SystemRoutes
+        ]
+      ],
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       dialyzer: [
