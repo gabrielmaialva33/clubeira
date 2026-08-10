@@ -736,11 +736,24 @@ global do ator e entra em cada tenant sem trocar ator/request:
 actor_scope = Clubeira.Tenancy.ActorScope.new!(user_id, request_id)
 
 Clubeira.Repo.transact_as_actor(actor_scope, fn ->
-  # leia apenas a projeção global autorizada e use transact_in_polo/3
-  # para consultar contratos, ciclos e alocações
+  # leia apenas projeções ou relações cobertas por policies actor-owned e use
+  # transact_in_polo/3 para consultar contratos, ciclos e alocações
   {:ok, resultado}
 end)
 ```
+
+Para validar o bootstrap que será consumido pelo web/app:
+
+```sh
+curl -sS 'http://localhost:4000/api/v1/polos?limit=20'
+curl -sS http://localhost:4000/api/v1/me/access \
+  -H "authorization: Bearer $TOKEN"
+```
+
+O primeiro endpoint mostra somente polos ativos e pagina pelo slug com cursor
+opaco. O segundo deriva roles e capabilities atuais da plataforma e dos polos;
+ele é um read model de navegação. Testes e controllers não podem usar essa
+resposta como autorização em lugar das verificações transacionais existentes.
 
 Tokens bearer crus nunca entram em fixtures, logs ou banco. Testes de cadastro
 usam `Clubeira.Accounts.register/1`; fixtures que já possuem usuário criam a

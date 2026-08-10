@@ -299,11 +299,22 @@ cross-polo, `user_contract_polo_routes` revela ao ator apenas os IDs dos polos
 onde ele já contratou. Isso é um índice de roteamento, não uma autorização:
 contrato, ciclo e saldo são relidos dentro da RLS de cada polo.
 
+`GET /api/v1/me/access` é o bootstrap de navegação autenticada: devolve roles e
+capabilities globais da plataforma e, por polo, somente memberships vigentes,
+roles ativas e capacidades derivadas no servidor. A resposta não contém IDs de
+membership/assignment e nunca autoriza uma operação seguinte; cada endpoint
+continua relendo a capacidade dentro da fronteira transacional correta.
+
 O endereço público de cada tenant fica na relação global 1:1 `polo_routes`.
 Ela resolve apenas `slug -> polo_id`; depois disso, até a leitura pública do
 catálogo entra numa transação com RLS e confirma que o polo está ativo. A
 policy pública permite somente leitura das rotas; mutações continuam presas ao
 `polo_id` ativo.
+
+`GET /api/v1/polos` completa essa entrada do cliente com uma projeção paginada
+dos polos ativos e sua identidade pública de cidade. Uma policy dedicada libera
+somente `SELECT` dos polos ativos; polos não ativos permanecem invisíveis e as
+mutações continuam exigindo o escopo tenant.
 
 O catálogo aceita paginação por cursor com `?limit=20&after=...` (`20` por
 padrão, máximo `100`) e devolve o próximo cursor em `meta.page.next_cursor`.
@@ -350,6 +361,7 @@ docker compose stop
 | `PUT` | `/api/v1/me/privacy/consents/:purpose_code` | 🔑 |
 | `GET` | `/api/v1/me/privacy/requests` | 🔑 |
 | `POST` | `/api/v1/me/privacy/requests` | 🔑 |
+| `GET` | `/api/v1/polos` | 🌐 |
 | `GET` | `/api/v1/polos/:slug/catalog` | 🌐 |
 | `GET` | `/api/v1/polos/:slug/checkout-options` | 🌐 |
 | `GET` | `/api/v1/polos/:slug/places` | 🌐 |
@@ -357,6 +369,7 @@ docker compose stop
 | `GET` | `/api/v1/polos/:slug/review-media/:media_id` | 🌐 |
 | `POST` | `/api/v1/polos/:slug/redemptions` | 🏪 |
 | `POST` | `/api/v1/webhooks/mercado-pago/:merchant_account_id` | 🔏 |
+| `GET` | `/api/v1/me/access` | 🔑 |
 | `GET` | `/api/v1/me/subscriptions` | 🔑 |
 | `GET` | `/api/v1/polos/:slug/me/billing` | 🔑 |
 | `POST` | `/api/v1/polos/:slug/orders` | 🔑 |
@@ -443,6 +456,11 @@ curl -sS http://localhost:4000/api/v1/auth/sessions \
   -d '{"email":"membro.demo@clubeira.local","password":"clubeira-demo-local"}'
 
 curl -sS http://localhost:4000/api/v1/me \
+  -H "authorization: Bearer $TOKEN"
+
+curl -sS 'http://localhost:4000/api/v1/polos?limit=20'
+
+curl -sS http://localhost:4000/api/v1/me/access \
   -H "authorization: Bearer $TOKEN"
 
 curl -i -sS -X POST http://localhost:4000/api/v1/auth/password-reset-requests \
@@ -917,6 +935,10 @@ alterar a configuração versionada.
 - `GET /api/v1/me` relê a conta autenticada e devolve identidade, estado da
   verificação de e-mail e expiração da sessão sem depender do DTO antigo do
   login;
+- `GET /api/v1/polos` lista apenas polos ativos com rota e identidade pública
+  da cidade, usando cursor opaco; `GET /api/v1/me/access` entrega ao cliente as
+  roles e capabilities atuais da plataforma e dos polos, sem transformar esse
+  bootstrap em autorização para os comandos seguintes;
 - `GET/PUT /api/v1/me/profile` mantém a pessoa civil separada da autenticação;
   CPF e telefone entram somente como escrita cifrada, enquanto a resposta
   devolve apenas presença, tipo e estado de verificação. As rotas de privacidade

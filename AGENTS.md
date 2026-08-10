@@ -47,6 +47,10 @@ abstração nova. Não mova regra de negócio para controller, LiveView ou seed.
 - Descoberta global autenticada usa `Clubeira.Tenancy.ActorScope` e
   `Clubeira.Repo.transact_as_actor/2`; `user_contract_polo_routes` é somente uma
   projeção de roteamento, nunca autorização nem fonte de saldo/status.
+- `Clubeira.Polos.get_actor_access/1` é somente um bootstrap de navegação. Roles
+  e capabilities retornadas são hints atuais para o cliente; toda operação deve
+  reautorizar no banco. A listagem pública de polos expõe somente identidades
+  ativas e suas cidades por policies `FOR SELECT`.
 - Sessões, recuperação de senha e confirmação de e-mail são globais. Tokens
   crus saem somente pela borda apropriada; PostgreSQL guarda SHA-256, lifecycle
   terminal e no máximo uma credencial aberta por usuário e finalidade.

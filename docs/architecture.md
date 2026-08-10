@@ -54,6 +54,14 @@ registro tenant para confirmar status e acessar catálogo ou qualquer outro
 dado local. A tabela também usa RLS: resolução tem policy pública de leitura,
 enquanto inserção, alteração e remoção exigem o `polo_id` ativo.
 
+A entrada inicial do cliente usa duas leituras explícitas e estreitas. A
+projeção pública `GET /api/v1/polos` combina rotas, polos ativos e identidade da
+cidade; a policy adicional em `polos` é `FOR SELECT` e não amplia escrita. Já
+`GET /api/v1/me/access` roda com `ActorScope` e lê somente memberships do ator,
+seus assignments e roles ativas por policies próprias de leitura. Roles e
+capabilities retornadas servem para montar navegação, nunca para autorizar a
+requisição seguinte, que relê a capacidade no banco.
+
 Há uma segunda projeção global e mínima para o caso autenticado:
 `user_contract_polo_routes`. Um trigger em `access_contracts` registra somente
 o par `user_id + polo_id` do comprador. A policy de leitura compara `user_id`
