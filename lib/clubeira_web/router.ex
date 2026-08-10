@@ -55,6 +55,7 @@ defmodule ClubeiraWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    get "/api/docs", ApiDocsController, :index
   end
 
   scope "/", ClubeiraWeb do
