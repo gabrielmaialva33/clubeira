@@ -4,6 +4,7 @@ defmodule Clubeira.Tenancy.RepoScopeTest do
   alias Clubeira.Polos.Polo
   alias Clubeira.RedemptionsFixtures
   alias Clubeira.Repo
+  alias Clubeira.Subscriptions.AccessContract
   alias Clubeira.Subscriptions.UserContractPoloRoute
   alias Clubeira.Tenancy.ActorScope
   alias Clubeira.Tenancy.Scope
@@ -74,8 +75,10 @@ defmodule Clubeira.Tenancy.RepoScopeTest do
                    request_id: request_id
                  )
 
-               assert {:ok, [%Polo{id: polo_id}]} =
-                        Repo.transact_in_polo(tenant_scope, fn -> {:ok, Repo.all(Polo)} end)
+               assert {:ok, [%AccessContract{polo_id: polo_id}]} =
+                        Repo.transact_in_polo(tenant_scope, fn ->
+                          {:ok, Repo.all(AccessContract)}
+                        end)
 
                assert polo_id == fixture.ids.polo
                {:ok, [route]}
@@ -242,7 +245,7 @@ defmodule Clubeira.Tenancy.RepoScopeTest do
                    city: city,
                    name: slug,
                    timezone: "America/Sao_Paulo",
-                   status: "active"
+                   status: "draft"
                  })
 
                {:ok, polo}

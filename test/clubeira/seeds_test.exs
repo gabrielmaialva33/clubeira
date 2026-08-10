@@ -74,6 +74,7 @@ defmodule Clubeira.SeedsTest do
     assert Repo.aggregate(Brand, :count) == 2
     assert Repo.aggregate(Place, :count) == 3
     assert Repo.aggregate(PlaceCategory, :count) == 4
+    assert Repo.aggregate(Polo, :count) == 2
     assert Repo.aggregate(PoloRoute, :count) == 2
     assert Repo.aggregate(User, :count) == 4
     assert Repo.aggregate(PasswordCredential, :count) == 4
@@ -158,7 +159,7 @@ defmodule Clubeira.SeedsTest do
 
   defp assert_polo_counts(polo_id, expected) do
     Seeds.with_polo!(polo_id, fn ->
-      assert Repo.aggregate(Polo, :count) == 1
+      assert Repo.get!(Polo, polo_id).id == polo_id
       assert Repo.aggregate(Edition, :count) == 1
       assert Repo.aggregate(PoloPlace, :count) == expected[:polo_places]
       assert Repo.aggregate(EditionPlace, :count) == expected[:edition_places]
