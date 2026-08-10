@@ -46,6 +46,15 @@ jobs:
           version-file: mise.toml
           version-type: strict
 
+      - name: Install Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version: 26.2.0
+          cache: npm
+
+      - name: Install OpenAPI tooling
+        run: npm ci
+
       - name: Cache Mix dependencies
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -216,6 +225,10 @@ jobs:
           fi
 
           curl --fail --silent --show-error http://127.0.0.1:4108/ready >/dev/null
+          curl --fail --silent --show-error http://127.0.0.1:4108/api/docs \
+            | grep --fixed-strings 'spec-url="/openapi/v1.json"' >/dev/null
+          curl --fail --silent --show-error http://127.0.0.1:4108/openapi/v1.json \
+            | jq --exit-status '.openapi == "3.1.0" and (.paths | length > 0)' >/dev/null
 
   container:
     name: Production container

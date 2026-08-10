@@ -91,7 +91,8 @@ defmodule Clubeira.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["deps.get", "db.setup", "assets.setup", "assets.build"],
+      setup: ["deps.get", "db.setup", "api.setup", "assets.setup", "assets.build"],
+      "api.setup": ["cmd npm ci", "cmd npm run api:check"],
       "db.setup": [
         "cmd docker compose up -d --wait postgres",
         "cmd env CLUBEIRA_DATABASE_ROLE_MODE=migrator mix ecto.setup"
@@ -117,6 +118,7 @@ defmodule Clubeira.MixProject do
       lint: ["format --check-formatted", "credo --strict"],
       quality: [
         "format --check-formatted",
+        "cmd npm run api:check",
         "compile --warnings-as-errors",
         "deps.unlock --check-unused",
         "credo --strict",
