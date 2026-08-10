@@ -14,17 +14,23 @@ defmodule Clubeira.Polos.Authorization do
 
   @capability_roles %{
     manage_billing: ["admin"],
+    manage_operations: ["admin"],
     manage_own_places: ["partner_manager"],
     manage_partners: ["admin"],
     moderate_reviews: ["admin", "review_moderator"]
   }
 
   @type capability ::
-          :manage_billing | :manage_own_places | :manage_partners | :moderate_reviews
+          :manage_billing
+          | :manage_operations
+          | :manage_own_places
+          | :manage_partners
+          | :moderate_reviews
 
   @type authorization_error ::
           :billing_admin_required
           | :moderator_required
+          | :operations_admin_required
           | :partner_access_required
           | :partner_admin_required
 
@@ -72,6 +78,9 @@ defmodule Clubeira.Polos.Authorization do
   def authorize(_repo, %Scope{}, :manage_billing, _now),
     do: {:error, :billing_admin_required}
 
+  def authorize(_repo, %Scope{}, :manage_operations, _now),
+    do: {:error, :operations_admin_required}
+
   def authorize(_repo, %Scope{}, :manage_own_places, _now),
     do: {:error, :partner_access_required}
 
@@ -80,6 +89,7 @@ defmodule Clubeira.Polos.Authorization do
 
   defp authorization_error(:manage_partners), do: :partner_admin_required
   defp authorization_error(:manage_billing), do: :billing_admin_required
+  defp authorization_error(:manage_operations), do: :operations_admin_required
   defp authorization_error(:manage_own_places), do: :partner_access_required
   defp authorization_error(:moderate_reviews), do: :moderator_required
 end
