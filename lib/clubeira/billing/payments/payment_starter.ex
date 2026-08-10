@@ -16,7 +16,6 @@ defmodule Clubeira.Billing.PaymentStarter do
   alias Clubeira.Subscriptions.Order
   alias Clubeira.Tenancy.Scope
 
-  @provider_code "mercado_pago"
   @pix_expiration_seconds 30 * 60
 
   @type started_payment :: %{payment_intent: PaymentIntent.t(), provider: String.t()}
@@ -40,7 +39,8 @@ defmodule Clubeira.Billing.PaymentStarter do
 
       with {:ok, order, purchaser} <- lock_order(repo, scope, request.order_id),
            :ok <- ensure_payable(order),
-           {:ok, account, provider} <- lock_gateway_account(repo, scope, now),
+           {:ok, provider_code} <- Gateways.provider_for_payment(request.payment_method),
+           {:ok, account, provider} <- lock_gateway_account(repo, scope, now, provider_code),
            {:ok, intent} <- reserve_intent(repo, scope, order, account, request, now) do
         {:ok,
          %{
@@ -110,8 +110,8 @@ defmodule Clubeira.Billing.PaymentStarter do
 
   defp ensure_payable(%Order{}), do: {:error, :order_not_payable}
 
-  defp lock_gateway_account(repo, scope, now) do
-    query = gateway_account_query(scope, now)
+  defp lock_gateway_account(repo, scope, now, provider_code) do
+    query = gateway_account_query(scope, now, provider_code)
 
     case repo.one(query) do
       {%MerchantAccount{} = account, %PaymentProvider{} = provider} ->
@@ -122,7 +122,7 @@ defmodule Clubeira.Billing.PaymentStarter do
     end
   end
 
-  defp gateway_account_query(scope, now) do
+  defp gateway_account_query(scope, now, provider_code) do
     from assignment in PoloMerchantAccount,
       join: account in MerchantAccount,
       on: account.id == assignment.merchant_account_id,
@@ -132,7 +132,7 @@ defmodule Clubeira.Billing.PaymentStarter do
       where: assignment.role == "primary",
       where: account.payment_provider_id == provider.id,
       where: account.kind == "consumer" and account.status == "active",
-      where: provider.status == "active" and provider.code == @provider_code,
+      where: provider.status == "active" and provider.code == ^provider_code,
       where:
         fragment(
           "? @> (? AT TIME ZONE 'UTC')",

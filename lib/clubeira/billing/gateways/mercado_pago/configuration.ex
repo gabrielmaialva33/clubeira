@@ -28,6 +28,21 @@ defmodule Clubeira.Billing.Gateways.MercadoPago.Configuration do
     raise ArgumentError, @invalid_configuration_message
   end
 
+  @spec webhook_secret(String.t()) ::
+          {:ok, String.t()} | {:error, :payment_gateway_not_configured}
+  def webhook_secret(account_reference) when is_binary(account_reference) do
+    case account_configuration(account_reference) do
+      %{webhook_secret: secret} when is_binary(secret) and byte_size(secret) >= 32 ->
+        {:ok, secret}
+
+      %{"webhook_secret" => secret} when is_binary(secret) and byte_size(secret) >= 32 ->
+        {:ok, secret}
+
+      _missing_or_invalid ->
+        {:error, :payment_gateway_not_configured}
+    end
+  end
+
   defp parse_accounts(accounts) do
     Enum.reduce_while(accounts, {:ok, %{}}, fn
       {reference, credentials}, {:ok, parsed} ->
@@ -59,5 +74,12 @@ defmodule Clubeira.Billing.Gateways.MercadoPago.Configuration do
 
   defp valid_credential?(credential, minimum_bytes) do
     is_binary(credential) and byte_size(credential) in minimum_bytes..@maximum_credential_bytes
+  end
+
+  defp account_configuration(account_reference) do
+    :clubeira
+    |> Application.get_env(Clubeira.Billing.Gateways.MercadoPago, [])
+    |> Keyword.get(:accounts, %{})
+    |> Map.get(account_reference)
   end
 end

@@ -1,7 +1,6 @@
 defmodule Clubeira.Billing.Gateways do
   @moduledoc false
 
-  alias Clubeira.Billing.Gateways.MercadoPago
   alias Clubeira.Billing.MerchantAccount
 
   @type payment_request :: %{
@@ -129,34 +128,84 @@ defmodule Clubeira.Billing.Gateways do
           required(:provider_refund_reference) => String.t()
         }
 
-  @spec create_payment(String.t(), MerchantAccount.t(), String.t(), payment_request()) ::
-          {:ok, created_payment()} | {:error, atom()}
-  def create_payment("mercado_pago", %MerchantAccount{} = account, "pix", request) do
-    MercadoPago.create_pix(account, request)
+  @type webhook_envelope :: %{
+          required(:body_params) => map(),
+          required(:headers) => %{optional(String.t()) => [String.t()]},
+          required(:query_params) => map(),
+          required(:raw_body) => binary()
+        }
+
+  @type webhook_event :: %{
+          required(:external_event_id) => String.t(),
+          required(:kind) => :chargeback | :payment | :recurring_invoice,
+          required(:provider_reference) => String.t(),
+          optional(:provider_payment_reference) => String.t()
+        }
+
+  @spec adapter_for(String.t()) :: {:ok, module()} | {:error, :payment_gateway_unsupported}
+  def adapter_for(provider_code) when is_binary(provider_code) do
+    case gateway_configuration() |> Keyword.get(:adapters, %{}) |> Map.fetch(provider_code) do
+      {:ok, adapter} when is_atom(adapter) -> {:ok, adapter}
+      _missing_or_invalid -> {:error, :payment_gateway_unsupported}
+    end
   end
 
-  def create_payment(_provider, %MerchantAccount{}, _payment_method, _request) do
-    {:error, :payment_gateway_unsupported}
+  def adapter_for(_provider_code), do: {:error, :payment_gateway_unsupported}
+
+  @spec provider_for_payment(String.t()) ::
+          {:ok, String.t()} | {:error, :payment_gateway_unsupported}
+  def provider_for_payment(payment_method) when is_binary(payment_method) do
+    with {:ok, provider_code} <-
+           gateway_configuration()
+           |> Keyword.get(:payment_providers, %{})
+           |> Map.fetch(payment_method),
+         true <- is_binary(provider_code),
+         {:ok, _adapter} <- adapter_for(provider_code) do
+      {:ok, provider_code}
+    else
+      _missing_or_invalid -> {:error, :payment_gateway_unsupported}
+    end
+  end
+
+  def provider_for_payment(_payment_method), do: {:error, :payment_gateway_unsupported}
+
+  @spec provider_for_subscription() ::
+          {:ok, String.t()} | {:error, :payment_gateway_unsupported}
+  def provider_for_subscription do
+    case Keyword.get(gateway_configuration(), :subscription_provider) do
+      provider_code when is_binary(provider_code) ->
+        case adapter_for(provider_code) do
+          {:ok, _adapter} -> {:ok, provider_code}
+          {:error, _reason} = error -> error
+        end
+
+      _missing_or_invalid ->
+        {:error, :payment_gateway_unsupported}
+    end
+  end
+
+  @spec create_payment(String.t(), MerchantAccount.t(), String.t(), payment_request()) ::
+          {:ok, created_payment()} | {:error, atom()}
+  def create_payment(provider, %MerchantAccount{} = account, payment_method, request) do
+    with {:ok, adapter} <- adapter_for(provider) do
+      adapter.create_payment(account, payment_method, request)
+    end
   end
 
   @spec create_subscription(String.t(), MerchantAccount.t(), subscription_request()) ::
           {:ok, created_subscription()} | {:error, atom()}
-  def create_subscription("mercado_pago", %MerchantAccount{} = account, request) do
-    MercadoPago.create_subscription(account, request)
-  end
-
-  def create_subscription(_provider, %MerchantAccount{}, _request) do
-    {:error, :payment_gateway_unsupported}
+  def create_subscription(provider, %MerchantAccount{} = account, request) do
+    with {:ok, adapter} <- adapter_for(provider) do
+      adapter.create_subscription(account, request)
+    end
   end
 
   @spec refund_payment(String.t(), MerchantAccount.t(), String.t(), refund_request()) ::
           {:ok, refunded_payment()} | {:error, atom()}
-  def refund_payment("mercado_pago", %MerchantAccount{} = account, provider_reference, request) do
-    MercadoPago.refund_order(account, provider_reference, request)
-  end
-
-  def refund_payment(_provider, %MerchantAccount{}, _provider_reference, _request) do
-    {:error, :payment_gateway_unsupported}
+  def refund_payment(provider, %MerchantAccount{} = account, provider_reference, request) do
+    with {:ok, adapter} <- adapter_for(provider) do
+      adapter.refund_payment(account, provider_reference, request)
+    end
   end
 
   @spec authenticate_webhook(
@@ -166,18 +215,18 @@ defmodule Clubeira.Billing.Gateways do
           String.t(),
           String.t()
         ) :: :ok | {:error, atom()}
-  def authenticate_webhook(
-        "mercado_pago",
-        %MerchantAccount{} = account,
-        data_id,
-        request_id,
-        signature
-      ) do
-    MercadoPago.authenticate_webhook(account, data_id, request_id, signature)
+  def authenticate_webhook(provider, %MerchantAccount{} = account, data_id, request_id, signature) do
+    with {:ok, adapter} <- adapter_for(provider) do
+      adapter.authenticate_webhook(account, data_id, request_id, signature)
+    end
   end
 
-  def authenticate_webhook(_provider, %MerchantAccount{}, _data_id, _request_id, _signature) do
-    {:error, :payment_gateway_unsupported}
+  @spec verify_webhook(String.t(), MerchantAccount.t(), webhook_envelope()) ::
+          {:ok, webhook_event()} | {:error, atom()}
+  def verify_webhook(provider, %MerchantAccount{} = account, envelope) when is_map(envelope) do
+    with {:ok, adapter} <- adapter_for(provider) do
+      adapter.verify_webhook(account, envelope)
+    end
   end
 
   @spec fetch_payment(String.t(), MerchantAccount.t(), String.t()) ::
@@ -187,31 +236,29 @@ defmodule Clubeira.Billing.Gateways do
            | {:refunded, refunded_payment()}
            | captured_payment()}
           | {:error, atom()}
-  def fetch_payment("mercado_pago", %MerchantAccount{} = account, provider_reference) do
-    MercadoPago.fetch_order(account, provider_reference)
-  end
-
-  def fetch_payment(_provider, %MerchantAccount{}, _provider_reference) do
-    {:error, :payment_gateway_unsupported}
+  def fetch_payment(provider, %MerchantAccount{} = account, provider_reference) do
+    with {:ok, adapter} <- adapter_for(provider) do
+      adapter.fetch_payment(account, provider_reference)
+    end
   end
 
   @spec fetch_recurring_invoice(String.t(), MerchantAccount.t(), String.t()) ::
           {:ok, recurring_invoice() | platform_invoice()} | {:error, atom()}
-  def fetch_recurring_invoice("mercado_pago", %MerchantAccount{} = account, reference) do
-    MercadoPago.fetch_recurring_invoice(account, reference)
-  end
-
-  def fetch_recurring_invoice(_provider, %MerchantAccount{}, _reference) do
-    {:error, :payment_gateway_unsupported}
+  def fetch_recurring_invoice(provider, %MerchantAccount{} = account, reference) do
+    with {:ok, adapter} <- adapter_for(provider) do
+      adapter.fetch_recurring_invoice(account, reference)
+    end
   end
 
   @spec fetch_chargeback(String.t(), MerchantAccount.t(), String.t()) ::
           {:ok, chargeback()} | {:error, atom()}
-  def fetch_chargeback("mercado_pago", %MerchantAccount{} = account, reference) do
-    MercadoPago.fetch_chargeback(account, reference)
+  def fetch_chargeback(provider, %MerchantAccount{} = account, reference) do
+    with {:ok, adapter} <- adapter_for(provider) do
+      adapter.fetch_chargeback(account, reference)
+    end
   end
 
-  def fetch_chargeback(_provider, %MerchantAccount{}, _reference) do
-    {:error, :payment_gateway_unsupported}
+  defp gateway_configuration do
+    Application.get_env(:clubeira, __MODULE__, [])
   end
 end

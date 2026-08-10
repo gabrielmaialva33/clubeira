@@ -20,8 +20,6 @@ defmodule Clubeira.Billing.BillingAgreementStarter do
   alias Clubeira.Subscriptions.ProductOfferingVersion
   alias Clubeira.Tenancy.Scope
 
-  @provider_code "mercado_pago"
-
   @type result :: %{
           billing_agreement: BillingAgreement.t(),
           order_id: Ecto.UUID.t(),
@@ -46,7 +44,8 @@ defmodule Clubeira.Billing.BillingAgreementStarter do
 
       with {:ok, graph} <- lock_order_graph(repo, scope, request.order_id),
            :ok <- validate_order_graph(graph),
-           {:ok, account, provider} <- lock_gateway_account(repo, scope, now),
+           {:ok, provider_code} <- Gateways.provider_for_subscription(),
+           {:ok, account, provider} <- lock_gateway_account(repo, scope, now, provider_code),
            {:ok, agreement} <- reserve_agreement(repo, scope, graph, account, request, now) do
         {:ok,
          graph
@@ -152,7 +151,7 @@ defmodule Clubeira.Billing.BillingAgreementStarter do
     end
   end
 
-  defp lock_gateway_account(repo, scope, now) do
+  defp lock_gateway_account(repo, scope, now, provider_code) do
     query =
       from assignment in PoloMerchantAccount,
         join: account in MerchantAccount,
@@ -163,7 +162,7 @@ defmodule Clubeira.Billing.BillingAgreementStarter do
         where: assignment.role == "primary",
         where: account.payment_provider_id == provider.id,
         where: account.kind == "consumer" and account.status == "active",
-        where: provider.status == "active" and provider.code == @provider_code,
+        where: provider.status == "active" and provider.code == ^provider_code,
         where:
           fragment(
             "? @> (? AT TIME ZONE 'UTC')",

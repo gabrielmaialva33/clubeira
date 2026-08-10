@@ -11,6 +11,11 @@ config :clubeira,
   ecto_repos: [Clubeira.Repo],
   generators: [timestamp_type: :utc_datetime, binary_id: true]
 
+config :clubeira, Clubeira.Billing.Gateways,
+  adapters: %{"mercado_pago" => Clubeira.Billing.Gateways.MercadoPago},
+  payment_providers: %{"pix" => "mercado_pago"},
+  subscription_provider: "mercado_pago"
+
 config :argon2_elixir,
   t_cost: 3,
   m_cost: 16,

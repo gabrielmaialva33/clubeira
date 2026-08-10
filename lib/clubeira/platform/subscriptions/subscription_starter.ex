@@ -20,8 +20,6 @@ defmodule Clubeira.Platform.SubscriptionStarter do
   alias Clubeira.Repo
   alias Clubeira.Tenancy.Scope
 
-  @provider_code "mercado_pago"
-
   @type result :: %{
           provider: String.t(),
           subscription: PoloSubscription.t()
@@ -154,7 +152,7 @@ defmodule Clubeira.Platform.SubscriptionStarter do
           on: provider.id == account.payment_provider_id,
           where: account.id == ^merchant_account_id,
           where: account.kind == "platform" and account.status == "active",
-          where: provider.status == "active" and provider.code == @provider_code,
+          where: provider.status == "active",
           lock: "FOR SHARE",
           select: {account, provider}
 
@@ -334,7 +332,7 @@ defmodule Clubeira.Platform.SubscriptionStarter do
            :subscription_back_url
          ] do
       value when is_binary(value) -> value
-      _missing when provider_code == @provider_code -> nil
+      _missing when is_binary(provider_code) -> nil
     end
   end
 

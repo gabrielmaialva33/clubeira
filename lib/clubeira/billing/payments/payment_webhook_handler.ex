@@ -15,16 +15,12 @@ defmodule Clubeira.Billing.PaymentWebhookHandler do
   alias Clubeira.Repo
   alias Clubeira.Tenancy.Scope
 
-  @maximum_external_id_bytes 255
-  @maximum_signature_bytes 512
-  @event_types ~w(order subscription_authorized_payment topic_chargebacks_wh)
-
   @spec handle(String.t(), map()) :: {:ok, atom()} | {:error, atom() | Ecto.Changeset.t()}
   def handle(provider_code, attributes) when is_binary(provider_code) and is_map(attributes) do
     with {:ok, request} <- validate_request(attributes),
          {:ok, account, provider} <- load_account(provider_code, request.merchant_account_id),
-         :ok <- authenticate(provider.code, account, request) do
-      fetch_and_process(provider, account, request)
+         {:ok, event} <- Gateways.verify_webhook(provider.code, account, request.envelope) do
+      fetch_and_process(provider, account, request, event)
     end
   end
 
@@ -33,76 +29,73 @@ defmodule Clubeira.Billing.PaymentWebhookHandler do
   defp validate_request(attributes) do
     with {:ok, merchant_account_id} <- Ecto.UUID.cast(attributes[:merchant_account_id]),
          {:ok, internal_request_id} <- Ecto.UUID.cast(attributes[:internal_request_id]),
-         data_id when is_binary(data_id) <- attributes[:data_id],
-         true <- bounded?(data_id, @maximum_external_id_bytes),
-         ^data_id <- reference_string(attributes[:body_data_id]),
-         event_type when event_type in @event_types <- attributes[:event_type],
-         true <- valid_action?(event_type, attributes),
-         provider_request_id when is_binary(provider_request_id) <-
-           attributes[:provider_request_id],
-         true <- bounded?(provider_request_id, @maximum_external_id_bytes),
-         signature when is_binary(signature) <- attributes[:signature],
-         true <- bounded?(signature, @maximum_signature_bytes) do
+         %{body_params: body, headers: headers, query_params: query, raw_body: raw_body} =
+           envelope <-
+           attributes[:envelope],
+         true <- is_map(body) and is_map(headers) and is_map(query) and is_binary(raw_body) do
       {:ok,
        %{
-         data_id: data_id,
-         body_payment_reference: reference_string(attributes[:body_payment_id]),
+         envelope: envelope,
          internal_request_id: internal_request_id,
-         merchant_account_id: merchant_account_id,
-         provider_request_id: provider_request_id,
-         signature: signature,
-         event_type: event_type
+         merchant_account_id: merchant_account_id
        }}
     else
       _invalid -> {:error, :invalid_webhook}
     end
   end
 
-  defp fetch_and_process(provider, account, %{event_type: "order"} = request) do
+  defp fetch_and_process(
+         provider,
+         account,
+         request,
+         %{
+           kind: :payment,
+           provider_reference: provider_reference
+         } = event
+       ) do
     with {:ok, provider_payment} <-
-           Gateways.fetch_payment(provider.code, account, request.data_id) do
-      process_provider_payment(provider_payment, provider, account, request)
+           Gateways.fetch_payment(provider.code, account, provider_reference) do
+      process_provider_payment(provider_payment, provider, account, request, event)
     end
   end
 
   defp fetch_and_process(
          provider,
          account,
-         %{event_type: "subscription_authorized_payment"} = request
+         request,
+         %{
+           kind: :recurring_invoice,
+           provider_reference: provider_reference
+         } = event
        ) do
     with {:ok, invoice} <-
-           Gateways.fetch_recurring_invoice(provider.code, account, request.data_id) do
-      process_recurring_invoice(invoice, provider, account, request)
+           Gateways.fetch_recurring_invoice(provider.code, account, provider_reference) do
+      process_recurring_invoice(invoice, provider, account, request, event)
     end
   end
 
-  defp fetch_and_process(
-         provider,
-         account,
-         %{event_type: "topic_chargebacks_wh"} = request
-       ) do
-    with payment_reference when is_binary(payment_reference) <-
-           request.body_payment_reference,
+  defp fetch_and_process(provider, account, request, %{
+         kind: :chargeback,
+         provider_reference: provider_reference,
+         provider_payment_reference: payment_reference
+       }) do
+    with true <- is_binary(payment_reference),
          {:ok, chargeback} <-
-           Gateways.fetch_chargeback(provider.code, account, request.data_id),
+           Gateways.fetch_chargeback(provider.code, account, provider_reference),
          true <- chargeback.provider_payment_reference == payment_reference do
       process_chargeback(chargeback, provider, account, request)
     else
       false -> {:error, :payment_gateway_invalid_response}
-      nil -> {:error, :invalid_webhook}
       {:error, _reason} = error -> error
     end
   end
 
-  defp process_recurring_invoice(invoice, provider, account, request) do
-    scope = Scope.new!(invoice.polo_id, request_id: request.internal_request_id)
+  defp fetch_and_process(_provider, _account, _request, _event),
+    do: {:error, :payment_gateway_invalid_response}
 
-    attributes =
-      Map.put(
-        invoice,
-        :external_event_id,
-        "subscription_authorized_payment:#{invoice.provider_invoice_reference}"
-      )
+  defp process_recurring_invoice(invoice, provider, account, request, event) do
+    scope = Scope.new!(invoice.polo_id, request_id: request.internal_request_id)
+    attributes = Map.put(invoice, :external_event_id, event.external_event_id)
 
     invoice.billing_scope
     |> reconcile_invoice(scope, provider, account, attributes)
@@ -143,32 +136,18 @@ defmodule Clubeira.Billing.PaymentWebhookHandler do
     end
   end
 
-  defp authenticate(provider_code, account, request) do
-    case Gateways.authenticate_webhook(
-           provider_code,
-           account,
-           request.data_id,
-           request.provider_request_id,
-           request.signature
-         ) do
-      :ok -> :ok
-      {:error, :payment_gateway_not_configured} = error -> error
-      {:error, _reason} -> {:error, :webhook_unauthorized}
-    end
-  end
-
-  defp process_provider_payment(:pending, _provider, _account, _request) do
+  defp process_provider_payment(:pending, _provider, _account, _request, _event) do
     {:ok, :acknowledged}
   end
 
-  defp process_provider_payment({:terminal, payment}, provider, account, request) do
+  defp process_provider_payment({:terminal, payment}, provider, account, request, event) do
     scope = Scope.new!(payment.polo_id, request_id: request.internal_request_id)
 
     case PaymentTerminator.terminate(
            scope,
            provider,
            account,
-           request.provider_request_id,
+           event.external_event_id,
            payment
          ) do
       {:ok, _intent} -> {:ok, :processed}
@@ -176,7 +155,13 @@ defmodule Clubeira.Billing.PaymentWebhookHandler do
     end
   end
 
-  defp process_provider_payment({:refunded, provider_refund}, provider, account, request) do
+  defp process_provider_payment(
+         {:refunded, provider_refund},
+         provider,
+         account,
+         request,
+         _event
+       ) do
     scope = Scope.new!(provider_refund.polo_id, request_id: request.internal_request_id)
 
     case RefundSettler.reconcile(scope, provider, account, provider_refund) do
@@ -185,7 +170,7 @@ defmodule Clubeira.Billing.PaymentWebhookHandler do
     end
   end
 
-  defp process_provider_payment(provider_payment, provider, account, request)
+  defp process_provider_payment(provider_payment, provider, account, request, event)
        when is_map(provider_payment) do
     scope = Scope.new!(provider_payment.polo_id, request_id: request.internal_request_id)
 
@@ -193,7 +178,7 @@ defmodule Clubeira.Billing.PaymentWebhookHandler do
       order_id: provider_payment.order_id,
       payment_provider_id: provider.id,
       merchant_account_id: account.id,
-      external_event_id: request.provider_request_id,
+      external_event_id: event.external_event_id,
       provider_intent_reference: provider_payment.provider_reference,
       provider_reference: provider_payment.provider_payment_reference,
       amount: provider_payment.amount,
@@ -207,30 +192,4 @@ defmodule Clubeira.Billing.PaymentWebhookHandler do
       {:error, reason} -> {:error, reason}
     end
   end
-
-  defp bounded?(value, maximum) do
-    byte_size(value) in 1..maximum
-  end
-
-  defp valid_action?("order", %{event_action: action}) when is_binary(action),
-    do: String.starts_with?(action, "order.")
-
-  defp valid_action?("subscription_authorized_payment", %{event_action: action})
-       when is_binary(action) do
-    bounded?(action, @maximum_external_id_bytes)
-  end
-
-  defp valid_action?("topic_chargebacks_wh", %{event_actions: actions})
-       when is_list(actions) do
-    actions != [] and
-      Enum.all?(actions, fn action ->
-        is_binary(action) and bounded?(action, @maximum_external_id_bytes)
-      end)
-  end
-
-  defp valid_action?(_event_type, _attributes), do: false
-
-  defp reference_string(value) when is_binary(value), do: value
-  defp reference_string(value) when is_integer(value) and value >= 0, do: Integer.to_string(value)
-  defp reference_string(_value), do: nil
 end

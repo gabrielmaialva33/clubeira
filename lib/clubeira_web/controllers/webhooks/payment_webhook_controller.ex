@@ -3,6 +3,7 @@ defmodule ClubeiraWeb.Webhooks.PaymentWebhookController do
 
   alias Clubeira.Billing
   alias ClubeiraWeb.ErrorJSON
+  alias ClubeiraWeb.Plugs.RawBody
   alias Plug.Conn.Status
 
   @bad_gateway_errors ~w(
@@ -11,32 +12,44 @@ defmodule ClubeiraWeb.Webhooks.PaymentWebhookController do
   )a
   @service_errors ~w(
     payment_gateway_not_configured
+    payment_gateway_unsupported
     payment_gateway_unavailable
   )a
 
-  def mercado_pago(conn, %{"merchant_account_id" => merchant_account_id} = params) do
+  def mercado_pago(conn, %{"merchant_account_id" => merchant_account_id}) do
+    handle(conn, "mercado_pago", merchant_account_id)
+  end
+
+  defp handle(conn, provider_code, merchant_account_id) do
     attributes = %{
       merchant_account_id: merchant_account_id,
       internal_request_id: conn.assigns.request_id,
-      data_id: params["data.id"],
-      body_data_id: get_in(params, ["data", "id"]),
-      body_payment_id: get_in(params, ["data", "payment_id"]),
-      event_type: params["type"],
-      event_action: params["action"],
-      event_actions: params["actions"],
-      provider_request_id: single_header(conn, "x-request-id"),
-      signature: single_header(conn, "x-signature")
+      envelope: %{
+        body_params: conn.body_params,
+        headers: %{
+          "x-request-id" => get_req_header(conn, "x-request-id"),
+          "x-signature" => get_req_header(conn, "x-signature")
+        },
+        query_params: conn.query_params,
+        raw_body: RawBody.get(conn)
+      }
     }
 
-    case Billing.handle_payment_webhook("mercado_pago", attributes) do
+    case Billing.handle_payment_webhook(provider_code, attributes) do
       {:ok, _outcome} ->
         send_resp(conn, :ok, "")
 
       {:error, :invalid_webhook} ->
-        reject_webhook(conn, merchant_account_id, :invalid_webhook, :bad_request)
+        reject_webhook(conn, provider_code, merchant_account_id, :invalid_webhook, :bad_request)
 
       {:error, :webhook_unauthorized} ->
-        reject_webhook(conn, merchant_account_id, :webhook_unauthorized, :unauthorized)
+        reject_webhook(
+          conn,
+          provider_code,
+          merchant_account_id,
+          :webhook_unauthorized,
+          :unauthorized
+        )
 
       {:error, reason} when reason in @service_errors ->
         render_error(conn, :service_unavailable)
@@ -49,20 +62,13 @@ defmodule ClubeiraWeb.Webhooks.PaymentWebhookController do
     end
   end
 
-  defp single_header(conn, name) do
-    case get_req_header(conn, name) do
-      [value] -> value
-      _missing_or_ambiguous -> nil
-    end
-  end
-
-  defp reject_webhook(conn, merchant_account_id, reason, status) do
+  defp reject_webhook(conn, provider_code, merchant_account_id, reason, status) do
     :telemetry.execute(
       [:clubeira, :billing, :webhook_rejected],
       %{count: 1},
       %{
         merchant_account_id: merchant_account_id,
-        provider: "mercado_pago",
+        provider: provider_code,
         reason: reason
       }
     )

@@ -7,6 +7,9 @@ defmodule Clubeira.Billing.Gateways.MercadoPago do
   """
 
   alias Clubeira.Billing.MerchantAccount
+  alias Clubeira.Billing.Gateways.MercadoPago.Webhook
+
+  @behaviour Clubeira.Billing.Gateways.Adapter
 
   @api_url "https://api.mercadopago.com/v1/orders"
   @subscriptions_url "https://api.mercadopago.com/preapproval"
@@ -30,6 +33,25 @@ defmodule Clubeira.Billing.Gateways.MercadoPago do
   @type platform_invoice :: Clubeira.Billing.Gateways.platform_invoice()
   @type chargeback :: Clubeira.Billing.Gateways.chargeback()
 
+  @impl true
+  def create_payment(%MerchantAccount{} = account, "pix", request),
+    do: create_pix(account, request)
+
+  def create_payment(%MerchantAccount{}, _payment_method, _request),
+    do: {:error, :payment_gateway_unsupported}
+
+  @impl true
+  def refund_payment(%MerchantAccount{} = account, provider_reference, request),
+    do: refund_order(account, provider_reference, request)
+
+  @impl true
+  def fetch_payment(%MerchantAccount{} = account, provider_reference),
+    do: fetch_order(account, provider_reference)
+
+  @impl true
+  def verify_webhook(%MerchantAccount{} = account, envelope),
+    do: Webhook.verify(account, envelope)
+
   @spec create_pix(MerchantAccount.t(), payment_request()) ::
           {:ok, created_payment()} | {:error, atom()}
   def create_pix(%MerchantAccount{} = account, request) when is_map(request) do
@@ -39,6 +61,7 @@ defmodule Clubeira.Billing.Gateways.MercadoPago do
     end
   end
 
+  @impl true
   @spec create_subscription(MerchantAccount.t(), subscription_request()) ::
           {:ok, created_subscription()} | {:error, atom()}
   def create_subscription(%MerchantAccount{} = account, request) when is_map(request) do
@@ -76,6 +99,7 @@ defmodule Clubeira.Billing.Gateways.MercadoPago do
     {:error, :payment_gateway_invalid_response}
   end
 
+  @impl true
   @spec authenticate_webhook(
           MerchantAccount.t(),
           String.t(),
@@ -84,15 +108,10 @@ defmodule Clubeira.Billing.Gateways.MercadoPago do
         ) :: :ok | {:error, atom()}
   def authenticate_webhook(%MerchantAccount{} = account, data_id, request_id, signature)
       when is_binary(data_id) and is_binary(request_id) and is_binary(signature) do
-    with {:ok, secret} <- webhook_secret(account.provider_account_reference),
-         {:ok, timestamp, supplied_digest} <- signature_parts(signature),
-         true <- valid_timestamp?(timestamp),
-         expected_digest <- webhook_digest(secret, data_id, request_id, timestamp),
-         true <- secure_match?(expected_digest, supplied_digest) do
-      :ok
-    else
+    case Webhook.authenticate(account, data_id, request_id, signature) do
+      :ok -> :ok
       {:error, :payment_gateway_not_configured} = error -> error
-      _invalid -> {:error, :invalid_webhook_signature}
+      {:error, :webhook_unauthorized} -> {:error, :invalid_webhook_signature}
     end
   end
 
@@ -124,6 +143,7 @@ defmodule Clubeira.Billing.Gateways.MercadoPago do
     {:error, :payment_gateway_invalid_response}
   end
 
+  @impl true
   @spec fetch_recurring_invoice(MerchantAccount.t(), String.t()) ::
           {:ok, recurring_invoice() | platform_invoice()} | {:error, atom()}
   def fetch_recurring_invoice(%MerchantAccount{} = account, provider_reference)
@@ -143,6 +163,7 @@ defmodule Clubeira.Billing.Gateways.MercadoPago do
     {:error, :payment_gateway_invalid_response}
   end
 
+  @impl true
   @spec fetch_chargeback(MerchantAccount.t(), String.t()) ::
           {:ok, chargeback()} | {:error, atom()}
   def fetch_chargeback(%MerchantAccount{} = account, provider_reference)
@@ -930,19 +951,6 @@ defmodule Clubeira.Billing.Gateways.MercadoPago do
     end
   end
 
-  defp webhook_secret(account_reference) do
-    case account_configuration(account_reference) do
-      %{webhook_secret: secret} when is_binary(secret) and byte_size(secret) >= 32 ->
-        {:ok, secret}
-
-      %{"webhook_secret" => secret} when is_binary(secret) and byte_size(secret) >= 32 ->
-        {:ok, secret}
-
-      _missing_or_invalid ->
-        {:error, :payment_gateway_not_configured}
-    end
-  end
-
   defp account_configuration(account_reference) do
     :clubeira
     |> Application.get_env(__MODULE__, [])
@@ -1045,45 +1053,6 @@ defmodule Clubeira.Billing.Gateways.MercadoPago do
   defp valid_pix_code?(value) do
     is_binary(value) and byte_size(value) in 1..@maximum_pix_code_bytes
   end
-
-  defp signature_parts(signature) do
-    parts =
-      signature
-      |> String.split(",", trim: true)
-      |> Enum.map(fn part -> String.split(part, "=", parts: 2) end)
-
-    timestamps = for ["ts", value] <- parts, do: String.trim(value)
-    digests = for ["v1", value] <- parts, do: String.trim(value)
-
-    case {timestamps, digests} do
-      {[timestamp], [digest]} ->
-        case Base.decode16(digest, case: :mixed) do
-          {:ok, decoded} -> {:ok, timestamp, decoded}
-          :error -> {:error, :invalid_webhook_signature}
-        end
-
-      _missing_or_ambiguous ->
-        {:error, :invalid_webhook_signature}
-    end
-  end
-
-  defp valid_timestamp?(timestamp) do
-    case Integer.parse(timestamp) do
-      {_value, ""} -> true
-      _invalid -> false
-    end
-  end
-
-  defp webhook_digest(secret, data_id, request_id, timestamp) do
-    manifest = "id:#{data_id};request-id:#{request_id};ts:#{timestamp};"
-    :crypto.mac(:hmac, :sha256, secret, manifest)
-  end
-
-  defp secure_match?(expected, supplied) when byte_size(expected) == byte_size(supplied) do
-    Plug.Crypto.secure_compare(expected, supplied)
-  end
-
-  defp secure_match?(_expected, _supplied), do: false
 
   defp decimal_string(amount), do: amount |> Decimal.normalize() |> Decimal.to_string(:normal)
 end
