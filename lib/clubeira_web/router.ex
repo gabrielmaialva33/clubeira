@@ -234,6 +234,18 @@ defmodule ClubeiraWeb.Router do
         BackofficeSubscriptionController,
         :index
 
+    get "/polos/:polo_slug/backoffice/outbox-messages",
+        BackofficeOperationsController,
+        :outbox_messages
+
+    post "/polos/:polo_slug/backoffice/outbox-messages/:message_id/retries",
+         BackofficeOperationsController,
+         :retry_outbox_message
+
+    get "/polos/:polo_slug/backoffice/audit-events",
+        BackofficeOperationsController,
+        :audit_events
+
     post "/polos/:polo_slug/backoffice/subscriptions/:contract_id/lifecycle-actions",
          BackofficeSubscriptionLifecycleController,
          :create
