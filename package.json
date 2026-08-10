@@ -1,0 +1,15 @@
+{
+  "name": "clubeira-api-contract",
+  "private": true,
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "api:check": "npm run api:lint && node scripts/check-openapi-bundle.mjs",
+    "api:lint": "redocly lint clubeira@v1",
+    "api:bundle": "redocly bundle clubeira@v1 --output priv/static/openapi/v1.json --ext json"
+  },
+  "devDependencies": {
+    "@redocly/cli": "2.46.0"
+  }
+}

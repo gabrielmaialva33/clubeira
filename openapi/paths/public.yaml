@@ -1,0 +1,226 @@
+polos:
+  get:
+    operationId: listPublicPolos
+    tags:
+      - Public directory
+    summary: Lista polos públicos ativos
+    description: Retorna somente identidades públicas e cidade; roles e contratos não participam desta descoberta.
+    security: []
+    parameters:
+      - $ref: ../components.yaml#/parameters/Limit
+      - $ref: ../components.yaml#/parameters/After
+    responses:
+      '200':
+        $ref: ../responses.yaml#/PublicPolosOk
+      '400':
+        $ref: ../components.yaml#/responses/BadRequest
+      '503':
+        $ref: ../components.yaml#/responses/ServiceUnavailable
+
+catalog:
+  parameters:
+    - $ref: ../components.yaml#/parameters/PoloSlug
+  get:
+    operationId: getPublicCatalog
+    tags:
+      - Catalog
+    summary: Lista ofertas publicadas do polo
+    security: []
+    parameters:
+      - $ref: ../components.yaml#/parameters/Limit
+      - $ref: ../components.yaml#/parameters/After
+    responses:
+      '200':
+        $ref: ../responses.yaml#/CatalogOk
+      '400':
+        $ref: ../components.yaml#/responses/BadRequest
+      '404':
+        $ref: ../components.yaml#/responses/NotFound
+
+checkoutOptions:
+  parameters:
+    - $ref: ../components.yaml#/parameters/PoloSlug
+  get:
+    operationId: listCheckoutOptions
+    tags:
+      - Catalog
+    summary: Lista versões e preços disponíveis para checkout
+    security: []
+    parameters:
+      - $ref: ../components.yaml#/parameters/Limit
+      - $ref: ../components.yaml#/parameters/After
+    responses:
+      '200':
+        $ref: ../responses.yaml#/CheckoutOptionsOk
+      '400':
+        $ref: ../components.yaml#/responses/BadRequest
+      '404':
+        $ref: ../components.yaml#/responses/NotFound
+
+places:
+  parameters:
+    - $ref: ../components.yaml#/parameters/PoloSlug
+  get:
+    operationId: listPublicPlaces
+    tags:
+      - Public directory
+    summary: Lista estabelecimentos públicos do polo
+    security: []
+    parameters:
+      - $ref: ../components.yaml#/parameters/Limit
+      - $ref: ../components.yaml#/parameters/After
+    responses:
+      '200':
+        $ref: ../responses.yaml#/PublicPlacesOk
+      '400':
+        $ref: ../components.yaml#/responses/BadRequest
+      '404':
+        $ref: ../components.yaml#/responses/NotFound
+
+placeReviews:
+  parameters:
+    - $ref: ../components.yaml#/parameters/PoloSlug
+    - $ref: ../components.yaml#/parameters/PlaceId
+  get:
+    operationId: listPublicPlaceReviews
+    tags:
+      - Reviews
+    summary: Lista avaliações publicadas de um lugar
+    security: []
+    parameters:
+      - $ref: ../components.yaml#/parameters/Limit
+      - $ref: ../components.yaml#/parameters/After
+    responses:
+      '200':
+        $ref: ../responses.yaml#/PublicReviewsOk
+      '400':
+        $ref: ../components.yaml#/responses/BadRequest
+      '404':
+        $ref: ../components.yaml#/responses/NotFound
+  post:
+    operationId: submitVerifiedReview
+    tags:
+      - Reviews
+    summary: Publica uma avaliação vinculada a um resgate
+    description: O usuário só pode avaliar conforme a política histórica do polo e a prova de resgate informada.
+    parameters:
+      - $ref: ../components.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components.yaml#/schemas/Review
+    responses:
+      '201':
+        $ref: ../responses.yaml#/ReviewCreated
+      '401':
+        $ref: ../components.yaml#/responses/Unauthorized
+      '404':
+        $ref: ../components.yaml#/responses/NotFound
+      '409':
+        $ref: ../components.yaml#/responses/Conflict
+      '422':
+        $ref: ../components.yaml#/responses/UnprocessableEntity
+
+reviewMedia:
+  parameters:
+    - $ref: ../components.yaml#/parameters/PoloSlug
+    - $ref: ../components.yaml#/parameters/MediaId
+  get:
+    operationId: redirectToPublicReviewMedia
+    tags:
+      - Reviews
+    summary: Redireciona para uma mídia pública verificada
+    security: []
+    responses:
+      '302':
+        $ref: ../components.yaml#/responses/Redirect
+      '404':
+        $ref: ../components.yaml#/responses/NotFound
+      '503':
+        $ref: ../components.yaml#/responses/ServiceUnavailable
+
+registrationLegalDocuments:
+  get:
+    operationId: listRegistrationLegalDocuments
+    tags:
+      - Public directory
+    summary: Lista documentos legais exigidos no cadastro
+    security: []
+    parameters:
+      - $ref: ../components.yaml#/parameters/Locale
+    responses:
+      '200':
+        $ref: ../responses.yaml#/LegalDocumentsOk
+      '400':
+        $ref: ../components.yaml#/responses/BadRequest
+
+redemptionConfirmations:
+  parameters:
+    - $ref: ../components.yaml#/parameters/PoloSlug
+  post:
+    operationId: confirmRedemption
+    tags:
+      - Redemptions
+    summary: Confirma e consome um grant de resgate
+    description: A credencial do ponto autentica a borda; grant, saldo, dispositivo, nonce e escopo são revalidados atomicamente.
+    security:
+      - validationPointAuth: []
+    parameters:
+      - $ref: ../components.yaml#/parameters/OptionalIdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components.yaml#/schemas/RedemptionConfirmation
+    responses:
+      '201':
+        $ref: ../responses.yaml#/RedemptionCreated
+      '401':
+        $ref: ../components.yaml#/responses/Unauthorized
+      '404':
+        $ref: ../components.yaml#/responses/NotFound
+      '409':
+        $ref: ../components.yaml#/responses/Conflict
+      '422':
+        $ref: ../components.yaml#/responses/UnprocessableEntity
+
+mercadoPagoWebhook:
+  parameters:
+    - $ref: ../components.yaml#/parameters/MerchantAccountId
+  post:
+    operationId: receiveMercadoPagoWebhook
+    tags:
+      - Billing
+    summary: Recebe um evento autenticado do Mercado Pago
+    description: Exige assinatura e identidade consistentes e relê a ordem no PSP antes de aplicar qualquer transição.
+    security:
+      - mercadoPagoSignature: []
+        mercadoPagoRequestId: []
+    parameters:
+      - name: data.id
+        in: query
+        description: Identidade do recurso incluída no manifesto assinado.
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components.yaml#/schemas/MercadoPagoWebhook
+    responses:
+      '200':
+        description: Evento autenticado e aceito, inclusive quando já havia sido processado.
+      '400':
+        $ref: ../components.yaml#/responses/BadRequest
+      '401':
+        $ref: ../components.yaml#/responses/Unauthorized
+      '422':
+        $ref: ../components.yaml#/responses/UnprocessableEntity
+      '502':
+        $ref: ../components.yaml#/responses/BadGateway
+      '503':
+        $ref: ../components.yaml#/responses/ServiceUnavailable

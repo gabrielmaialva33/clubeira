@@ -1,0 +1,135 @@
+authSessions:
+  post:
+    operationId: createSession
+    tags:
+      - Authentication
+    summary: Autentica com e-mail e senha
+    description: Cria uma sessão bearer global e devolve o token cru uma única vez.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components.yaml#/schemas/SessionCredentials
+    responses:
+      '201':
+        $ref: ../responses.yaml#/SessionCreated
+      '401':
+        $ref: ../components.yaml#/responses/Unauthorized
+      '422':
+        $ref: ../components.yaml#/responses/UnprocessableEntity
+      '429':
+        $ref: ../components.yaml#/responses/TooManyRequests
+
+registrations:
+  post:
+    operationId: registerAccount
+    tags:
+      - Authentication
+    summary: Cadastra uma conta
+    description: Cria usuário, aceita os documentos legais vigentes e abre a primeira sessão atomicamente.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components.yaml#/schemas/Registration
+    responses:
+      '201':
+        $ref: ../responses.yaml#/SessionCreated
+      '422':
+        $ref: ../components.yaml#/responses/UnprocessableEntity
+      '429':
+        $ref: ../components.yaml#/responses/TooManyRequests
+      '503':
+        $ref: ../components.yaml#/responses/ServiceUnavailable
+
+passwordResetRequests:
+  post:
+    operationId: requestPasswordReset
+    tags:
+      - Authentication
+    summary: Solicita recuperação de senha
+    description: A resposta não revela se o e-mail está cadastrado.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components.yaml#/schemas/Email
+    responses:
+      '202':
+        $ref: ../components.yaml#/responses/Accepted
+      '429':
+        $ref: ../components.yaml#/responses/TooManyRequests
+      '503':
+        $ref: ../components.yaml#/responses/ServiceUnavailable
+
+passwordResets:
+  post:
+    operationId: resetPassword
+    tags:
+      - Authentication
+    summary: Define nova senha com token de recuperação
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components.yaml#/schemas/PasswordReset
+    responses:
+      '204':
+        $ref: ../components.yaml#/responses/NoContent
+      '422':
+        $ref: ../components.yaml#/responses/UnprocessableEntity
+      '429':
+        $ref: ../components.yaml#/responses/TooManyRequests
+
+emailVerifications:
+  post:
+    operationId: verifyEmail
+    tags:
+      - Authentication
+    summary: Confirma o e-mail com token de uso único
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components.yaml#/schemas/Token
+    responses:
+      '204':
+        $ref: ../components.yaml#/responses/NoContent
+      '422':
+        $ref: ../components.yaml#/responses/UnprocessableEntity
+
+emailVerificationRequests:
+  post:
+    operationId: requestEmailVerification
+    tags:
+      - Authentication
+    summary: Reenvia a confirmação de e-mail
+    responses:
+      '202':
+        $ref: ../components.yaml#/responses/Accepted
+      '401':
+        $ref: ../components.yaml#/responses/Unauthorized
+      '503':
+        $ref: ../components.yaml#/responses/ServiceUnavailable
+
+authSession:
+  delete:
+    operationId: revokeCurrentSession
+    tags:
+      - Authentication
+    summary: Revoga a sessão atual
+    responses:
+      '204':
+        $ref: ../components.yaml#/responses/NoContent
+      '401':
+        $ref: ../components.yaml#/responses/Unauthorized

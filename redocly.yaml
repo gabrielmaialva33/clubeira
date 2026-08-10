@@ -1,0 +1,12 @@
+apis:
+  clubeira@v1:
+    root: openapi/openapi.yaml
+
+extends:
+  - recommended
+
+rules:
+  no-server-example.com: off
+  # Public review media intentionally returns a safe 302 to verified storage.
+  # The Elixir contract test accepts either a 2xx or an explicit 3xx success.
+  operation-2xx-response: off

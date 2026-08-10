@@ -1,0 +1,89 @@
+places:
+  parameters:
+    - $ref: ../components.yaml#/parameters/PoloSlug
+  get:
+    operationId: listPartnerPlaces
+    tags:
+      - Partner
+    summary: Lista lugares operáveis pelo parceiro autenticado
+    description: Exige membership tenant e afiliações globais vigentes de organização, lugar e operador.
+    parameters:
+      - $ref: ../components.yaml#/parameters/Limit
+      - $ref: ../components.yaml#/parameters/After
+    responses:
+      '200':
+        $ref: ../responses.yaml#/BackofficePlacesOk
+      '400':
+        $ref: ../components.yaml#/responses/BadRequest
+      '401':
+        $ref: ../components.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../components.yaml#/responses/Forbidden
+      '404':
+        $ref: ../components.yaml#/responses/NotFound
+      '503':
+        $ref: ../components.yaml#/responses/ServiceUnavailable
+
+reviewResponse:
+  parameters:
+    - $ref: ../components.yaml#/parameters/PoloSlug
+    - $ref: ../components.yaml#/parameters/ReviewId
+  put:
+    operationId: putPartnerReviewResponse
+    tags:
+      - Partner
+    summary: Publica ou revisa a resposta do parceiro
+    parameters:
+      - $ref: ../components.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components.yaml#/schemas/PartnerReviewResponse
+    responses:
+      '200':
+        $ref: ../responses.yaml#/PartnerReviewResponseOk
+      '400':
+        $ref: ../components.yaml#/responses/BadRequest
+      '401':
+        $ref: ../components.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../components.yaml#/responses/Forbidden
+      '404':
+        $ref: ../components.yaml#/responses/NotFound
+      '409':
+        $ref: ../components.yaml#/responses/Conflict
+      '422':
+        $ref: ../components.yaml#/responses/UnprocessableEntity
+
+placeProfile:
+  parameters:
+    - $ref: ../components.yaml#/parameters/PoloSlug
+    - $ref: ../components.yaml#/parameters/PlaceId
+  put:
+    operationId: putPartnerPlaceProfile
+    tags:
+      - Partner
+    summary: Publica o perfil de um lugar autorizado ao parceiro
+    parameters:
+      - $ref: ../components.yaml#/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components.yaml#/schemas/PlaceProfile
+    responses:
+      '200':
+        $ref: ../components.yaml#/responses/Ok
+      '401':
+        $ref: ../components.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../components.yaml#/responses/Forbidden
+      '404':
+        $ref: ../components.yaml#/responses/NotFound
+      '409':
+        $ref: ../components.yaml#/responses/Conflict
+      '422':
+        $ref: ../components.yaml#/responses/UnprocessableEntity

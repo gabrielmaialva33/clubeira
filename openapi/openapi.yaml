@@ -1,0 +1,231 @@
+openapi: 3.1.0
+info:
+  title: Clubeira API
+  version: 1.0.0
+  summary: API HTTP do Clubeira
+  description: |
+    Contrato público da API do Clubeira, um SaaS multi-tenant de clubes de
+    vouchers por assinatura.
+
+    IDs enviados pelo cliente nunca constituem autorização. Operações
+    autenticadas revalidam usuário, polo, papel e capability no banco, sob RLS
+    forçado. Respostas de erro respeitam `Accept-Language` e usam um código
+    estável quando o cliente precisa distinguir uma condição de domínio.
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: /
+    description: Mesma origem da API
+security:
+  - bearerAuth: []
+tags:
+  - name: Authentication
+    description: Cadastro, sessão e recuperação de credenciais globais.
+  - name: Account
+    description: Conta, perfil e bootstrap de acesso do usuário autenticado.
+  - name: Privacy
+    description: Consentimentos e solicitações do titular.
+  - name: Public directory
+    description: Descoberta pública de polos, lugares e documentos legais.
+  - name: Catalog
+    description: Catálogo público e opções comerciais por polo.
+  - name: Billing
+    description: Checkout, pagamentos, cobranças e acordos recorrentes do membro.
+  - name: Subscriptions
+    description: Contratos e histórico de assinaturas do membro.
+  - name: Devices
+    description: Enrollment e chaves de dispositivos autorizados.
+  - name: Redemptions
+    description: Grants, confirmações e histórico de resgates.
+  - name: Reviews
+    description: Avaliações, mídia e denúncias.
+  - name: Platform privacy
+    description: Operações globais do encarregado de privacidade.
+  - name: Platform billing
+    description: Planos e cobrança SaaS da plataforma.
+  - name: Backoffice partners
+    description: Parceiros, acessos, lugares e convênios do polo.
+  - name: Backoffice catalog
+    description: Benefícios e ofertas comerciais do polo.
+  - name: Backoffice billing
+    description: Pagamentos, contratos e reembolsos do polo.
+  - name: Backoffice operations
+    description: Auditoria e operação da outbox do polo.
+  - name: Backoffice validation
+    description: Pontos e credenciais de validação do polo.
+  - name: Backoffice reviews
+    description: Filas e decisões de moderação do polo.
+  - name: Partner
+    description: Operações autorizadas do parceiro em seus lugares.
+paths:
+  /api/v1/auth/sessions:
+    $ref: ./paths/auth.yaml#/authSessions
+  /api/v1/auth/registrations:
+    $ref: ./paths/auth.yaml#/registrations
+  /api/v1/auth/password-reset-requests:
+    $ref: ./paths/auth.yaml#/passwordResetRequests
+  /api/v1/auth/password-resets:
+    $ref: ./paths/auth.yaml#/passwordResets
+  /api/v1/auth/email-verifications:
+    $ref: ./paths/auth.yaml#/emailVerifications
+  /api/v1/auth/email-verification-requests:
+    $ref: ./paths/auth.yaml#/emailVerificationRequests
+  /api/v1/auth/session:
+    $ref: ./paths/auth.yaml#/authSession
+  /api/v1/polos:
+    $ref: ./paths/public.yaml#/polos
+  /api/v1/polos/{polo_slug}/catalog:
+    $ref: ./paths/public.yaml#/catalog
+  /api/v1/polos/{polo_slug}/checkout-options:
+    $ref: ./paths/public.yaml#/checkoutOptions
+  /api/v1/polos/{polo_slug}/places:
+    $ref: ./paths/public.yaml#/places
+  /api/v1/polos/{polo_slug}/places/{place_id}/reviews:
+    $ref: ./paths/public.yaml#/placeReviews
+  /api/v1/polos/{polo_slug}/review-media/{media_id}:
+    $ref: ./paths/public.yaml#/reviewMedia
+  /api/v1/legal/registration:
+    $ref: ./paths/public.yaml#/registrationLegalDocuments
+  /api/v1/polos/{polo_slug}/redemptions:
+    $ref: ./paths/public.yaml#/redemptionConfirmations
+  /api/v1/webhooks/mercado-pago/{merchant_account_id}:
+    $ref: ./paths/public.yaml#/mercadoPagoWebhook
+  /api/v1/me:
+    $ref: ./paths/member.yaml#/account
+  /api/v1/me/access:
+    $ref: ./paths/member.yaml#/access
+  /api/v1/me/profile:
+    $ref: ./paths/member.yaml#/profile
+  /api/v1/me/privacy/consents:
+    $ref: ./paths/member.yaml#/privacyConsents
+  /api/v1/me/privacy/consents/{purpose_code}:
+    $ref: ./paths/member.yaml#/privacyConsent
+  /api/v1/me/privacy/requests:
+    $ref: ./paths/member.yaml#/privacyRequests
+  /api/v1/me/subscriptions:
+    $ref: ./paths/member.yaml#/subscriptions
+  /api/v1/polos/{polo_slug}/me/billing:
+    $ref: ./paths/member.yaml#/billing
+  /api/v1/polos/{polo_slug}/orders:
+    $ref: ./paths/member.yaml#/orders
+  /api/v1/polos/{polo_slug}/orders/{order_id}/payment-intents:
+    $ref: ./paths/member.yaml#/paymentIntents
+  /api/v1/polos/{polo_slug}/orders/{order_id}/billing-agreements:
+    $ref: ./paths/member.yaml#/billingAgreements
+  /api/v1/polos/{polo_slug}/me/redemption-devices:
+    $ref: ./paths/member.yaml#/redemptionDevices
+  /api/v1/me/devices/{device_id}/key:
+    $ref: ./paths/member.yaml#/deviceKey
+  /api/v1/polos/{polo_slug}/me/redemption-grants:
+    $ref: ./paths/member.yaml#/redemptionGrants
+  /api/v1/polos/{polo_slug}/places/{place_id}/reviews/{review_id}/media:
+    $ref: ./paths/member.yaml#/reviewMediaRegistration
+  /api/v1/polos/{polo_slug}/places/{place_id}/reviews/{review_id}/reports:
+    $ref: ./paths/member.yaml#/reviewReports
+  /api/v1/polos/{polo_slug}/me/orders:
+    $ref: ./paths/member.yaml#/orderHistory
+  /api/v1/polos/{polo_slug}/me/redemptions:
+    $ref: ./paths/member.yaml#/redemptionHistory
+  /api/v1/polos/{polo_slug}/me/vouchers:
+    $ref: ./paths/member.yaml#/wallet
+  /api/v1/platform/privacy/processing-purposes:
+    $ref: ./paths/platform.yaml#/processingPurposes
+  /api/v1/platform/privacy/processing-purposes/{purpose_code}:
+    $ref: ./paths/platform.yaml#/processingPurpose
+  /api/v1/platform/privacy/requests:
+    $ref: ./paths/platform.yaml#/privacyRequests
+  /api/v1/platform/privacy/requests/{request_id}/transitions:
+    $ref: ./paths/platform.yaml#/privacyRequestTransitions
+  /api/v1/platform/billing/plans:
+    $ref: ./paths/platform.yaml#/billingPlans
+  /api/v1/platform/billing/plans/{plan_code}/versions/{version}:
+    $ref: ./paths/platform.yaml#/billingPlanVersion
+  /api/v1/polos/{polo_slug}/backoffice/platform-subscription:
+    $ref: ./paths/platform.yaml#/platformSubscription
+  /api/v1/polos/{polo_slug}/backoffice/platform-billing:
+    $ref: ./paths/platform.yaml#/platformBilling
+  /api/v1/polos/{polo_slug}/backoffice/partners:
+    $ref: ./paths/backoffice.yaml#/partners
+  /api/v1/polos/{polo_slug}/backoffice/places/{place_id}/partner-accesses:
+    $ref: ./paths/backoffice.yaml#/partnerAccesses
+  /api/v1/polos/{polo_slug}/backoffice/partner-accesses/{access_id}/revocations:
+    $ref: ./paths/backoffice.yaml#/partnerAccessRevocations
+  /api/v1/polos/{polo_slug}/backoffice/places:
+    $ref: ./paths/backoffice.yaml#/places
+  /api/v1/polos/{polo_slug}/backoffice/places/{place_id}/lifecycle-actions:
+    $ref: ./paths/backoffice.yaml#/placeLifecycleActions
+  /api/v1/polos/{polo_slug}/backoffice/places/{place_id}/profile:
+    $ref: ./paths/backoffice.yaml#/placeProfile
+  /api/v1/polos/{polo_slug}/backoffice/places/{place_id}/benefit-offers:
+    $ref: ./paths/backoffice.yaml#/placeBenefitOffers
+  /api/v1/polos/{polo_slug}/backoffice/benefit-offers:
+    $ref: ./paths/backoffice.yaml#/benefitOffers
+  /api/v1/polos/{polo_slug}/backoffice/product-offerings:
+    $ref: ./paths/backoffice.yaml#/productOfferings
+  /api/v1/polos/{polo_slug}/backoffice/product-offerings/{product_offering_id}/lifecycle-actions:
+    $ref: ./paths/backoffice.yaml#/productOfferingLifecycleActions
+  /api/v1/polos/{polo_slug}/backoffice/partner-agreements:
+    $ref: ./paths/backoffice.yaml#/partnerAgreements
+  /api/v1/polos/{polo_slug}/backoffice/partner-agreements/{agreement_id}:
+    $ref: ./paths/backoffice.yaml#/partnerAgreement
+  /api/v1/polos/{polo_slug}/backoffice/payments:
+    $ref: ./paths/backoffice.yaml#/payments
+  /api/v1/polos/{polo_slug}/backoffice/subscriptions:
+    $ref: ./paths/backoffice.yaml#/subscriptions
+  /api/v1/polos/{polo_slug}/backoffice/outbox-messages:
+    $ref: ./paths/backoffice.yaml#/outboxMessages
+  /api/v1/polos/{polo_slug}/backoffice/outbox-messages/{message_id}/retries:
+    $ref: ./paths/backoffice.yaml#/outboxMessageRetries
+  /api/v1/polos/{polo_slug}/backoffice/audit-events:
+    $ref: ./paths/backoffice.yaml#/auditEvents
+  /api/v1/polos/{polo_slug}/backoffice/subscriptions/{contract_id}/lifecycle-actions:
+    $ref: ./paths/backoffice.yaml#/subscriptionLifecycleActions
+  /api/v1/polos/{polo_slug}/backoffice/payments/{payment_id}/refunds:
+    $ref: ./paths/backoffice.yaml#/paymentRefunds
+  /api/v1/polos/{polo_slug}/backoffice/validation-points:
+    $ref: ./paths/backoffice.yaml#/validationPoints
+  /api/v1/polos/{polo_slug}/backoffice/places/{place_id}/validation-points:
+    $ref: ./paths/backoffice.yaml#/placeValidationPoints
+  /api/v1/polos/{polo_slug}/backoffice/validation-points/{validation_point_id}/lifecycle-actions:
+    $ref: ./paths/backoffice.yaml#/validationPointLifecycleActions
+  /api/v1/polos/{polo_slug}/backoffice/validation-credentials/{credential_id}/rotations:
+    $ref: ./paths/backoffice.yaml#/validationCredentialRotations
+  /api/v1/polos/{polo_slug}/backoffice/validation-credentials/{credential_id}/revocations:
+    $ref: ./paths/backoffice.yaml#/validationCredentialRevocations
+  /api/v1/polos/{polo_slug}/backoffice/reviews:
+    $ref: ./paths/backoffice.yaml#/reviews
+  /api/v1/polos/{polo_slug}/backoffice/review-reports:
+    $ref: ./paths/backoffice.yaml#/reviewReports
+  /api/v1/polos/{polo_slug}/backoffice/review-reports/{review_report_id}/moderation-actions:
+    $ref: ./paths/backoffice.yaml#/reviewReportModerationActions
+  /api/v1/polos/{polo_slug}/backoffice/reviews/{review_id}/moderation-actions:
+    $ref: ./paths/backoffice.yaml#/reviewModerationActions
+  /api/v1/polos/{polo_slug}/partner/places:
+    $ref: ./paths/partner.yaml#/places
+  /api/v1/polos/{polo_slug}/partner/reviews/{review_id}/response:
+    $ref: ./paths/partner.yaml#/reviewResponse
+  /api/v1/polos/{polo_slug}/partner/places/{place_id}/profile:
+    $ref: ./paths/partner.yaml#/placeProfile
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: Token opaco retornado pelo login ou cadastro.
+    validationPointAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Credencial do ponto no formato `Validation <segredo>`.
+    mercadoPagoSignature:
+      type: apiKey
+      in: header
+      name: x-signature
+      description: Assinatura HMAC enviada pelo Mercado Pago.
+    mercadoPagoRequestId:
+      type: apiKey
+      in: header
+      name: x-request-id
+      description: Identificador da entrega usado no manifesto assinado.

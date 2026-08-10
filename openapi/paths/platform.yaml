@@ -1,0 +1,182 @@
+processingPurposes:
+  get:
+    operationId: listPlatformProcessingPurposes
+    tags:
+      - Platform privacy
+    summary: Lista finalidades globais de tratamento
+    responses:
+      '200':
+        $ref: ../responses.yaml#/ProcessingPurposesOk
+      '401':
+        $ref: ../components.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../components.yaml#/responses/Forbidden
+
+processingPurpose:
+  parameters:
+    - $ref: ../components.yaml#/parameters/PurposeCode
+  put:
+    operationId: putPlatformProcessingPurpose
+    tags:
+      - Platform privacy
+    summary: Publica ou atualiza uma finalidade de tratamento
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components.yaml#/schemas/ProcessingPurpose
+    responses:
+      '200':
+        $ref: ../responses.yaml#/ProcessingPurposeOk
+      '401':
+        $ref: ../components.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../components.yaml#/responses/Forbidden
+      '409':
+        $ref: ../components.yaml#/responses/Conflict
+      '422':
+        $ref: ../components.yaml#/responses/UnprocessableEntity
+
+privacyRequests:
+  get:
+    operationId: listPlatformPrivacyRequests
+    tags:
+      - Platform privacy
+    summary: Lista solicitações LGPD para operação da plataforma
+    parameters:
+      - $ref: ../components.yaml#/parameters/Limit
+      - $ref: ../components.yaml#/parameters/After
+      - $ref: ../components.yaml#/parameters/Status
+    responses:
+      '200':
+        $ref: ../responses.yaml#/PlatformPrivacyRequestsOk
+      '401':
+        $ref: ../components.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../components.yaml#/responses/Forbidden
+      '422':
+        $ref: ../components.yaml#/responses/UnprocessableEntity
+
+privacyRequestTransitions:
+  parameters:
+    - $ref: ../components.yaml#/parameters/RequestId
+  post:
+    operationId: transitionPlatformPrivacyRequest
+    tags:
+      - Platform privacy
+    summary: Aplica uma transição a uma solicitação LGPD
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components.yaml#/schemas/PrivacyTransition
+    responses:
+      '200':
+        $ref: ../responses.yaml#/PlatformPrivacyRequestOk
+      '401':
+        $ref: ../components.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../components.yaml#/responses/Forbidden
+      '404':
+        $ref: ../components.yaml#/responses/NotFound
+      '409':
+        $ref: ../components.yaml#/responses/Conflict
+      '422':
+        $ref: ../components.yaml#/responses/UnprocessableEntity
+
+billingPlans:
+  get:
+    operationId: listPlatformBillingPlans
+    tags:
+      - Platform billing
+    summary: Lista planos SaaS versionados da plataforma
+    responses:
+      '200':
+        $ref: ../responses.yaml#/PlatformPlansOk
+      '401':
+        $ref: ../components.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../components.yaml#/responses/Forbidden
+
+billingPlanVersion:
+  parameters:
+    - $ref: ../components.yaml#/parameters/PlanCode
+    - $ref: ../components.yaml#/parameters/Version
+  put:
+    operationId: putPlatformBillingPlanVersion
+    tags:
+      - Platform billing
+    summary: Publica uma versão imutável de plano, features e preços
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components.yaml#/schemas/PlatformPlanVersion
+    responses:
+      '200':
+        $ref: ../responses.yaml#/PlatformPlanOk
+      '401':
+        $ref: ../components.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../components.yaml#/responses/Forbidden
+      '409':
+        $ref: ../components.yaml#/responses/Conflict
+      '422':
+        $ref: ../components.yaml#/responses/UnprocessableEntity
+
+platformSubscription:
+  parameters:
+    - $ref: ../components.yaml#/parameters/PoloSlug
+  post:
+    operationId: startPoloPlatformSubscription
+    tags:
+      - Platform billing
+    summary: Inicia a assinatura SaaS do polo
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components.yaml#/schemas/PlatformSubscription
+    responses:
+      '200':
+        $ref: ../responses.yaml#/PlatformSubscriptionOk
+      '401':
+        $ref: ../components.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../components.yaml#/responses/Forbidden
+      '404':
+        $ref: ../components.yaml#/responses/NotFound
+      '409':
+        $ref: ../components.yaml#/responses/Conflict
+      '422':
+        $ref: ../components.yaml#/responses/UnprocessableEntity
+      '502':
+        $ref: ../components.yaml#/responses/BadGateway
+      '503':
+        $ref: ../components.yaml#/responses/ServiceUnavailable
+
+platformBilling:
+  parameters:
+    - $ref: ../components.yaml#/parameters/PoloSlug
+  get:
+    operationId: getPoloPlatformBilling
+    tags:
+      - Platform billing
+    summary: Retorna assinatura, faturas e pagamentos SaaS do polo
+    responses:
+      '200':
+        $ref: ../responses.yaml#/PlatformBillingOk
+      '401':
+        $ref: ../components.yaml#/responses/Unauthorized
+      '403':
+        $ref: ../components.yaml#/responses/Forbidden
+      '404':
+        $ref: ../components.yaml#/responses/NotFound
+      '409':
+        $ref: ../components.yaml#/responses/Conflict
+      '422':
+        $ref: ../components.yaml#/responses/UnprocessableEntity
