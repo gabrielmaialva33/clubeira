@@ -672,6 +672,56 @@
         }
       }
     },
+    "/api/v1/webhooks/{provider_code}/{merchant_account_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProviderCode"
+        },
+        {
+          "$ref": "#/components/parameters/MerchantAccountId"
+        }
+      ],
+      "post": {
+        "operationId": "receiveProviderWebhook",
+        "tags": [
+          "Billing"
+        ],
+        "summary": "Recebe um evento autenticado de um PSP registrado",
+        "description": "Preserva body, query e headers originais para o adaptador selecionado.\nO adaptador autentica a entrega, devolve apenas referências normalizadas\ne o core relê o recurso no PSP antes de aplicar qualquer transição.\n",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Evento autenticado e aceito, inclusive quando já havia sido processado."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
     "/api/v1/me": {
       "get": {
         "operationId": "getCurrentAccount",
@@ -8286,6 +8336,16 @@
         "required": true,
         "schema": {
           "$ref": "#/components/schemas/UUID"
+        }
+      },
+      "ProviderCode": {
+        "name": "provider_code",
+        "in": "path",
+        "required": true,
+        "description": "Código registrado do adaptador do PSP.",
+        "schema": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,62}$"
         }
       },
       "PurposeCode": {

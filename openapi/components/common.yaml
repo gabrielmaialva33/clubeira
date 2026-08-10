@@ -9,6 +9,8 @@ parameters:
     $ref: ./common/parameters.yaml#/MediaId
   MerchantAccountId:
     $ref: ./common/parameters.yaml#/MerchantAccountId
+  ProviderCode:
+    $ref: ./common/parameters.yaml#/ProviderCode
   PurposeCode:
     $ref: ./common/parameters.yaml#/PurposeCode
   OrderId:

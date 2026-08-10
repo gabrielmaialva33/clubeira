@@ -405,7 +405,7 @@ defmodule ClubeiraWeb.Member.PaymentIntentControllerTest do
            |> put_req_header("x-request-id", webhook_request_id)
            |> put_req_header("x-signature", signature)
            |> post(
-             "/api/v1/webhooks/mercado-pago/#{fixture.merchant_account.id}?#{query}",
+             "/api/v1/webhooks/mercado_pago/#{fixture.merchant_account.id}?#{query}",
              webhook_body
            )
            |> response(200) == ""

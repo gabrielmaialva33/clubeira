@@ -91,6 +91,8 @@ paths:
     $ref: ./paths/public.yaml#/redemptionConfirmations
   /api/v1/webhooks/mercado-pago/{merchant_account_id}:
     $ref: ./paths/public.yaml#/mercadoPagoWebhook
+  /api/v1/webhooks/{provider_code}/{merchant_account_id}:
+    $ref: ./paths/public.yaml#/providerWebhook
   /api/v1/me:
     $ref: ./paths/member.yaml#/account
   /api/v1/me/access:

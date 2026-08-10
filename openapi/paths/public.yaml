@@ -224,3 +224,38 @@ mercadoPagoWebhook:
         $ref: ../components/common.yaml#/responses/BadGateway
       '503':
         $ref: ../components/common.yaml#/responses/ServiceUnavailable
+
+providerWebhook:
+  parameters:
+    - $ref: ../components/common.yaml#/parameters/ProviderCode
+    - $ref: ../components/common.yaml#/parameters/MerchantAccountId
+  post:
+    operationId: receiveProviderWebhook
+    tags:
+      - Billing
+    summary: Recebe um evento autenticado de um PSP registrado
+    description: |
+      Preserva body, query e headers originais para o adaptador selecionado.
+      O adaptador autentica a entrega, devolve apenas referências normalizadas
+      e o core relê o recurso no PSP antes de aplicar qualquer transição.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    responses:
+      '200':
+        description: Evento autenticado e aceito, inclusive quando já havia sido processado.
+      '400':
+        $ref: ../components/common.yaml#/responses/BadRequest
+      '401':
+        $ref: ../components/common.yaml#/responses/Unauthorized
+      '422':
+        $ref: ../components/common.yaml#/responses/UnprocessableEntity
+      '502':
+        $ref: ../components/common.yaml#/responses/BadGateway
+      '503':
+        $ref: ../components/common.yaml#/responses/ServiceUnavailable

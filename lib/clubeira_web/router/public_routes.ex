@@ -32,6 +32,10 @@ defmodule ClubeiraWeb.Router.PublicRoutes do
         post "/webhooks/mercado-pago/:merchant_account_id",
              PaymentWebhookController,
              :mercado_pago
+
+        post "/webhooks/:provider_code/:merchant_account_id",
+             PaymentWebhookController,
+             :provider
       end
     end
   end

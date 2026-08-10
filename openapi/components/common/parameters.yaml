@@ -30,6 +30,14 @@ MerchantAccountId:
   required: true
   schema:
     $ref: './schemas.yaml#/UUID'
+ProviderCode:
+  name: provider_code
+  in: path
+  required: true
+  description: Código registrado do adaptador do PSP.
+  schema:
+    type: string
+    pattern: '^[a-z0-9][a-z0-9_-]{0,62}$'
 PurposeCode:
   name: purpose_code
   in: path

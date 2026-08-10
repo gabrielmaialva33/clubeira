@@ -3,7 +3,7 @@ defmodule ClubeiraWeb.Webhooks.PaymentWebhookController do
 
   alias Clubeira.Billing
   alias ClubeiraWeb.ErrorJSON
-  alias ClubeiraWeb.Plugs.RawBody
+  alias ClubeiraWeb.Webhooks.RequestEnvelope
   alias Plug.Conn.Status
 
   @bad_gateway_errors ~w(
@@ -20,19 +20,18 @@ defmodule ClubeiraWeb.Webhooks.PaymentWebhookController do
     handle(conn, "mercado_pago", merchant_account_id)
   end
 
+  def provider(conn, %{
+        "provider_code" => provider_code,
+        "merchant_account_id" => merchant_account_id
+      }) do
+    handle(conn, provider_code, merchant_account_id)
+  end
+
   defp handle(conn, provider_code, merchant_account_id) do
     attributes = %{
       merchant_account_id: merchant_account_id,
       internal_request_id: conn.assigns.request_id,
-      envelope: %{
-        body_params: conn.body_params,
-        headers: %{
-          "x-request-id" => get_req_header(conn, "x-request-id"),
-          "x-signature" => get_req_header(conn, "x-signature")
-        },
-        query_params: conn.query_params,
-        raw_body: RawBody.get(conn)
-      }
+      envelope: RequestEnvelope.build(conn)
     }
 
     case Billing.handle_payment_webhook(provider_code, attributes) do
