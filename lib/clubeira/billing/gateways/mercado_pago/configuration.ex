@@ -43,6 +43,28 @@ defmodule Clubeira.Billing.Gateways.MercadoPago.Configuration do
     end
   end
 
+  @spec access_token(String.t()) ::
+          {:ok, String.t()} | {:error, :payment_gateway_not_configured}
+  def access_token(account_reference) when is_binary(account_reference) do
+    case account_configuration(account_reference) do
+      %{access_token: token} when is_binary(token) and byte_size(token) >= 16 -> {:ok, token}
+      %{"access_token" => token} when is_binary(token) and byte_size(token) >= 16 -> {:ok, token}
+      _missing_or_invalid -> {:error, :payment_gateway_not_configured}
+    end
+  end
+
+  @spec subscription_back_url() ::
+          {:ok, String.t()} | {:error, :payment_gateway_not_configured}
+  def subscription_back_url do
+    case gateway_configuration() |> Keyword.get(:subscription_back_url) do
+      value when is_binary(value) -> {:ok, value}
+      _missing_or_invalid -> {:error, :payment_gateway_not_configured}
+    end
+  end
+
+  @spec request_options() :: keyword()
+  def request_options, do: gateway_configuration() |> Keyword.get(:req_options, [])
+
   defp parse_accounts(accounts) do
     Enum.reduce_while(accounts, {:ok, %{}}, fn
       {reference, credentials}, {:ok, parsed} ->
@@ -77,9 +99,12 @@ defmodule Clubeira.Billing.Gateways.MercadoPago.Configuration do
   end
 
   defp account_configuration(account_reference) do
-    :clubeira
-    |> Application.get_env(Clubeira.Billing.Gateways.MercadoPago, [])
+    gateway_configuration()
     |> Keyword.get(:accounts, %{})
     |> Map.get(account_reference)
+  end
+
+  defp gateway_configuration do
+    Application.get_env(:clubeira, Clubeira.Billing.Gateways.MercadoPago, [])
   end
 end
