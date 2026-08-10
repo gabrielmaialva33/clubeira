@@ -20,6 +20,14 @@ defmodule Clubeira.Polos.Authorization do
     moderate_reviews: ["admin", "review_moderator"]
   }
 
+  @capability_order [
+    :manage_billing,
+    :manage_operations,
+    :manage_own_places,
+    :manage_partners,
+    :moderate_reviews
+  ]
+
   @type capability ::
           :manage_billing
           | :manage_operations
@@ -86,6 +94,20 @@ defmodule Clubeira.Polos.Authorization do
 
   def authorize(_repo, %Scope{}, :moderate_reviews, _now),
     do: {:error, :moderator_required}
+
+  @doc """
+  Derives the stable capabilities represented by current role keys.
+  """
+  @spec capabilities_for_role_keys([String.t()]) :: [capability()]
+  def capabilities_for_role_keys(role_keys) when is_list(role_keys) do
+    role_keys = MapSet.new(role_keys)
+
+    Enum.filter(@capability_order, fn capability ->
+      @capability_roles
+      |> Map.fetch!(capability)
+      |> Enum.any?(&MapSet.member?(role_keys, &1))
+    end)
+  end
 
   defp authorization_error(:manage_partners), do: :partner_admin_required
   defp authorization_error(:manage_billing), do: :billing_admin_required

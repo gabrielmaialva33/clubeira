@@ -16,12 +16,30 @@ defmodule Clubeira.Platform.Authorization do
     manage_platform_billing: ~w(platform_billing_admin platform_admin)
   }
 
+  @capability_order [:manage_privacy, :manage_platform_billing]
+
+  @type capability :: :manage_privacy | :manage_platform_billing
+
   @spec authorize(module(), ActorScope.t(), atom(), DateTime.t()) :: :ok | {:error, atom()}
   def authorize(repo, %ActorScope{} = scope, capability, %DateTime{} = now) do
     case Map.fetch(@capability_roles, capability) do
       {:ok, roles} -> authorize_roles(repo, scope.actor_user_id, roles, now, capability)
       :error -> {:error, :unsupported_platform_capability}
     end
+  end
+
+  @doc """
+  Derives the stable platform capabilities represented by current role keys.
+  """
+  @spec capabilities_for_role_keys([String.t()]) :: [capability()]
+  def capabilities_for_role_keys(role_keys) when is_list(role_keys) do
+    role_keys = MapSet.new(role_keys)
+
+    Enum.filter(@capability_order, fn capability ->
+      @capability_roles
+      |> Map.fetch!(capability)
+      |> Enum.any?(&MapSet.member?(role_keys, &1))
+    end)
   end
 
   defp authorize_roles(repo, actor_user_id, roles, now, capability) do
