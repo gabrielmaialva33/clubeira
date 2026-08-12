@@ -6,6 +6,7 @@ defmodule ClubeiraWeb.Backoffice.PlaceLiveTest do
   alias Clubeira.Accounts
   alias Clubeira.Accounts.User
   alias Clubeira.Directory
+  alias Clubeira.Factory
   alias Clubeira.RedemptionsFixtures
   alias Clubeira.Repo
   alias Clubeira.ReviewsFixtures
@@ -43,6 +44,94 @@ defmodule ClubeiraWeb.Backoffice.PlaceLiveTest do
 
     assert has_element?(view, "#place-detail", "operacao@example.test")
     assert has_element?(view, "#place-detail", "+5511999990000")
+  end
+
+  test "renders the complete profile editor from the persisted read model", %{conn: conn} do
+    fixture = RedemptionsFixtures.create!()
+    admin_scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+
+    cafe = Factory.insert(:place_category, key: "cafe", name: "Cafe", display_order: 10)
+
+    restaurant =
+      Factory.insert(:place_category,
+        key: "restaurant",
+        name: "Restaurante",
+        display_order: 20
+      )
+
+    assert {:ok, _profile} =
+             Directory.publish_place_profile(admin_scope, fixture.ids.place, %{
+               contact: %{email: "painel@perfil.example", phone: "+5588999990101"},
+               category_keys: [restaurant.key, cafe.key],
+               weekly_hours: [
+                 %{weekday: 1, opens_at: "09:00", closes_at: "18:00"},
+                 %{weekday: 6, opens_at: "20:00", closes_at: "02:00"}
+               ],
+               special_hours: [
+                 %{date: "2026-12-25", kind: "closed"},
+                 %{
+                   date: "2026-12-31",
+                   kind: "custom",
+                   windows: [
+                     %{opens_at: "18:00", closes_at: "22:00"},
+                     %{opens_at: "23:00", closes_at: "02:00"}
+                   ]
+                 }
+               ],
+               expected_polo_place_id: fixture.ids.polo_place,
+               expected_revision: 0,
+               idempotency_key: "place-live-complete-profile"
+             })
+
+    session = authenticate!(admin_scope.actor_user_id)
+
+    {:ok, view, _html} =
+      conn
+      |> init_test_session(%{"backoffice_session_token" => session.token})
+      |> live("/admin/places/#{fixture.ids.polo_place}?polo=#{fixture.polo_slug}")
+
+    assert has_element?(view, "#place-profile-form")
+    assert has_element?(view, "#place-profile-revision", "1")
+    assert has_element?(view, "#profile_public_email[value='painel@perfil.example']")
+    assert has_element?(view, "#profile_public_phone[value='+5588999990101']")
+    assert has_element?(view, "#profile_category_keys option[value='cafe'][selected]")
+    assert has_element?(view, "#profile_category_keys option[value='restaurant'][selected]")
+    assert has_element?(view, "#profile_weekly_hours_0_weekday option[value='1'][selected]")
+    assert has_element?(view, "#profile_weekly_hours_1_closes_at[value='02:00:00']")
+    assert has_element?(view, "#profile_special_hours_0_local_date[value='2026-12-25']")
+    assert has_element?(view, "#profile_special_hours_1_windows_1_opens_at[value='23:00:00']")
+  end
+
+  test "publishes a missing profile and reloads its complete revision", %{conn: conn} do
+    fixture = RedemptionsFixtures.create!()
+    admin_scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    Factory.insert(:place_category, key: "cafe", name: "Cafe")
+    session = authenticate!(admin_scope.actor_user_id)
+
+    {:ok, view, _html} =
+      conn
+      |> init_test_session(%{"backoffice_session_token" => session.token})
+      |> live("/admin/places/#{fixture.ids.polo_place}?polo=#{fixture.polo_slug}")
+
+    view
+    |> form("#place-profile-form",
+      profile: %{
+        public_email: "novo@perfil.example",
+        public_phone: "(88) 99999-0101",
+        category_keys: ["cafe"],
+        weekly_hours: %{
+          "0" => %{weekday: "1", opens_at: "08:00", closes_at: "18:00"}
+        }
+      }
+    )
+    |> render_submit()
+
+    assert has_element?(view, "#place-profile-revision", "1")
+    assert has_element?(view, "#profile_public_email[value='novo@perfil.example']")
+    assert has_element?(view, "#profile_public_phone[value='+5588999990101']")
+
+    assert {:ok, %{profile: %{revision: 1, categories: [%{key: "cafe"}]}}} =
+             Directory.get_backoffice_place(admin_scope, fixture.ids.polo_place)
   end
 
   test "renders an invited participation without lifecycle controls", %{conn: conn} do
