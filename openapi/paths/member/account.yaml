@@ -42,6 +42,9 @@ profile:
     tags:
       - Account
     summary: Cria ou atualiza o perfil civil
+    description: >-
+      CPF e telefone são write-only: campos omitidos preservam os valores
+      atuais, enquanto null ou string vazia revoga o valor correspondente.
     requestBody:
       required: true
       content:

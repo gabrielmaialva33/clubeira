@@ -786,6 +786,7 @@
           "Account"
         ],
         "summary": "Cria ou atualiza o perfil civil",
+        "description": "CPF e telefone são write-only: campos omitidos preservam os valores atuais, enquanto null ou string vazia revoga o valor correspondente.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5005,6 +5006,7 @@
       },
       "Profile": {
         "type": "object",
+        "description": "Perfil civil. Como CPF e telefone são write-only, omitir esses campos preserva o valor atual; enviar null ou uma string vazia revoga o valor.",
         "properties": {
           "display_name": {
             "type": "string"
@@ -5014,12 +5016,18 @@
             "format": "date"
           },
           "cpf": {
-            "type": "string",
-            "description": "CPF de entrada; nunca é devolvido em claro."
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "CPF de entrada; nunca é devolvido em claro. Null ou vazio revoga o valor atual."
           },
           "phone": {
-            "type": "string",
-            "description": "Telefone de entrada; nunca é devolvido em claro."
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Telefone de entrada; nunca é devolvido em claro. Null ou vazio revoga o valor atual."
           }
         }
       },

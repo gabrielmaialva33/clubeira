@@ -119,6 +119,9 @@ PasswordReset:
           maxLength: 128
 Profile:
   type: object
+  description: >-
+    Perfil civil. Como CPF e telefone são write-only, omitir esses campos
+    preserva o valor atual; enviar null ou uma string vazia revoga o valor.
   properties:
     display_name:
       type: string
@@ -126,11 +129,15 @@ Profile:
       type: string
       format: date
     cpf:
-      type: string
-      description: CPF de entrada; nunca é devolvido em claro.
+      type:
+        - string
+        - 'null'
+      description: CPF de entrada; nunca é devolvido em claro. Null ou vazio revoga o valor atual.
     phone:
-      type: string
-      description: Telefone de entrada; nunca é devolvido em claro.
+      type:
+        - string
+        - 'null'
+      description: Telefone de entrada; nunca é devolvido em claro. Null ou vazio revoga o valor atual.
 Consent:
   type: object
   required:
