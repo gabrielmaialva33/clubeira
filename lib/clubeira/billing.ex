@@ -22,6 +22,7 @@ defmodule Clubeira.Billing do
   alias Clubeira.Billing.RecurringInvoiceSettler
   alias Clubeira.Billing.Refund
   alias Clubeira.Billing.RefundPayment
+  alias Clubeira.Billing.RefundRequest
   alias Clubeira.Billing.RefundSettler
   alias Clubeira.Subscriptions.AccessContract
   alias Clubeira.Subscriptions.Order
@@ -67,6 +68,12 @@ defmodule Clubeira.Billing do
   @spec refund_payment(Scope.t(), Ecto.UUID.t(), map()) ::
           {:ok, Refund.t()} | {:error, atom() | Ecto.Changeset.t()}
   defdelegate refund_payment(scope, payment_id, attributes), to: RefundPayment, as: :request
+
+  @doc false
+  @spec change_refund_request(term()) :: Ecto.Changeset.t()
+  def change_refund_request(attributes \\ %{}) do
+    RefundRequest.change(attributes)
+  end
 
   @spec handle_payment_webhook(String.t(), map()) ::
           {:ok, atom()} | {:error, atom() | Ecto.Changeset.t()}

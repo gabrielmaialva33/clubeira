@@ -15,6 +15,15 @@ defmodule Clubeira.Billing.RefundPaymentTest do
 
   @access_token "test-refund-access-token"
 
+  test "the refund form boundary rejects non-map and struct payloads without raising" do
+    Enum.each([:invalid, %Clubeira.Billing.RefundRequest{}], fn attributes ->
+      changeset = Billing.change_refund_request(attributes)
+
+      refute changeset.valid?
+      assert {:base, {"must be a map", []}} in changeset.errors
+    end)
+  end
+
   test "an authorized full refund revokes remaining balance without erasing issuance history" do
     fixture = BillingFixtures.create!()
     admin_scope = grant_admin!(fixture)
