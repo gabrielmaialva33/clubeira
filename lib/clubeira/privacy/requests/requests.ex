@@ -58,6 +58,12 @@ defmodule Clubeira.Privacy.Requests do
     end
   end
 
+  @spec get_platform(ActorScope.t(), Ecto.UUID.t()) ::
+          {:ok, map()} | {:error, :platform_privacy_officer_required | :privacy_request_not_found}
+  def get_platform(%ActorScope{} = scope, request_id) do
+    Repo.transact_as_actor(scope, &get_platform_in_scope(&1, scope, request_id))
+  end
+
   @spec transition(ActorScope.t(), Ecto.UUID.t(), RequestTransition.t()) ::
           {:ok, %{request: map(), replayed?: boolean()}}
           | {:error, atom() | Ecto.Changeset.t()}
@@ -95,6 +101,17 @@ defmodule Clubeira.Privacy.Requests do
     case Authorization.authorize(repo, scope, :manage_privacy, now) do
       :ok -> platform_request_page(repo, filters)
       {:error, _reason} = error -> error
+    end
+  end
+
+  defp get_platform_in_scope(repo, scope, request_id) do
+    now = transaction_time(repo)
+
+    with :ok <- Authorization.authorize(repo, scope, :manage_privacy, now) do
+      case repo.get(PrivacyRequest, request_id) do
+        %PrivacyRequest{} = request -> {:ok, build_request_view(repo, request)}
+        nil -> {:error, :privacy_request_not_found}
+      end
     end
   end
 
@@ -172,7 +189,7 @@ defmodule Clubeira.Privacy.Requests do
       request.status != transition.expected_status ->
         {:error, :stale_privacy_request}
 
-      not transition_allowed?(request.status, transition.action) ->
+      transition.action not in RequestTransition.available_actions(request.status) ->
         {:error, :invalid_privacy_request_transition}
 
       true ->
@@ -227,17 +244,6 @@ defmodule Clubeira.Privacy.Requests do
     request.status == target and
       (target != "rejected" or request.rejection_reason == transition.rejection_reason)
   end
-
-  defp transition_allowed?("received", action),
-    do: action in ~w(start_identity_verification start_processing reject cancel)
-
-  defp transition_allowed?("identity_verification", action),
-    do: action in ~w(start_processing reject cancel)
-
-  defp transition_allowed?("in_progress", action),
-    do: action in ~w(complete partially_complete reject cancel)
-
-  defp transition_allowed?(_status, _action), do: false
 
   defp transition_target("start_identity_verification"), do: "identity_verification"
   defp transition_target("start_processing"), do: "in_progress"

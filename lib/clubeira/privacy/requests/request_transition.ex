@@ -3,9 +3,16 @@ defmodule Clubeira.Privacy.RequestTransition do
 
   use Ecto.Schema
 
-  import Ecto.Changeset
+  import Ecto.Changeset, except: [change: 1, change: 2]
 
   @primary_key false
+  @actions_by_status %{
+    "received" => ~w(start_identity_verification start_processing reject cancel),
+    "identity_verification" => ~w(start_processing reject cancel),
+    "in_progress" => ~w(complete partially_complete reject cancel)
+  }
+  @actions @actions_by_status |> Map.values() |> List.flatten() |> Enum.uniq()
+  @fields [:action, :expected_status, :rejection_reason]
 
   embedded_schema do
     field :action, :string
@@ -19,20 +26,29 @@ defmodule Clubeira.Privacy.RequestTransition do
           rejection_reason: String.t() | nil
         }
 
-  @spec new(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
-  def new(attributes) when is_map(attributes) do
+  @spec available_actions(term()) :: [String.t()]
+  def available_actions(status), do: Map.get(@actions_by_status, status, [])
+
+  @spec change(term()) :: Ecto.Changeset.t()
+  def change(attributes \\ %{})
+
+  def change(attributes) when is_map(attributes) and not is_struct(attributes) do
+    cast(%__MODULE__{}, attributes, @fields)
+  end
+
+  def change(_attributes) do
     %__MODULE__{}
-    |> cast(attributes, [:action, :expected_status, :rejection_reason])
+    |> Ecto.Changeset.change()
+    |> add_error(:base, "must be a map")
+  end
+
+  @spec new(term()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
+  def new(attributes) when is_map(attributes) and not is_struct(attributes) do
+    attributes
+    |> change()
     |> update_change(:rejection_reason, &String.trim/1)
     |> validate_required([:action, :expected_status])
-    |> validate_inclusion(:action, ~w(
-      start_identity_verification
-      start_processing
-      complete
-      partially_complete
-      reject
-      cancel
-    ))
+    |> validate_inclusion(:action, @actions)
     |> validate_inclusion(:expected_status, ~w(
       received
       identity_verification
@@ -47,9 +63,8 @@ defmodule Clubeira.Privacy.RequestTransition do
   end
 
   def new(_attributes) do
-    %__MODULE__{}
+    :invalid
     |> change()
-    |> add_error(:base, "must be a map")
     |> apply_action(:update)
   end
 

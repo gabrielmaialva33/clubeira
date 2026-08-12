@@ -8,6 +8,8 @@ defmodule Clubeira.Privacy do
 
   alias Clubeira.Privacy.ConsentCommand
   alias Clubeira.Privacy.Consents
+  alias Clubeira.Privacy.ProcessingPurpose
+  alias Clubeira.Privacy.ProcessingPurposeLegalVersionReader
   alias Clubeira.Privacy.ProcessingPurposes
   alias Clubeira.Privacy.Requests
   alias Clubeira.Privacy.RequestSubmission
@@ -15,6 +17,12 @@ defmodule Clubeira.Privacy do
   alias Clubeira.Tenancy.ActorScope
 
   @type consent_state :: Consents.state()
+
+  @doc false
+  @spec change_consent(term()) :: Ecto.Changeset.t()
+  def change_consent(attributes \\ %{}) do
+    ConsentCommand.change(attributes)
+  end
 
   @spec put_consent(ActorScope.t(), String.t(), map()) ::
           {:ok, consent_state()} | {:error, atom() | Ecto.Changeset.t()}
@@ -34,6 +42,12 @@ defmodule Clubeira.Privacy do
           {:ok, [consent_state()]} | {:error, :profile_required | :invalid_actor_scope}
   def list_consents(%ActorScope{} = scope), do: Consents.list(scope)
   def list_consents(_scope), do: {:error, :invalid_actor_scope}
+
+  @doc false
+  @spec change_request_submission(term()) :: Ecto.Changeset.t()
+  def change_request_submission(attributes \\ %{}) do
+    RequestSubmission.change(attributes)
+  end
 
   @spec submit_request(ActorScope.t(), map()) ::
           {:ok, %{request: map(), replayed?: boolean()}}
@@ -60,6 +74,28 @@ defmodule Clubeira.Privacy do
   def list_platform_requests(%ActorScope{}, _params), do: {:error, :invalid_pagination}
   def list_platform_requests(_scope, _params), do: {:error, :invalid_actor_scope}
 
+  @spec get_platform_request(ActorScope.t(), Ecto.UUID.t()) ::
+          {:ok, map()} | {:error, atom()}
+  def get_platform_request(%ActorScope{} = scope, request_id) do
+    with {:ok, request_id} <- cast_request_id(request_id) do
+      Requests.get_platform(scope, request_id)
+    end
+  end
+
+  def get_platform_request(_scope, _request_id), do: {:error, :invalid_actor_scope}
+
+  @doc """
+  Returns the lifecycle actions available from one privacy-request status.
+  """
+  @spec available_actions(term()) :: [String.t()]
+  defdelegate available_actions(status), to: RequestTransition
+
+  @doc false
+  @spec change_request_transition(term()) :: Ecto.Changeset.t()
+  def change_request_transition(attributes \\ %{}) do
+    RequestTransition.change(attributes)
+  end
+
   @spec transition_request(ActorScope.t(), Ecto.UUID.t(), map()) ::
           {:ok, %{request: map(), replayed?: boolean()}}
           | {:error, atom() | Ecto.Changeset.t()}
@@ -82,10 +118,33 @@ defmodule Clubeira.Privacy do
   def list_processing_purposes(%ActorScope{} = scope), do: ProcessingPurposes.list(scope)
   def list_processing_purposes(_scope), do: {:error, :invalid_actor_scope}
 
+  @doc """
+  Lists the current legal versions an authorized privacy operator can select
+  for a processing purpose, with labels instead of opaque UUIDs alone.
+  """
+  @spec list_processing_purpose_legal_versions(ActorScope.t(), map()) ::
+          {:ok, [ProcessingPurposeLegalVersionReader.legal_version()]}
+          | {:error, atom()}
+  def list_processing_purpose_legal_versions(%ActorScope{} = scope, params)
+      when is_map(params) and not is_struct(params),
+      do: ProcessingPurposeLegalVersionReader.list(scope, params)
+
+  def list_processing_purpose_legal_versions(%ActorScope{}, _params),
+    do: {:error, :invalid_locale}
+
+  def list_processing_purpose_legal_versions(_scope, _params),
+    do: {:error, :invalid_actor_scope}
+
+  @doc false
+  @spec change_processing_purpose(term()) :: Ecto.Changeset.t()
+  def change_processing_purpose(attributes \\ %{}) do
+    ProcessingPurpose.change(attributes)
+  end
+
   @spec put_processing_purpose(ActorScope.t(), String.t(), map()) ::
           {:ok, map()} | {:error, atom() | Ecto.Changeset.t()}
   def put_processing_purpose(%ActorScope{} = scope, code, attributes)
-      when is_binary(code) and is_map(attributes),
+      when is_binary(code) and is_map(attributes) and not is_struct(attributes),
       do: ProcessingPurposes.put(scope, code, attributes)
 
   def put_processing_purpose(%ActorScope{}, _code, _attributes),

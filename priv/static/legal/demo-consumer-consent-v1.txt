@@ -1,0 +1,11 @@
+AVISO DE CONSENTIMENTO - COMUNICACOES DO CLUBEIRA
+Versao 1 - pt-BR - vigente desde 1 de janeiro de 2026
+
+Este documento existe exclusivamente para desenvolvimento, demonstracao e
+testes do Clubeira. A operacao comercial deve publicar uma versao revisada
+antes do lancamento.
+
+Ao conceder este consentimento, a pessoa usuaria autoriza o Clubeira a enviar
+comunicacoes opcionais sobre novos beneficios, parceiros e novidades do clube.
+O consentimento nao e requisito para usar a conta ou os beneficios contratados
+e pode ser retirado a qualquer momento na area de privacidade.
