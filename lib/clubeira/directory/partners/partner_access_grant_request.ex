@@ -3,7 +3,7 @@ defmodule Clubeira.Directory.PartnerAccessGrantRequest do
 
   use Ecto.Schema
 
-  import Ecto.Changeset
+  import Ecto.Changeset, except: [change: 1, change: 2]
 
   @primary_key false
 
@@ -14,12 +14,27 @@ defmodule Clubeira.Directory.PartnerAccessGrantRequest do
 
   @type t :: %__MODULE__{email: String.t(), idempotency_key: String.t()}
 
-  @spec new(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
-  def new(attributes) when is_map(attributes) do
+  @fields [:email, :idempotency_key]
+
+  @spec change(term()) :: Ecto.Changeset.t()
+  def change(attributes \\ %{})
+
+  def change(attributes) when is_map(attributes) and not is_struct(attributes) do
+    cast(%__MODULE__{}, attributes, @fields)
+  end
+
+  def change(_attributes) do
     %__MODULE__{}
-    |> cast(attributes, [:email, :idempotency_key])
+    |> Ecto.Changeset.change()
+    |> add_error(:base, "must be a map")
+  end
+
+  @spec new(term()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
+  def new(attributes) when is_map(attributes) and not is_struct(attributes) do
+    attributes
+    |> change()
     |> update_change(:email, &normalize_email/1)
-    |> validate_required([:email, :idempotency_key])
+    |> validate_required(@fields)
     |> validate_length(:email, max: 320)
     |> validate_format(:email, ~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/u)
     |> validate_length(:idempotency_key, min: 8, max: 128)
@@ -27,7 +42,11 @@ defmodule Clubeira.Directory.PartnerAccessGrantRequest do
     |> apply_action(:grant_partner_access)
   end
 
-  def new(_attributes), do: new(%{})
+  def new(_attributes) do
+    :invalid
+    |> change()
+    |> apply_action(:grant_partner_access)
+  end
 
   defp normalize_email(email), do: email |> String.trim() |> String.downcase()
 end

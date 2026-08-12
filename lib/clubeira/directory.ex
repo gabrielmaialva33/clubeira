@@ -14,8 +14,12 @@ defmodule Clubeira.Directory do
   alias Clubeira.Directory.City
   alias Clubeira.Directory.Organization
   alias Clubeira.Directory.PartnerAccessGrantor
+  alias Clubeira.Directory.PartnerAccessGrantRequest
+  alias Clubeira.Directory.PartnerAccessReader
+  alias Clubeira.Directory.PartnerAccessRevocationRequest
   alias Clubeira.Directory.PartnerAccessRevoker
   alias Clubeira.Directory.PartnerOnboarder
+  alias Clubeira.Directory.PartnerOnboardingRequest
   alias Clubeira.Directory.PartnerPlaceReader
   alias Clubeira.Directory.Place
   alias Clubeira.Directory.PlaceBrand
@@ -44,6 +48,11 @@ defmodule Clubeira.Directory do
           page: %{limit: pos_integer(), has_more: boolean(), next_cursor: String.t() | nil}
         }
 
+  @type public_place_detail :: %{
+          polo: %{id: Ecto.UUID.t(), slug: String.t(), name: String.t(), timezone: String.t()},
+          place: map()
+        }
+
   @doc """
   Onboards a partner and its first place into an authorized polo.
   """
@@ -54,6 +63,17 @@ defmodule Clubeira.Directory do
   end
 
   def onboard_partner(_scope, _attributes), do: {:error, :partner_admin_required}
+
+  @doc """
+  Builds the flat changeset used by partner onboarding forms.
+
+  The command itself continues to accept the nested public API payload through
+  `onboard_partner/2`.
+  """
+  @spec change_partner_onboarding_request(term()) :: Ecto.Changeset.t()
+  def change_partner_onboarding_request(attributes \\ %{}) do
+    PartnerOnboardingRequest.change(attributes)
+  end
 
   @doc """
   Grants a verified account partner access to one operated place in the polo.
@@ -67,6 +87,25 @@ defmodule Clubeira.Directory do
   def grant_partner_access(_scope, _place_id, _attributes),
     do: {:error, :partner_admin_required}
 
+  @doc false
+  @spec change_partner_access_grant_request(term()) :: Ecto.Changeset.t()
+  def change_partner_access_grant_request(attributes \\ %{}) do
+    PartnerAccessGrantRequest.change(attributes)
+  end
+
+  @doc """
+  Lists partner accesses in one authorized polo without exposing global
+  organization or credential details.
+  """
+  @spec list_backoffice_partner_accesses(Scope.t(), map()) ::
+          {:ok,
+           %{
+             partner_accesses: [PartnerAccessReader.partner_access()],
+             page: PartnerAccessReader.page()
+           }}
+          | {:error, term()}
+  defdelegate list_backoffice_partner_accesses(scope, params), to: PartnerAccessReader, as: :list
+
   @doc """
   Revokes one dedicated partner access inside an authorized polo.
   """
@@ -79,12 +118,34 @@ defmodule Clubeira.Directory do
   def revoke_partner_access(_scope, _access_id, _attributes),
     do: {:error, :partner_admin_required}
 
+  @doc false
+  @spec change_partner_access_revocation_request(term()) :: Ecto.Changeset.t()
+  def change_partner_access_revocation_request(attributes \\ %{}) do
+    PartnerAccessRevocationRequest.change(attributes)
+  end
+
   @doc """
   Lists active places managed by the authenticated partner inside one polo.
   """
   @spec list_partner_places(Scope.t(), map()) ::
           {:ok, %{places: [map()], page: map()}} | {:error, term()}
   defdelegate list_partner_places(scope, params), to: PartnerPlaceReader, as: :list
+
+  @doc """
+  Gets one exact active place and its complete profile for its assigned partner.
+  """
+  @spec get_partner_place(Scope.t(), Ecto.UUID.t()) ::
+          {:ok, map()} | {:error, :partner_access_required | :place_not_found | term()}
+  defdelegate get_partner_place(scope, polo_place_id), to: PartnerPlaceReader, as: :get
+
+  @doc """
+  Lists the active category catalog for an assigned partner place editor.
+  """
+  @spec list_partner_place_categories(Scope.t()) ::
+          {:ok, [map()]} | {:error, :partner_access_required | term()}
+  defdelegate list_partner_place_categories(scope),
+    to: PartnerPlaceReader,
+    as: :list_categories
 
   @doc """
   Replaces the public profile of an active place participation.
@@ -157,6 +218,27 @@ defmodule Clubeira.Directory do
 
   def fetch_public(_slug, _params), do: {:error, :polo_not_found}
 
+  @doc """
+  Gets one active public place by its routed polo and city-scoped slug.
+
+  The route resolves the tenant first; the exact lookup then runs inside that
+  polo's forced-RLS transaction.
+  """
+  @spec get_public_place(String.t(), String.t()) ::
+          {:ok, public_place_detail()} | {:error, :place_not_found | :polo_not_found}
+  def get_public_place(polo_slug, place_slug)
+      when is_binary(polo_slug) and is_binary(place_slug) and byte_size(place_slug) in 2..80 do
+    with {:ok, route} <- Polos.resolve_route(polo_slug) do
+      get_public_place_in_route(route, place_slug)
+    end
+  end
+
+  def get_public_place(polo_slug, _place_slug) when is_binary(polo_slug) do
+    with {:ok, _route} <- Polos.resolve_route(polo_slug), do: {:error, :place_not_found}
+  end
+
+  def get_public_place(_polo_slug, _place_slug), do: {:error, :polo_not_found}
+
   defp fetch_public_in_route(%PoloRoute{} = route, pagination) do
     scope = Scope.new!(route.polo_id)
 
@@ -181,75 +263,57 @@ defmodule Clubeira.Directory do
     end)
   end
 
+  defp get_public_place_in_route(%PoloRoute{} = route, place_slug) do
+    scope = Scope.new!(route.polo_id)
+
+    Repo.transact_in_polo(scope, fn repo ->
+      case repo.get(Polo, route.polo_id) do
+        %Polo{status: "active"} = polo ->
+          get_public_place_in_polo(repo, route, polo, place_slug)
+
+        %Polo{} ->
+          {:error, :polo_not_found}
+
+        nil ->
+          {:error, :polo_not_found}
+      end
+    end)
+  end
+
+  defp get_public_place_in_polo(repo, route, polo, place_slug) do
+    place =
+      polo.id
+      |> public_place_query()
+      |> where([place: place], place.city_id == ^polo.city_id and place.slug == ^place_slug)
+      |> repo.one()
+
+    case place do
+      nil ->
+        {:error, :place_not_found}
+
+      place ->
+        {:ok,
+         %{
+           polo: %{id: polo.id, slug: route.slug, name: polo.name, timezone: polo.timezone},
+           place: hydrate_public_places(repo, polo.id, [place]) |> List.first()
+         }}
+    end
+  end
+
   defp list_places(repo, polo_id, pagination) do
     query_limit = pagination.limit + 1
 
     rows =
-      PoloPlace
-      |> from(as: :polo_place)
-      |> join(:inner, [polo_place: polo_place], place in Place,
-        as: :place,
-        on: place.id == polo_place.place_id
-      )
-      |> join(:inner, [place: place], address in Address,
-        as: :address,
-        on: address.id == place.address_id and address.city_id == place.city_id
-      )
-      |> join(:inner, [place: place], city in City,
-        as: :city,
-        on: city.id == place.city_id
-      )
-      |> where([polo_place: polo_place], polo_place.polo_id == ^polo_id)
-      |> where([polo_place: polo_place], polo_place.status == "active")
-      |> where(
-        [polo_place: polo_place],
-        fragment("? @> statement_timestamp()", polo_place.participation_during)
-      )
-      |> where([place: place], place.status == "active")
-      |> where([city: city], city.status == "active")
+      polo_id
+      |> public_place_query()
       |> after_place(pagination.after_id)
       |> order_by([place: place], asc: place.id)
-      |> select([polo_place: polo_place, place: place, address: address, city: city], %{
-        polo_place_id: polo_place.id,
-        place_id: place.id,
-        slug: place.slug,
-        name: place.name,
-        timezone: place.timezone,
-        address: %{
-          street: address.street,
-          number: address.number,
-          complement: address.complement,
-          district: address.district,
-          postal_code: address.postal_code,
-          latitude: address.latitude,
-          longitude: address.longitude,
-          city: %{
-            id: city.id,
-            name: city.name,
-            country_code: city.country_code,
-            subdivision_code: city.subdivision_code,
-            timezone: city.timezone
-          }
-        }
-      })
       |> limit(^query_limit)
       |> repo.all()
 
     {page_rows, overflow} = Enum.split(rows, pagination.limit)
     has_more = overflow != []
-    place_ids = Enum.map(page_rows, & &1.place_id)
-    polo_place_ids = Enum.map(page_rows, & &1.polo_place_id)
-    brands_by_place = list_brands(repo, place_ids)
-    operators_by_place = list_operators(repo, place_ids)
-    profiles_by_polo_place = list_profiles(repo, polo_id, polo_place_ids)
-
-    places =
-      Enum.map(page_rows, fn place ->
-        place
-        |> Map.put(:brands, Map.get(brands_by_place, place.place_id, []))
-        |> Map.put(:operators, Map.get(operators_by_place, place.place_id, []))
-        |> Map.put(:profile, Map.get(profiles_by_polo_place, place.polo_place_id))
-      end)
+    places = hydrate_public_places(repo, polo_id, page_rows)
 
     %{
       places: places,
@@ -259,6 +323,69 @@ defmodule Clubeira.Directory do
         next_cursor: next_cursor(page_rows, has_more)
       }
     }
+  end
+
+  defp public_place_query(polo_id) do
+    PoloPlace
+    |> from(as: :polo_place)
+    |> join(:inner, [polo_place: polo_place], place in Place,
+      as: :place,
+      on: place.id == polo_place.place_id
+    )
+    |> join(:inner, [place: place], address in Address,
+      as: :address,
+      on: address.id == place.address_id and address.city_id == place.city_id
+    )
+    |> join(:inner, [place: place], city in City,
+      as: :city,
+      on: city.id == place.city_id
+    )
+    |> where([polo_place: polo_place], polo_place.polo_id == ^polo_id)
+    |> where([polo_place: polo_place], polo_place.status == "active")
+    |> where(
+      [polo_place: polo_place],
+      fragment("? @> statement_timestamp()", polo_place.participation_during)
+    )
+    |> where([place: place], place.status == "active")
+    |> where([city: city], city.status == "active")
+    |> select([polo_place: polo_place, place: place, address: address, city: city], %{
+      polo_place_id: polo_place.id,
+      place_id: place.id,
+      slug: place.slug,
+      name: place.name,
+      timezone: place.timezone,
+      address: %{
+        street: address.street,
+        number: address.number,
+        complement: address.complement,
+        district: address.district,
+        postal_code: address.postal_code,
+        latitude: address.latitude,
+        longitude: address.longitude,
+        city: %{
+          id: city.id,
+          name: city.name,
+          country_code: city.country_code,
+          subdivision_code: city.subdivision_code,
+          timezone: city.timezone
+        }
+      }
+    })
+  end
+
+  defp hydrate_public_places(repo, polo_id, places) do
+    place_ids = Enum.map(places, & &1.place_id)
+    polo_place_ids = Enum.map(places, & &1.polo_place_id)
+    brands_by_place = list_brands(repo, place_ids)
+    operators_by_place = list_operators(repo, place_ids)
+    profiles_by_polo_place = list_profiles(repo, polo_id, polo_place_ids)
+
+    Enum.map(places, fn place ->
+      place
+      |> Map.put(:brands, Map.get(brands_by_place, place.place_id, []))
+      |> Map.put(:operators, Map.get(operators_by_place, place.place_id, []))
+      |> Map.put(:profile, Map.get(profiles_by_polo_place, place.polo_place_id))
+    end)
   end
 
   defp after_place(query, nil), do: query

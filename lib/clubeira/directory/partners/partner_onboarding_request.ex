@@ -3,7 +3,7 @@ defmodule Clubeira.Directory.PartnerOnboardingRequest do
 
   use Ecto.Schema
 
-  import Ecto.Changeset
+  import Ecto.Changeset, except: [change: 1, change: 2]
 
   alias Clubeira.Directory.Cnpj
 
@@ -67,6 +67,23 @@ defmodule Clubeira.Directory.PartnerOnboardingRequest do
           district: String.t(),
           idempotency_key: String.t()
         }
+
+  @doc """
+  Builds a presentation changeset from the flat partner onboarding form.
+
+  The command constructor in `new/1` intentionally keeps accepting the nested
+  public API payload and normalizes it before applying domain validations.
+  """
+  @spec change(term()) :: Ecto.Changeset.t()
+  def change(attributes) when is_map(attributes) and not is_struct(attributes) do
+    cast(%__MODULE__{}, attributes, @fields)
+  end
+
+  def change(_attributes) do
+    %__MODULE__{}
+    |> Ecto.Changeset.change()
+    |> add_error(:base, "must be a map")
+  end
 
   @spec new(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
   def new(attributes) when is_map(attributes) do

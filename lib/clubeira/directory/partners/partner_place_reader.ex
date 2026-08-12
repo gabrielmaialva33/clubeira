@@ -3,9 +3,13 @@ defmodule Clubeira.Directory.PartnerPlaceReader do
 
   import Ecto.Query
 
+  alias Clubeira.Directory.BackofficePlaceProfileView
   alias Clubeira.Directory.PartnerPlaceAccess
   alias Clubeira.Directory.Place
+  alias Clubeira.Directory.PlaceCategory
+  alias Clubeira.Directory.PoloPlaceOpeningPeriod
   alias Clubeira.Directory.PoloPlaceProfile
+  alias Clubeira.Directory.PoloPlaceProfileCategory
   alias Clubeira.Polos.Authorization
   alias Clubeira.Polos.PoloPlace
   alias Clubeira.Repo
@@ -27,6 +31,29 @@ defmodule Clubeira.Directory.PartnerPlaceReader do
 
   def list(_scope, _params), do: {:error, :partner_access_required}
 
+  @spec get(Scope.t(), Ecto.UUID.t()) ::
+          {:ok, map()} | {:error, :partner_access_required | :place_not_found | term()}
+  def get(%Scope{actor_user_id: nil}, _polo_place_id),
+    do: {:error, :partner_access_required}
+
+  def get(%Scope{} = scope, polo_place_id) do
+    with {:ok, polo_place_id} <- cast_place_id(polo_place_id) do
+      Repo.transact_in_polo(scope, &get_authorized(&1, scope, polo_place_id))
+    end
+  end
+
+  def get(_scope, _polo_place_id), do: {:error, :partner_access_required}
+
+  @spec list_categories(Scope.t()) ::
+          {:ok, [map()]} | {:error, :partner_access_required | term()}
+  def list_categories(%Scope{actor_user_id: nil}), do: {:error, :partner_access_required}
+
+  def list_categories(%Scope{} = scope) do
+    Repo.transact_in_polo(scope, &list_categories_authorized(&1, scope))
+  end
+
+  def list_categories(_scope), do: {:error, :partner_access_required}
+
   defp list_authorized(repo, scope, pagination) do
     now = transaction_time(repo)
 
@@ -35,38 +62,54 @@ defmodule Clubeira.Directory.PartnerPlaceReader do
     end
   end
 
+  defp get_authorized(repo, scope, polo_place_id) do
+    now = transaction_time(repo)
+
+    with :ok <- Authorization.authorize(repo, scope, :manage_own_places, now) do
+      place =
+        scope
+        |> partner_places_query(now)
+        |> where([polo_place: participation], participation.id == ^polo_place_id)
+        |> select_place()
+        |> repo.one()
+
+      if place do
+        {:ok, place |> place_data() |> Map.put(:profile, full_profile(repo, place))}
+      else
+        {:error, :place_not_found}
+      end
+    end
+  end
+
+  defp list_categories_authorized(repo, scope) do
+    now = transaction_time(repo)
+
+    with :ok <- Authorization.authorize(repo, scope, :manage_own_places, now),
+         true <- repo.exists?(partner_places_query(scope, now)) do
+      categories =
+        PlaceCategory
+        |> where([category], category.status == "active")
+        |> order_by([category], asc: category.display_order, asc: category.key)
+        |> select([category], %{
+          key: category.key,
+          name: category.name,
+          display_order: category.display_order
+        })
+        |> repo.all()
+
+      {:ok, categories}
+    else
+      false -> {:error, :partner_access_required}
+      {:error, _reason} = error -> error
+    end
+  end
+
   defp place_page(repo, scope, pagination, now) do
     query_limit = pagination.limit + 1
-    active_place_ids = PartnerPlaceAccess.active_place_ids_query(scope, now)
 
     rows =
-      PoloPlace
-      |> from(as: :polo_place)
-      |> join(:inner, [polo_place: participation], place in Place,
-        as: :place,
-        on: place.id == participation.place_id
-      )
-      |> join(:inner, [place: place], access in subquery(active_place_ids),
-        as: :partner_access,
-        on: access.place_id == place.id
-      )
-      |> join(:left, [polo_place: participation], profile in PoloPlaceProfile,
-        as: :profile,
-        on:
-          profile.polo_id == participation.polo_id and
-            profile.polo_place_id == participation.id
-      )
-      |> where([polo_place: participation], participation.polo_id == ^scope.polo_id)
-      |> where([polo_place: participation], participation.status == "active")
-      |> where([place: place], place.status == "active")
-      |> where(
-        [polo_place: participation],
-        fragment(
-          "? @> (? AT TIME ZONE 'UTC')",
-          participation.participation_during,
-          type(^now, :utc_datetime_usec)
-        )
-      )
+      scope
+      |> partner_places_query(now)
       |> after_place(pagination.after)
       |> order_by([polo_place: participation],
         desc: participation.inserted_at,
@@ -87,6 +130,38 @@ defmodule Clubeira.Directory.PartnerPlaceReader do
         next_cursor: next_cursor(page_rows, has_more)
       }
     }
+  end
+
+  defp partner_places_query(scope, now) do
+    active_place_ids = PartnerPlaceAccess.active_place_ids_query(scope, now)
+
+    PoloPlace
+    |> from(as: :polo_place)
+    |> join(:inner, [polo_place: participation], place in Place,
+      as: :place,
+      on: place.id == participation.place_id
+    )
+    |> join(:inner, [place: place], access in subquery(active_place_ids),
+      as: :partner_access,
+      on: access.place_id == place.id
+    )
+    |> join(:left, [polo_place: participation], profile in PoloPlaceProfile,
+      as: :profile,
+      on:
+        profile.polo_id == participation.polo_id and
+          profile.polo_place_id == participation.id
+    )
+    |> where([polo_place: participation], participation.polo_id == ^scope.polo_id)
+    |> where([polo_place: participation], participation.status == "active")
+    |> where([place: place], place.status == "active")
+    |> where(
+      [polo_place: participation],
+      fragment(
+        "? @> (? AT TIME ZONE 'UTC')",
+        participation.participation_during,
+        type(^now, :utc_datetime_usec)
+      )
+    )
   end
 
   defp select_place(query) do
@@ -139,6 +214,41 @@ defmodule Clubeira.Directory.PartnerPlaceReader do
     }
   end
 
+  defp full_profile(_repo, %{profile_id: nil}), do: nil
+
+  defp full_profile(repo, row) do
+    profile = repo.get!(PoloPlaceProfile, row.profile_id)
+
+    categories =
+      PoloPlaceProfileCategory
+      |> join(:inner, [profile_category], category in PlaceCategory,
+        on: category.id == profile_category.place_category_id
+      )
+      |> where(
+        [profile_category],
+        profile_category.polo_id == ^profile.polo_id and
+          profile_category.polo_place_profile_id == ^profile.id
+      )
+      |> select([_profile_category, category], %{
+        key: category.key,
+        name: category.name,
+        status: category.status,
+        display_order: category.display_order
+      })
+      |> repo.all()
+
+    periods =
+      PoloPlaceOpeningPeriod
+      |> where(
+        [period],
+        period.polo_id == ^profile.polo_id and
+          period.polo_place_profile_id == ^profile.id
+      )
+      |> repo.all()
+
+    BackofficePlaceProfileView.build(profile, categories, periods)
+  end
+
   defp after_place(query, nil), do: query
 
   defp after_place(query, %{recorded_at: recorded_at, id: id}) do
@@ -184,6 +294,13 @@ defmodule Clubeira.Directory.PartnerPlaceReader do
   end
 
   defp parse_cursor(_cursor), do: :error
+
+  defp cast_place_id(place_id) do
+    case Ecto.UUID.cast(place_id) do
+      {:ok, place_id} -> {:ok, place_id}
+      :error -> {:error, :place_not_found}
+    end
+  end
 
   defp next_cursor(_places, false), do: nil
 

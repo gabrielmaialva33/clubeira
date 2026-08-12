@@ -38,14 +38,38 @@ defmodule Clubeira.Directory.PartnerPlaceAccess do
 
   @spec active_place_ids_query(Scope.t(), DateTime.t()) :: Ecto.Query.t()
   def active_place_ids_query(%Scope{} = scope, now) do
-    scope
+    [scope.actor_user_id]
     |> active_assignments_query(now)
-    |> select([assignment], %{place_id: assignment.place_id})
+    |> select([assignment: assignment], %{place_id: assignment.place_id})
+    |> distinct(true)
+  end
+
+  @doc false
+  @spec active_place_organizations_query(Scope.t(), DateTime.t()) :: Ecto.Query.t()
+  def active_place_organizations_query(%Scope{} = scope, now) do
+    [scope.actor_user_id]
+    |> active_assignments_query(now)
+    |> select([assignment: assignment], %{
+      place_id: assignment.place_id,
+      organization_id: assignment.organization_id
+    })
+    |> distinct(true)
+  end
+
+  @doc false
+  @spec active_places_for_users_query([Ecto.UUID.t()], DateTime.t()) :: Ecto.Query.t()
+  def active_places_for_users_query(user_ids, now) when is_list(user_ids) do
+    user_ids
+    |> active_assignments_query(now)
+    |> select([assignment: assignment], %{
+      user_id: assignment.user_id,
+      place_id: assignment.place_id
+    })
     |> distinct(true)
   end
 
   defp assigned_organization(repo, scope, place_id, now) do
-    scope
+    [scope.actor_user_id]
     |> active_assignments_query(now)
     |> where([assignment: assignment], assignment.place_id == ^place_id)
     |> select([assignment: assignment], assignment.organization_id)
@@ -54,13 +78,13 @@ defmodule Clubeira.Directory.PartnerPlaceAccess do
     |> repo.one()
   end
 
-  defp active_assignments_query(scope, now) do
+  defp active_assignments_query(user_ids, now) do
     PlaceStaffAssignment
     |> from(as: :assignment)
     |> join_place_role()
     |> join_organization_role()
     |> join_operator()
-    |> filter_active(scope)
+    |> filter_active(user_ids)
     |> filter_current(now)
   end
 
@@ -123,11 +147,11 @@ defmodule Clubeira.Directory.PartnerPlaceAccess do
     )
   end
 
-  defp filter_active(query, scope) do
+  defp filter_active(query, user_ids) do
     query
     |> where(
       [assignment: assignment],
-      assignment.user_id == ^scope.actor_user_id and assignment.status == "active"
+      assignment.user_id in ^user_ids and assignment.status == "active"
     )
     |> where(
       [place_role: place_role],
