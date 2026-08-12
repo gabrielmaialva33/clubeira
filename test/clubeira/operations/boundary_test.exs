@@ -2,7 +2,33 @@ defmodule Clubeira.Operations.BoundaryTest do
   use ExUnit.Case, async: true
 
   alias Clubeira.Operations
+  alias Clubeira.Operations.OutboxRetryRequest
   alias Clubeira.Tenancy.Scope
+
+  test "the outbox-retry form boundary rejects non-map and struct payloads without raising" do
+    Enum.each([:invalid, %Clubeira.Operations.OutboxRetryRequest{}], fn attributes ->
+      changeset = Operations.change_outbox_retry_request(attributes)
+
+      refute changeset.valid?
+      assert {:base, {"must be a map", []}} in changeset.errors
+    end)
+  end
+
+  test "the outbox-retry command validates its external idempotency key" do
+    assert {:ok, request} = OutboxRetryRequest.new(%{"idempotency_key" => "outbox-retry-001"})
+    assert request.idempotency_key == "outbox-retry-001"
+
+    for attributes <- [
+          :invalid,
+          %URI{},
+          %{},
+          %{"idempotency_key" => "short"},
+          %{"idempotency_key" => "invalid key"}
+        ] do
+      assert {:error, changeset} = OutboxRetryRequest.new(attributes)
+      refute changeset.valid?
+    end
+  end
 
   test "operational APIs fail closed before touching the database without an actor or scope" do
     polo_id = Ecto.UUID.generate(version: 7)

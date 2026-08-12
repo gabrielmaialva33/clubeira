@@ -4,8 +4,9 @@ defmodule Clubeira.RuntimeConfigTest do
   alias Clubeira.RuntimeConfig
 
   @environment_variables ~w(
-    CLUBEIRA_PIX_PROVIDER DATABASE_CA_CERT_FILE DATABASE_SSL PHX_HOST
-    PLATFORM_BILLING_MERCHANT_ACCOUNT_ID POOL_SIZE REVIEW_MEDIA_PUBLIC_BASE_URL
+    CLUBEIRA_PIX_PROVIDER CLUBEIRA_TEST_CONFIG CLUBEIRA_TEST_EMAIL CLUBEIRA_TEST_KEY
+    DATABASE_CA_CERT_FILE DATABASE_SSL PHX_HOST PLATFORM_BILLING_MERCHANT_ACCOUNT_ID
+    POOL_SIZE REVIEW_MEDIA_PUBLIC_BASE_URL
   )
 
   setup do
@@ -20,6 +21,12 @@ defmodule Clubeira.RuntimeConfigTest do
   end
 
   test "integer_in_range!/3 names invalid and out-of-range values" do
+    System.delete_env("POOL_SIZE")
+    assert RuntimeConfig.integer_in_range!("POOL_SIZE", 10, 1..100) == 10
+
+    System.put_env("POOL_SIZE", "42")
+    assert RuntimeConfig.integer_in_range!("POOL_SIZE", 10, 1..100) == 42
+
     System.put_env("POOL_SIZE", "many")
 
     assert_raise RuntimeError, ~r/POOL_SIZE must be an integer in 1\.\.100/, fn ->
@@ -31,6 +38,54 @@ defmodule Clubeira.RuntimeConfigTest do
     assert_raise RuntimeError, ~r/POOL_SIZE must be an integer in 1\.\.100/, fn ->
       RuntimeConfig.integer_in_range!("POOL_SIZE", 10, 1..100)
     end
+  end
+
+  test "boolean!/2 accepts canonical values and rejects ambiguous input" do
+    System.delete_env("CLUBEIRA_TEST_CONFIG")
+    assert RuntimeConfig.boolean!("CLUBEIRA_TEST_CONFIG", true)
+
+    for {value, expected} <- [{"true", true}, {"1", true}, {"FALSE", false}, {"0", false}] do
+      System.put_env("CLUBEIRA_TEST_CONFIG", value)
+      assert RuntimeConfig.boolean!("CLUBEIRA_TEST_CONFIG", not expected) == expected
+    end
+
+    System.put_env("CLUBEIRA_TEST_CONFIG", "yes")
+
+    assert_raise RuntimeError, ~r/must be true, false, 1, or 0/, fn ->
+      RuntimeConfig.boolean!("CLUBEIRA_TEST_CONFIG", false)
+    end
+  end
+
+  test "required_env!/1 and base64url_key!/1 fail closed without leaking secrets" do
+    System.put_env("CLUBEIRA_TEST_CONFIG", "  ")
+
+    assert_raise RuntimeError, ~r/environment variable CLUBEIRA_TEST_CONFIG is required/, fn ->
+      RuntimeConfig.required_env!("CLUBEIRA_TEST_CONFIG")
+    end
+
+    System.put_env("CLUBEIRA_TEST_CONFIG", "configured")
+    assert RuntimeConfig.required_env!("CLUBEIRA_TEST_CONFIG") == "configured"
+
+    System.put_env("CLUBEIRA_TEST_KEY", "invalid")
+
+    assert_raise RuntimeError, ~r/must be unpadded base64url encoding exactly 32 bytes/, fn ->
+      RuntimeConfig.base64url_key!("CLUBEIRA_TEST_KEY")
+    end
+
+    key = :crypto.strong_rand_bytes(32)
+    System.put_env("CLUBEIRA_TEST_KEY", Base.url_encode64(key, padding: false))
+    assert RuntimeConfig.base64url_key!("CLUBEIRA_TEST_KEY") == key
+  end
+
+  test "email!/1 accepts a configured mailbox and rejects malformed values" do
+    System.put_env("CLUBEIRA_TEST_EMAIL", "not-an-email")
+
+    assert_raise RuntimeError, ~r/CLUBEIRA_TEST_EMAIL must be an email address/, fn ->
+      RuntimeConfig.email!("CLUBEIRA_TEST_EMAIL")
+    end
+
+    System.put_env("CLUBEIRA_TEST_EMAIL", "ops@clubeira.example")
+    assert RuntimeConfig.email!("CLUBEIRA_TEST_EMAIL") == "ops@clubeira.example"
   end
 
   test "host!/1 requires a bare hostname" do
@@ -65,6 +120,15 @@ defmodule Clubeira.RuntimeConfigTest do
 
   test "database_ssl!/0 rejects a missing custom CA file" do
     System.put_env("DATABASE_SSL", "true")
+
+    System.put_env("DATABASE_CA_CERT_FILE", "")
+
+    assert_raise RuntimeError,
+                 ~r/DATABASE_CA_CERT_FILE must point to a readable regular file/,
+                 fn ->
+                   RuntimeConfig.database_ssl!()
+                 end
+
     System.put_env("DATABASE_CA_CERT_FILE", "/missing/clubeira-ca.pem")
 
     assert_raise RuntimeError,
@@ -72,6 +136,13 @@ defmodule Clubeira.RuntimeConfigTest do
                  fn ->
                    RuntimeConfig.database_ssl!()
                  end
+  end
+
+  test "database_ssl!/0 accepts an absolute readable CA file" do
+    System.put_env("DATABASE_SSL", "true")
+    System.put_env("DATABASE_CA_CERT_FILE", legal_content_file())
+
+    assert RuntimeConfig.database_ssl!() == [cacertfile: legal_content_file()]
   end
 
   test "uuid!/1 validates configured database identities" do
@@ -131,5 +202,9 @@ defmodule Clubeira.RuntimeConfigTest do
 
     System.put_env("CLUBEIRA_PIX_PROVIDER", "stripe_connect")
     assert RuntimeConfig.provider_code!("CLUBEIRA_PIX_PROVIDER") == "stripe_connect"
+  end
+
+  defp legal_content_file do
+    Application.app_dir(:clubeira, "priv/static/legal/demo-consumer-terms-v1.txt")
   end
 end

@@ -7,6 +7,7 @@ defmodule Clubeira.Billing.RefundPaymentTest do
   alias Clubeira.Billing
   alias Clubeira.Billing.Gateways.MercadoPago
   alias Clubeira.Billing.Payment
+  alias Clubeira.Billing.RefundRequest
   alias Clubeira.BillingFixtures
   alias Clubeira.Events.DomainEvent
   alias Clubeira.Events.OutboxMessage
@@ -22,6 +23,27 @@ defmodule Clubeira.Billing.RefundPaymentTest do
       refute changeset.valid?
       assert {:base, {"must be a map", []}} in changeset.errors
     end)
+  end
+
+  test "the refund command normalizes reason and validates its replay identity" do
+    assert {:ok, request} =
+             RefundRequest.new(%{
+               "reason" => "  Cancelamento solicitado  ",
+               "idempotency_key" => "refund-request-001"
+             })
+
+    assert request.reason == "Cancelamento solicitado"
+
+    for attributes <- [
+          :invalid,
+          %URI{},
+          %{},
+          %{"reason" => "x", "idempotency_key" => "refund-request-002"},
+          %{"reason" => "Motivo válido", "idempotency_key" => "invalid key"}
+        ] do
+      assert {:error, changeset} = RefundRequest.new(attributes)
+      refute changeset.valid?
+    end
   end
 
   test "an authorized full refund revokes remaining balance without erasing issuance history" do

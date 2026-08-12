@@ -25,6 +25,17 @@ defmodule Clubeira.Outbox.DeliveryTest do
     end
   end
 
+  defmodule DefensiveAdapter do
+    @moduledoc false
+
+    def publish(%{message_key: "invalid"}, _options), do: :unexpected
+    def publish(%{message_key: "raise"}, _options), do: raise("adapter failed")
+    def publish(%{message_key: "throw"}, _options), do: throw(:adapter_failed)
+    def publish(%{message_key: "transport"}, _options), do: {:error, {:transport, :timeout}}
+    def publish(%{message_key: "atom"}, _options), do: {:error, :rejected}
+    def publish(%{message_key: "opaque"}, _options), do: {:error, {"private", "detail"}}
+  end
+
   test "claims, publishes, and marks a tenant message exactly once" do
     fixture = RedemptionsFixtures.create!()
     message_id = emit_message!(fixture)
@@ -158,7 +169,56 @@ defmodule Clubeira.Outbox.DeliveryTest do
              )
   end
 
-  defp emit_message!(fixture) do
+  test "normalizes every adapter failure without leaking opaque details" do
+    fixture = RedemptionsFixtures.create!()
+
+    for key <- ~w(invalid raise throw transport atom opaque) do
+      emit_message!(fixture, key)
+    end
+
+    assert {:ok, 6} =
+             Delivery.run_once(fixture.scope,
+               adapter: DefensiveAdapter,
+               worker_id: "defensive-delivery-test",
+               batch_size: 10,
+               retry_base_ms: 1,
+               retry_max_ms: 1
+             )
+
+    assert %{rows: rows} =
+             RedemptionsFixtures.scoped_query!(
+               fixture,
+               """
+               SELECT message_key, last_error
+               FROM outbox_messages
+               WHERE message_key = ANY($1)
+               ORDER BY message_key
+               """,
+               [~w(invalid raise throw transport atom opaque)]
+             )
+
+    assert rows == [
+             ["atom", "rejected"],
+             ["invalid", "invalid_adapter_response"],
+             ["opaque", "adapter_error"],
+             ["raise", "exception:Elixir.RuntimeError"],
+             ["throw", "throw:throw"],
+             ["transport", "transport:timeout"]
+           ]
+  end
+
+  test "rejects non-positive delivery limits before touching the database" do
+    fixture = RedemptionsFixtures.create!()
+
+    for key <- [:batch_size, :lock_timeout_ms, :max_attempts, :retry_base_ms, :retry_max_ms] do
+      assert_raise ArgumentError, ~r/#{key} must be a positive integer/, fn ->
+        options = Keyword.put([adapter: CaptureAdapter, worker_id: "invalid-config"], key, 0)
+        Delivery.run_once(fixture.scope, options)
+      end
+    end
+  end
+
+  defp emit_message!(fixture, message_key \\ "example-key") do
     {:ok, message_id} =
       Repo.transact_in_polo(fixture.scope, fn repo ->
         now = DateTime.utc_now(:microsecond)
@@ -171,7 +231,7 @@ defmodule Clubeira.Outbox.DeliveryTest do
             aggregate_version: 1,
             event_type: "test.example",
             topic: "tests.example",
-            message_key: "example-key",
+            message_key: message_key,
             payload: %{"example" => true},
             occurred_at: now
           })

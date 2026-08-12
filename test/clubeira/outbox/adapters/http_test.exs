@@ -54,6 +54,37 @@ defmodule Clubeira.Outbox.Adapters.HttpTest do
     assert {:error, {:transport, :timeout}} = Http.publish(message(), options())
   end
 
+  test "rejects unsafe destinations before making a request" do
+    invalid_urls = [
+      "http://events.example.test/events",
+      "https://user:password@events.example.test/events",
+      "https:///events",
+      "not a url",
+      String.duplicate("x", 2_049),
+      nil
+    ]
+
+    for url <- invalid_urls do
+      assert_raise ArgumentError, ~r/absolute HTTPS URL/, fn ->
+        Http.publish(message(), Keyword.put(options(), :url, url))
+      end
+    end
+  end
+
+  test "requires a strong secret and a positive receive timeout" do
+    for secret <- [nil, "short", String.duplicate("x", 31)] do
+      assert_raise ArgumentError, ~r/secret must contain at least 32 bytes/, fn ->
+        Http.publish(message(), Keyword.put(options(), :secret, secret))
+      end
+    end
+
+    for timeout <- [nil, 0, -1, "1000"] do
+      assert_raise ArgumentError, ~r/receive_timeout must be a positive integer/, fn ->
+        Http.publish(message(), Keyword.put(options(), :receive_timeout, timeout))
+      end
+    end
+  end
+
   defp options do
     [
       url: "https://events.example.test/events/clubeira",

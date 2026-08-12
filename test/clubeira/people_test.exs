@@ -99,7 +99,7 @@ defmodule Clubeira.PeopleTest do
              end)
   end
 
-  test "replaces sensitive values append-only and revokes values omitted by the full PUT", %{
+  test "replaces sensitive values append-only, preserves omissions and revokes explicit nulls", %{
     scope: scope,
     user: user
   } do
@@ -121,8 +121,19 @@ defmodule Clubeira.PeopleTest do
     assert replaced.identifiers == [%{kind: "cpf", verified_at: nil}]
     assert replaced.contact_points == [%{kind: "phone", primary: true, verified_at: nil}]
 
-    assert {:ok, cleared} =
+    assert {:ok, preserved} =
              People.put_self_profile(scope, %{"display_name" => "Titular do Perfil"})
+
+    assert preserved.id == profile.id
+    assert preserved.identifiers == [%{kind: "cpf", verified_at: nil}]
+    assert preserved.contact_points == [%{kind: "phone", primary: true, verified_at: nil}]
+
+    assert {:ok, cleared} =
+             People.put_self_profile(scope, %{
+               "display_name" => "Titular do Perfil",
+               "cpf" => nil,
+               "phone" => nil
+             })
 
     assert cleared.id == profile.id
     assert cleared.identifiers == []
