@@ -1,0 +1,58 @@
+<div id="browser-email-verification" class="min-h-screen bg-[#f4f7fb] px-5 py-10 sm:px-8">
+  <main class="mx-auto w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_16px_55px_rgba(15,23,42,.08)] sm:p-9">
+    <.link href={~p"/explorar"} class="inline-flex items-center gap-3" aria-label="Clubeira">
+      <span class="grid size-11 place-items-center rounded-2xl bg-[#0b2342]">
+        <img src={~p"/images/logo.svg"} class="h-7 w-9 brightness-0 invert" alt="" />
+      </span>
+      <span class="font-black tracking-[-0.04em]">Clubeira</span>
+    </.link>
+
+    <p class="mt-9 text-xs font-black uppercase tracking-[0.18em] text-orange-600">
+      {gettext("Account security")}
+    </p>
+    <h1 class="mt-2 text-3xl font-black tracking-[-0.045em]">
+      {gettext("Verify your email")}
+    </h1>
+
+    <div
+      :if={@error}
+      id="browser-email-verification-error"
+      role="alert"
+      class="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+    >
+      {@error}
+    </div>
+
+    <div
+      :if={@completed?}
+      id="email-verification-completed"
+      role="status"
+      class="mt-6 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"
+    >
+      {gettext("Your email is verified.")}
+    </div>
+
+    <.form
+      :if={@form}
+      for={@form}
+      id="email-verification-form"
+      action={~p"/verificar-email"}
+      method="post"
+      class="mt-7"
+    >
+      <button
+        id="email-verification-submit"
+        type="submit"
+        class="inline-flex h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-black text-white hover:bg-blue-700"
+      >
+        {gettext("Confirm email")}
+      </button>
+    </.form>
+
+    <p class="mt-6 text-center text-sm text-slate-500">
+      <.link href={~p"/app"} class="font-black text-blue-700">
+        {gettext("Continue to Clubeira")}
+      </.link>
+    </p>
+  </main>
+</div>

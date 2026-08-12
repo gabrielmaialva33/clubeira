@@ -1,5 +1,5 @@
 <div
-  id="backoffice-login"
+  id={@login_id}
   class="min-h-screen bg-[#f4f7fb] lg:grid lg:grid-cols-[minmax(0,1.08fr)_minmax(480px,0.92fr)]"
 >
   <section class="relative hidden min-h-screen overflow-hidden bg-[#081b33] px-12 py-10 text-white lg:flex lg:flex-col lg:justify-between xl:px-20 xl:py-14">
@@ -14,7 +14,7 @@
       <div>
         <p class="text-xl font-black tracking-[-0.035em]">Clubeira</p>
         <p class="text-xs font-semibold uppercase tracking-[0.24em] text-blue-200">
-          {gettext("Backoffice")}
+          {@surface_label}
         </p>
       </div>
     </div>
@@ -66,18 +66,18 @@
         <div>
           <p class="text-lg font-black tracking-[-0.035em] text-slate-950">Clubeira</p>
           <p class="text-[10px] font-bold uppercase tracking-[0.22em] text-blue-600">
-            {gettext("Backoffice")}
+            {@surface_label}
           </p>
         </div>
       </div>
 
       <div>
-        <p class="text-sm font-bold text-orange-600">{gettext("Welcome back")}</p>
+        <p class="text-sm font-bold text-orange-600">{@form_eyebrow}</p>
         <h2 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950">
-          {gettext("Sign in to your operation")}
+          {@form_heading}
         </h2>
         <p class="mt-3 text-sm leading-6 text-slate-500">
-          {gettext("Use your administrative account to continue.")}
+          {@form_description}
         </p>
       </div>
 
@@ -93,8 +93,8 @@
 
       <.form
         for={@form}
-        id="backoffice-login-form"
-        action={~p"/admin/login"}
+        id={@login_form_id}
+        action={@form_action}
         method="post"
         class="mt-8"
       >
@@ -124,10 +124,28 @@
           type="submit"
           class="mt-2 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white shadow-[0_12px_28px_rgba(37,99,235,.24)] transition hover:-translate-y-0.5 hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 active:translate-y-0"
         >
-          {gettext("Enter backoffice")}
+          {@submit_label}
           <.icon name="hero-arrow-right" class="size-4" />
         </button>
       </.form>
+
+      <nav
+        :if={@login_id == "member-login"}
+        id="member-auth-links"
+        class="mt-5 flex items-center justify-between gap-4 text-sm"
+        aria-label={gettext("Member account")}
+      >
+        <.link id="member-register-link" href={~p"/registrar"} class="font-bold text-blue-700">
+          {gettext("Create account")}
+        </.link>
+        <.link
+          id="member-password-reset-link"
+          href={~p"/esqueci-minha-senha"}
+          class="font-bold text-blue-700"
+        >
+          {gettext("Forgot password?")}
+        </.link>
+      </nav>
 
       <div class="mt-8 flex items-center justify-between border-t border-slate-200 pt-6 text-xs text-slate-400">
         <span>{gettext("Protected environment")}</span>

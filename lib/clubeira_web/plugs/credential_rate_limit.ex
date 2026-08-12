@@ -37,15 +37,15 @@ defmodule ClubeiraWeb.Plugs.CredentialRateLimit do
     limiter = Keyword.fetch!(config, :limiter)
     limits = config |> Keyword.fetch!(:limits) |> Keyword.fetch!(action)
 
-    case first_denied_limit(limiter, action, conn, limits) do
+    case first_denied_limit(limiter, action, conn, limits, options) do
       nil -> conn
-      {dimension, retry_after_ms} -> reject(conn, action, dimension, retry_after_ms)
+      {dimension, retry_after_ms} -> reject(conn, action, dimension, retry_after_ms, options)
     end
   end
 
-  defp first_denied_limit(limiter, action, conn, limits) do
+  defp first_denied_limit(limiter, action, conn, limits, options) do
     conn
-    |> limit_keys(action)
+    |> limit_keys(action, options)
     |> Enum.find_value(fn {dimension, key} ->
       limit = Keyword.fetch!(limits, dimension)
 
@@ -56,10 +56,10 @@ defmodule ClubeiraWeb.Plugs.CredentialRateLimit do
     end)
   end
 
-  defp limit_keys(conn, action) do
+  defp limit_keys(conn, action, options) do
     [
       {:ip, {action, :ip, network_fingerprint(conn.remote_ip)}},
-      {:identity, {action, :identity, fingerprint(credential_identity(conn, action))}},
+      {:identity, {action, :identity, fingerprint(credential_identity(conn, action, options))}},
       {:global, {action, :global}}
     ]
   end
@@ -81,28 +81,50 @@ defmodule ClubeiraWeb.Plugs.CredentialRateLimit do
     fingerprint(:erlang.term_to_binary({:ipv6_64, first, second, third, fourth}))
   end
 
-  defp credential_identity(%Plug.Conn{body_params: %{"token" => token}}, action)
+  defp credential_identity(conn, action, options) do
+    case session_credential(conn, options) do
+      token when is_binary(token) and byte_size(token) <= 128 -> token
+      _missing_session_credential -> request_credential_identity(conn, action)
+    end
+  end
+
+  defp session_credential(conn, options) do
+    case Keyword.fetch(options, :identity_session_key) do
+      {:ok, session_key} -> get_session(conn, session_key)
+      :error -> nil
+    end
+  end
+
+  defp request_credential_identity(%Plug.Conn{body_params: %{"token" => token}}, action)
        when action in [:email_verification, :password_reset] and is_binary(token) and
               byte_size(token) <= 128,
        do: token
 
-  defp credential_identity(
+  defp request_credential_identity(
          %Plug.Conn{assigns: %{current_account_scope: %{user: %{id: user_id}}}},
          :email_verification_request
        )
        when is_binary(user_id),
        do: user_id
 
-  defp credential_identity(%Plug.Conn{body_params: %{"email" => email}}, _action)
+  defp request_credential_identity(%Plug.Conn{body_params: %{"email" => email}}, _action)
        when is_binary(email) do
     email |> String.trim() |> String.downcase()
   end
 
-  defp credential_identity(_conn, _action), do: ""
+  defp request_credential_identity(
+         %Plug.Conn{body_params: %{"registration" => %{"email" => email}}},
+         :registration
+       )
+       when is_binary(email) do
+    email |> String.trim() |> String.downcase()
+  end
+
+  defp request_credential_identity(_conn, _action), do: ""
 
   defp fingerprint(value), do: :crypto.hash(:sha256, value)
 
-  defp reject(conn, action, dimension, retry_after_ms) do
+  defp reject(conn, action, dimension, retry_after_ms, options) do
     :telemetry.execute(
       [:clubeira, :security, :credential_rate_limited],
       %{count: 1},
@@ -111,9 +133,30 @@ defmodule ClubeiraWeb.Plugs.CredentialRateLimit do
 
     retry_after_seconds = max(1, ceil(retry_after_ms / 1_000))
 
+    conn =
+      conn
+      |> put_resp_header("cache-control", "private, no-store")
+      |> put_resp_header("retry-after", Integer.to_string(retry_after_seconds))
+
+    case Keyword.get(options, :response, :json) do
+      :html -> reject_html(conn)
+      :json -> reject_json(conn)
+    end
+  end
+
+  defp reject_html(conn) do
     conn
-    |> put_resp_header("cache-control", "private, no-store")
-    |> put_resp_header("retry-after", Integer.to_string(retry_after_seconds))
+    |> put_status(:too_many_requests)
+    |> Phoenix.Controller.put_view(html: ClubeiraWeb.Auth.BrowserAccountHTML)
+    |> Phoenix.Controller.render(:rate_limited,
+      page_title: Gettext.gettext(ClubeiraWeb.Gettext, "Too many attempts"),
+      back_path: conn.request_path
+    )
+    |> halt()
+  end
+
+  defp reject_json(conn) do
+    conn
     |> put_resp_content_type("application/json")
     |> send_resp(
       :too_many_requests,

@@ -3,6 +3,39 @@ defmodule ClubeiraWeb.Router.AuthRoutes do
 
   defmacro auth_routes do
     quote do
+      scope "/", ClubeiraWeb.Auth do
+        pipe_through [:browser, :private_browser]
+
+        get "/registrar", BrowserAccountController, :registration_new
+        get "/esqueci-minha-senha", BrowserAccountController, :password_reset_request_new
+        get "/redefinir-senha", BrowserAccountController, :password_reset_new
+        get "/verificar-email", BrowserAccountController, :email_verification_new
+      end
+
+      scope "/", ClubeiraWeb.Auth do
+        pipe_through [:browser, :private_browser, :browser_registration]
+
+        post "/registrar", BrowserAccountController, :registration_create
+      end
+
+      scope "/", ClubeiraWeb.Auth do
+        pipe_through [:browser, :private_browser, :browser_password_reset_request]
+
+        post "/esqueci-minha-senha", BrowserAccountController, :password_reset_request_create
+      end
+
+      scope "/", ClubeiraWeb.Auth do
+        pipe_through [:browser, :private_browser, :browser_password_reset]
+
+        post "/redefinir-senha", BrowserAccountController, :password_reset_create
+      end
+
+      scope "/", ClubeiraWeb.Auth do
+        pipe_through [:browser, :private_browser, :browser_email_verification]
+
+        post "/verificar-email", BrowserAccountController, :email_verification_create
+      end
+
       scope "/api/v1", ClubeiraWeb.Auth do
         pipe_through [:api, :login_api]
 

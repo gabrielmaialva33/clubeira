@@ -3,6 +3,18 @@ defmodule ClubeiraWeb.Router.PublicRoutes do
 
   defmacro public_routes do
     quote do
+      scope "/", ClubeiraWeb.Public, as: :public_browser do
+        pipe_through :browser
+
+        live_session :public_discovery,
+          on_mount: [{ClubeiraWeb.PublicLocale, :set_locale}] do
+          live "/termos", LegalLive, :index
+          live "/explorar", PolosLive, :index
+          live "/explorar/:polo_slug/lugares/:place_slug", PlaceLive, :show
+          live "/explorar/:polo_slug", PoloLive, :show
+        end
+      end
+
       scope "/api/v1", ClubeiraWeb.Public do
         pipe_through :api
 

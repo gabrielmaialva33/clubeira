@@ -376,6 +376,34 @@ defmodule ClubeiraWeb.Platform.BillingControllerTest do
              |> json_response(200)
   end
 
+  test "platform plan catalog requires a current platform billing role even when populated", %{
+    conn: conn
+  } do
+    fixture = BillingFixtures.create!()
+    publisher_scope = grant_polo_admin!(fixture)
+    publisher = Repo.get!(Clubeira.Accounts.User, publisher_scope.actor_user_id)
+    grant_platform_billing_admin!(publisher)
+    publisher_token = authenticate!(publisher)
+    unauthorized_token = authenticate!(fixture.user)
+    code = "restricted-catalog-#{uuid7()}"
+
+    assert %{"data" => %{"code" => ^code}} =
+             conn
+             |> bearer(publisher_token)
+             |> put(
+               "/api/v1/platform/billing/plans/#{code}/versions/1",
+               boundary_plan_attributes(DateTime.utc_now(:microsecond))
+             )
+             |> json_response(200)
+
+    assert %{"errors" => %{"code" => "platform_billing_admin_required"}} =
+             conn
+             |> recycle()
+             |> bearer(unauthorized_token)
+             |> get("/api/v1/platform/billing/plans")
+             |> json_response(403)
+  end
+
   test "platform billing boundaries reject unauthorized, gapped and conflicting operations", %{
     conn: conn
   } do
@@ -388,11 +416,11 @@ defmodule ClubeiraWeb.Platform.BillingControllerTest do
     now = DateTime.utc_now(:microsecond)
     attributes = boundary_plan_attributes(now)
 
-    assert %{"data" => []} =
+    assert %{"errors" => %{"code" => "platform_billing_admin_required"}} =
              conn
              |> bearer(admin_token)
              |> get("/api/v1/platform/billing/plans")
-             |> json_response(200)
+             |> json_response(403)
 
     assert %{"errors" => %{"code" => "platform_billing_admin_required"}} =
              conn

@@ -84,6 +84,16 @@ defmodule ClubeiraWeb.Plugs.LoginRateLimitTest do
     assert Enum.all?(registration_keys, &(elem(&1, 0) == :registration))
   end
 
+  test "registration fingerprints nested browser form emails after normalization" do
+    keys =
+      " Browser.Member@Example.Test "
+      |> nested_registration_conn()
+      |> captured_keys(:registration)
+
+    assert {:registration, :identity, email_fingerprint} = Enum.at(keys, 1)
+    assert email_fingerprint == :crypto.hash(:sha256, "browser.member@example.test")
+  end
+
   test "password recovery hashes email and token into independent limiter namespaces" do
     token = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
 
@@ -120,6 +130,30 @@ defmodule ClubeiraWeb.Plugs.LoginRateLimitTest do
 
     assert token_fingerprint == :crypto.hash(:sha256, token)
     refute inspect(verification_keys) =~ token
+  end
+
+  test "browser credential flows prefer their encrypted session token over forged form input" do
+    session_token = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+    forged_token = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+
+    conn =
+      forged_token
+      |> reset_conn()
+      |> put_private(:plug_session, %{"browser_password_reset_token" => session_token})
+
+    refute CredentialRateLimit.call(conn,
+             config: config(),
+             action: :password_reset,
+             identity_session_key: "browser_password_reset_token"
+           ).halted
+
+    assert_receive {:rate_limit_key, {:password_reset, :ip, _ip_fingerprint}}
+
+    assert_receive {:rate_limit_key, {:password_reset, :identity, session_token_fingerprint}}
+
+    assert session_token_fingerprint == :crypto.hash(:sha256, session_token)
+    refute session_token_fingerprint == :crypto.hash(:sha256, forged_token)
+    assert_receive {:rate_limit_key, {:password_reset, :global}}
   end
 
   test "the supervised Hammer limiter enforces a real bucket" do
@@ -170,6 +204,11 @@ defmodule ClubeiraWeb.Plugs.LoginRateLimitTest do
   defp reset_conn(token) do
     conn(:post, "/api/v1/auth/password-resets")
     |> Map.put(:body_params, %{"token" => token})
+  end
+
+  defp nested_registration_conn(email) do
+    conn(:post, "/registrar")
+    |> Map.put(:body_params, %{"registration" => %{"email" => email}})
   end
 
   defp verification_request_conn(user_id) do

@@ -11,7 +11,7 @@ defmodule ClubeiraWeb.Router.BackofficeRoutes do
       end
 
       scope "/admin", ClubeiraWeb, as: :admin do
-        pipe_through [:browser, :private_browser, :login_api]
+        pipe_through [:browser, :private_browser, :browser_login]
 
         post "/login", Auth.BrowserSessionController, :create
       end
@@ -26,7 +26,18 @@ defmodule ClubeiraWeb.Router.BackofficeRoutes do
           live "/places/:polo_place_id", PlaceLive, :show
           live "/subscriptions", SubscriptionsLive, :index
           live "/subscriptions/:contract_id", SubscriptionLive, :show
+          live "/payments", PaymentsLive, :index
           live "/payments/:payment_id", PaymentLive, :show
+          live "/platform-billing", PlatformBillingLive, :show
+          live "/commercial/benefits", BenefitOffersLive, :index
+          live "/commercial/offerings", ProductOfferingsLive, :index
+          live "/partners", PartnersLive, :index
+          live "/partners/agreements", AgreementsLive, :index
+          live "/validation-points", ValidationPointsLive, :index
+          live "/moderation/reviews", ModerationReviewsLive, :index
+          live "/moderation/reports", ModerationReportsLive, :index
+          live "/operations/outbox", OperationsOutboxLive, :index
+          live "/operations/audit", OperationsAuditLive, :index
         end
       end
 

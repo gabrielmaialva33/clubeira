@@ -50,11 +50,47 @@ defmodule ClubeiraWeb.Member.ProfileControllerTest do
     refute update_conn.resp_body =~ "52998224725"
     refute update_conn.resp_body =~ "999999999"
 
+    preserved_conn =
+      conn
+      |> recycle()
+      |> bearer(token)
+      |> put(~p"/api/v1/me/profile", %{
+        "display_name" => "Ana Beatriz Maia",
+        "birth_date" => "1993-04-12"
+      })
+
+    assert %{
+             "data" => %{
+               "display_name" => "Ana Beatriz Maia",
+               "identifiers" => [%{"kind" => "cpf"}],
+               "contact_points" => [%{"kind" => "phone"}]
+             }
+           } = json_response(preserved_conn, 200)
+
+    cleared_conn =
+      conn
+      |> recycle()
+      |> bearer(token)
+      |> put(~p"/api/v1/me/profile", %{
+        "display_name" => "Ana Beatriz Maia",
+        "birth_date" => "1993-04-12",
+        "cpf" => nil,
+        "phone" => nil
+      })
+
+    assert %{
+             "data" => %{
+               "display_name" => "Ana Beatriz Maia",
+               "identifiers" => [],
+               "contact_points" => []
+             }
+           } = json_response(cleared_conn, 200)
+
     assert conn
            |> recycle()
            |> bearer(token)
            |> get(~p"/api/v1/me/profile")
-           |> json_response(200) == json_response(update_conn, 200)
+           |> json_response(200) == json_response(cleared_conn, 200)
   end
 
   test "invalid input and cross-person identifiers fail with stable opaque HTTP errors", %{

@@ -3,6 +3,35 @@ defmodule ClubeiraWeb.Router.MemberRoutes do
 
   defmacro member_routes do
     quote do
+      scope "/app", ClubeiraWeb, as: :member_browser do
+        pipe_through [:browser, :private_browser]
+
+        get "/login", Auth.BrowserSessionController, :member_new
+        delete "/logout", Auth.BrowserSessionController, :member_delete
+      end
+
+      scope "/app", ClubeiraWeb, as: :member_browser do
+        pipe_through [:browser, :private_browser, :browser_login]
+
+        post "/login", Auth.BrowserSessionController, :member_create
+      end
+
+      scope "/app", ClubeiraWeb.Member, as: :member_browser do
+        pipe_through [:browser, :private_browser]
+
+        live_session :member,
+          on_mount: [{ClubeiraWeb.MemberAuth, :ensure_authenticated}] do
+          live "/", DashboardLive, :index
+          live "/catalog", CatalogLive, :index
+          live "/catalog/:polo_slug/places/:place_slug/reviews", PlaceReviewsLive, :index
+          live "/orders", OrdersLive, :index
+          live "/privacy", PrivacyLive, :index
+          live "/profile", ProfileLive, :edit
+          live "/subscriptions", SubscriptionsLive, :index
+          live "/wallet", WalletLive, :index
+        end
+      end
+
       scope "/api/v1", ClubeiraWeb.Member do
         pipe_through [:api, :authenticated_api]
 

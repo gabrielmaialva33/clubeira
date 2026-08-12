@@ -44,6 +44,10 @@ defmodule ClubeiraWeb.Router do
     plug ClubeiraWeb.Plugs.CredentialRateLimit, action: :login
   end
 
+  pipeline :browser_login do
+    plug ClubeiraWeb.Plugs.CredentialRateLimit, action: :login, response: :html
+  end
+
   pipeline :registration_api do
     plug ClubeiraWeb.Plugs.CredentialRateLimit, action: :registration
   end
@@ -64,8 +68,32 @@ defmodule ClubeiraWeb.Router do
     plug ClubeiraWeb.Plugs.CredentialRateLimit, action: :email_verification_request
   end
 
+  pipeline :browser_registration do
+    plug ClubeiraWeb.Plugs.CredentialRateLimit, action: :registration, response: :html
+  end
+
+  pipeline :browser_password_reset_request do
+    plug ClubeiraWeb.Plugs.CredentialRateLimit,
+      action: :password_reset_request,
+      response: :html
+  end
+
+  pipeline :browser_password_reset do
+    plug ClubeiraWeb.Plugs.CredentialRateLimit,
+      action: :password_reset,
+      response: :html,
+      identity_session_key: "browser_password_reset_token"
+  end
+
+  pipeline :browser_email_verification do
+    plug ClubeiraWeb.Plugs.CredentialRateLimit,
+      action: :email_verification,
+      response: :html,
+      identity_session_key: "browser_email_verification_token"
+  end
+
   scope "/", ClubeiraWeb do
-    pipe_through :browser
+    pipe_through [:browser, :private_browser]
 
     get "/", PageController, :home
   end

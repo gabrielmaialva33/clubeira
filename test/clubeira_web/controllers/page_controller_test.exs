@@ -3,6 +3,7 @@ defmodule ClubeiraWeb.PageControllerTest do
 
   test "GET /", %{conn: conn} do
     conn = get(conn, ~p"/")
-    assert html_response(conn, 200) =~ "Fundação operacional"
+    assert redirected_to(conn) == ~p"/explorar"
+    assert get_resp_header(conn, "cache-control") == ["private, no-store"]
   end
 end
