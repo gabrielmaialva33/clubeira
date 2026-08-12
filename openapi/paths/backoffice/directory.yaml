@@ -160,6 +160,11 @@ placeProfile:
     tags:
       - Backoffice partners
     summary: Publica contato, categorias e horários do lugar
+    description: >-
+      Substitui o perfil completo da participação ativa. A identidade exata e a
+      revisão esperada protegem contra formulários obsoletos; use revisão 0 na
+      primeira publicação. Conflitos retornam stale_place_profile sem alteração
+      parcial.
     parameters:
       - $ref: ../../components/common.yaml#/parameters/IdempotencyKey
     requestBody:

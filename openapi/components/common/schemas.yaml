@@ -374,11 +374,14 @@ PlaceLifecycleAction:
       minimum: 1
 PlaceProfile:
   type: object
+  additionalProperties: false
   required:
     - contact
     - category_keys
     - weekly_hours
     - special_hours
+    - expected_polo_place_id
+    - expected_revision
   properties:
     contact:
       type: object
@@ -399,19 +402,68 @@ PlaceProfile:
       uniqueItems: true
       items:
         type: string
+        pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
     weekly_hours:
       type: array
       minItems: 1
       maxItems: 28
       items:
         type: object
-        additionalProperties: true
+        additionalProperties: false
+        required:
+          - weekday
+          - opens_at
+          - closes_at
+        properties:
+          weekday:
+            type: integer
+            minimum: 1
+            maximum: 7
+          opens_at:
+            type: string
+            format: time
+          closes_at:
+            type: string
+            format: time
     special_hours:
       type: array
       maxItems: 64
       items:
         type: object
-        additionalProperties: true
+        additionalProperties: false
+        required:
+          - date
+          - kind
+        properties:
+          date:
+            type: string
+            format: date
+          kind:
+            type: string
+            enum:
+              - closed
+              - custom
+          windows:
+            type: array
+            maxItems: 8
+            items:
+              type: object
+              additionalProperties: false
+              required:
+                - opens_at
+                - closes_at
+              properties:
+                opens_at:
+                  type: string
+                  format: time
+                closes_at:
+                  type: string
+                  format: time
+    expected_polo_place_id:
+      $ref: '#/UUID'
+    expected_revision:
+      type: integer
+      minimum: 0
 BenefitOffer:
   type: object
   required:

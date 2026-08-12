@@ -2057,6 +2057,7 @@
           "Backoffice partners"
         ],
         "summary": "Publica contato, categorias e horários do lugar",
+        "description": "Substitui o perfil completo da participação ativa. A identidade exata e a revisão esperada protegem contra formulários obsoletos; use revisão 0 na primeira publicação. Conflitos retornam stale_place_profile sem alteração parcial.",
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
@@ -3441,6 +3442,7 @@
           "Partner"
         ],
         "summary": "Publica o perfil de um lugar autorizado ao parceiro",
+        "description": "Substitui atomicamente o perfil completo da participação autorizada. A identidade exata e a revisão esperada protegem contra formulários obsoletos; use revisão 0 na primeira publicação.",
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
@@ -6621,11 +6623,14 @@
       },
       "PlaceProfile": {
         "type": "object",
+        "additionalProperties": false,
         "required": [
           "contact",
           "category_keys",
           "weekly_hours",
-          "special_hours"
+          "special_hours",
+          "expected_polo_place_id",
+          "expected_revision"
         ],
         "properties": {
           "contact": {
@@ -6651,7 +6656,8 @@
             "maxItems": 8,
             "uniqueItems": true,
             "items": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
             }
           },
           "weekly_hours": {
@@ -6660,7 +6666,27 @@
             "maxItems": 28,
             "items": {
               "type": "object",
-              "additionalProperties": true
+              "additionalProperties": false,
+              "required": [
+                "weekday",
+                "opens_at",
+                "closes_at"
+              ],
+              "properties": {
+                "weekday": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 7
+                },
+                "opens_at": {
+                  "type": "string",
+                  "format": "time"
+                },
+                "closes_at": {
+                  "type": "string",
+                  "format": "time"
+                }
+              }
             }
           },
           "special_hours": {
@@ -6668,8 +6694,54 @@
             "maxItems": 64,
             "items": {
               "type": "object",
-              "additionalProperties": true
+              "additionalProperties": false,
+              "required": [
+                "date",
+                "kind"
+              ],
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "closed",
+                    "custom"
+                  ]
+                },
+                "windows": {
+                  "type": "array",
+                  "maxItems": 8,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "opens_at",
+                      "closes_at"
+                    ],
+                    "properties": {
+                      "opens_at": {
+                        "type": "string",
+                        "format": "time"
+                      },
+                      "closes_at": {
+                        "type": "string",
+                        "format": "time"
+                      }
+                    }
+                  }
+                }
+              }
             }
+          },
+          "expected_polo_place_id": {
+            "$ref": "#/components/schemas/UUID"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       },

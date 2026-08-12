@@ -66,6 +66,10 @@ placeProfile:
     tags:
       - Partner
     summary: Publica o perfil de um lugar autorizado ao parceiro
+    description: >-
+      Substitui atomicamente o perfil completo da participação autorizada. A
+      identidade exata e a revisão esperada protegem contra formulários
+      obsoletos; use revisão 0 na primeira publicação.
     parameters:
       - $ref: ../components/common.yaml#/parameters/IdempotencyKey
     requestBody:
