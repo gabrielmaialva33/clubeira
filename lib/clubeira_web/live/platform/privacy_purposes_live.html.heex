@@ -10,10 +10,10 @@
         <p class="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
           {gettext("Privacy governance")}
         </p>
-        <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">
+        <h1 class="clubeira-page-title mt-1.5">
           {gettext("Processing purposes")}
         </h1>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+        <p class="clubeira-page-copy mt-1.5">
           {gettext("Manage the legal basis and current published evidence for each purpose.")}
         </p>
       </div>
@@ -21,16 +21,16 @@
       <.link
         id="platform-privacy-requests-link"
         navigate={~p"/platform/privacy/requests"}
-        class="inline-flex h-11 items-center justify-center rounded-xl border border-blue-200 bg-white px-4 text-sm font-black text-blue-700 transition hover:bg-blue-50"
+        class="inline-flex h-11 items-center justify-center rounded-xl border border-blue-200 bg-white px-4 text-sm font-bold text-blue-700 transition hover:bg-blue-50"
       >
         {gettext("Privacy requests")}
       </.link>
     </header>
 
     <div class="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.62fr)]">
-      <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]">
+      <section class="overflow-hidden rounded-xl border border-clubeira-line bg-white">
         <div class="border-b border-slate-100 px-5 py-5 sm:px-6">
-          <h2 class="text-lg font-black text-slate-950">{gettext("Registered purposes")}</h2>
+          <h2 class="text-lg font-bold text-slate-950">{gettext("Registered purposes")}</h2>
           <p class="mt-1 text-sm text-slate-500">
             {gettext("Stable codes keep consent and audit history interpretable.")}
           </p>
@@ -57,8 +57,8 @@
           >
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2">
-                <h3 class="text-sm font-black text-slate-950">{purpose.name}</h3>
-                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-slate-600">
+                <h3 class="text-sm font-bold text-slate-950">{purpose.name}</h3>
+                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600">
                   {humanized(purpose.status)}
                 </span>
               </div>
@@ -73,7 +73,7 @@
               type="button"
               phx-click="edit_purpose"
               phx-value-purpose-id={purpose.id}
-              class="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+              class="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-clubeira-line px-4 text-sm font-bold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
             >
               <.icon name="hero-pencil-square" class="size-4" />
               {gettext("Edit")}
@@ -82,10 +82,10 @@
         </div>
       </section>
 
-      <section class="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:p-6">
+      <section class="h-fit rounded-xl border border-clubeira-line bg-white p-5 sm:p-6">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <h2 class="text-lg font-black text-slate-950">
+            <h2 class="text-lg font-bold text-slate-950">
               {if @editing_code, do: gettext("Edit purpose"), else: gettext("New purpose")}
             </h2>
             <p class="mt-1 text-sm leading-6 text-slate-500">
@@ -98,7 +98,7 @@
             id="processing-purpose-new"
             type="button"
             phx-click="new_purpose"
-            class="text-xs font-black text-blue-700 hover:text-blue-900"
+            class="text-xs font-bold text-blue-700 hover:text-blue-900"
           >
             {gettext("Create new")}
           </button>
@@ -130,7 +130,7 @@
             <p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">
               {gettext("Stable code")}
             </p>
-            <p class="mt-1 break-all text-sm font-black text-slate-800">{@editing_code}</p>
+            <p class="mt-1 break-all text-sm font-bold text-slate-800">{@editing_code}</p>
           </div>
 
           <.input
@@ -177,7 +177,7 @@
             id="processing-purpose-submit"
             type="submit"
             phx-disable-with={gettext("Saving...")}
-            class="inline-flex h-11 w-full items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-black text-white shadow-[0_10px_24px_rgba(37,99,235,.2)] transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-70"
+            class="inline-flex h-11 w-full items-center justify-center rounded-xl bg-clubeira-orange px-5 text-sm font-bold text-white transition hover:bg-orange-600 disabled:cursor-wait disabled:opacity-70"
           >
             {gettext("Save purpose")}
           </button>

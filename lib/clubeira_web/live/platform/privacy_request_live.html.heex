@@ -24,7 +24,7 @@
           <p class="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
             {gettext("Data-subject request")}
           </p>
-          <h1 class="mt-2 text-3xl font-black capitalize tracking-[-0.045em] text-slate-950 sm:text-4xl">
+          <h1 class="mt-2 text-3xl font-bold capitalize tracking-[-0.045em] text-slate-950 sm:text-4xl">
             {humanized(@request.request_type)}
           </h1>
           <p class="mt-2 text-sm text-slate-500">
@@ -32,16 +32,16 @@
           </p>
         </div>
 
-        <span class="w-fit rounded-full bg-blue-50 px-4 py-2 text-xs font-black uppercase tracking-wide text-blue-700">
+        <span class="w-fit rounded-full bg-blue-50 px-4 py-2 text-xs font-bold uppercase tracking-wide text-blue-700">
           {humanized(@request.status)}
         </span>
       </div>
     </header>
 
     <div class="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.55fr)]">
-      <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]">
+      <section class="overflow-hidden rounded-xl border border-clubeira-line bg-white">
         <div class="border-b border-slate-100 px-5 py-5 sm:px-6">
-          <h2 class="text-lg font-black text-slate-950">{gettext("Request timeline")}</h2>
+          <h2 class="text-lg font-bold text-slate-950">{gettext("Request timeline")}</h2>
           <p class="mt-1 text-sm text-slate-500">
             {gettext("Immutable lifecycle evidence recorded by the platform.")}
           </p>
@@ -57,7 +57,7 @@
               <.icon name="hero-check" class="size-4" />
             </span>
             <div>
-              <p class="text-sm font-black capitalize text-slate-900">
+              <p class="text-sm font-bold capitalize text-slate-900">
                 {humanized(event.event_type)}
               </p>
               <p class="mt-1 text-xs text-slate-400">
@@ -69,8 +69,8 @@
       </section>
 
       <aside class="space-y-6">
-        <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:p-6">
-          <h2 class="text-lg font-black text-slate-950">{gettext("Deadline")}</h2>
+        <section class="rounded-xl border border-clubeira-line bg-white p-5 sm:p-6">
+          <h2 class="text-lg font-bold text-slate-950">{gettext("Deadline")}</h2>
           <p class="mt-2 text-sm font-bold text-slate-700">
             {timestamp(@request.due_at, @locale)}
           </p>
@@ -82,9 +82,9 @@
         <section
           :if={@available_actions != []}
           id="privacy-request-actions"
-          class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:p-6"
+          class="rounded-xl border border-clubeira-line bg-white p-5 sm:p-6"
         >
-          <h2 class="text-lg font-black text-slate-950">{gettext("Next action")}</h2>
+          <h2 class="text-lg font-bold text-slate-950">{gettext("Next action")}</h2>
           <p class="mt-1 text-sm leading-6 text-slate-500">
             {gettext("Only transitions allowed by the current lifecycle are offered.")}
           </p>
@@ -117,7 +117,7 @@
               id="privacy-request-transition-submit"
               type="submit"
               phx-disable-with={gettext("Saving...")}
-              class="inline-flex h-11 w-full items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-black text-white shadow-[0_10px_24px_rgba(37,99,235,.2)] transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-70"
+              class="inline-flex h-11 w-full items-center justify-center rounded-xl bg-clubeira-orange px-5 text-sm font-bold text-white transition hover:bg-orange-600 disabled:cursor-wait disabled:opacity-70"
             >
               {gettext("Save transition")}
             </button>
@@ -127,7 +127,7 @@
         <section
           :if={@available_actions == []}
           id="privacy-request-terminal"
-          class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-800"
+          class="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-800"
         >
           {gettext("This request has reached a terminal state.")}
         </section>

@@ -9,7 +9,7 @@
       <p class="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
         {gettext("Global billing")}
       </p>
-      <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">
+      <h1 class="clubeira-page-title mt-1.5">
         {gettext("Platform plans")}
       </h1>
       <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
@@ -19,10 +19,10 @@
       </p>
     </header>
 
-    <section class="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:p-6">
+    <section class="mt-7 rounded-xl border border-clubeira-line bg-white p-5 sm:p-6">
       <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 class="text-lg font-black text-slate-950">{gettext("Publish plan version")}</h2>
+          <h2 class="text-lg font-bold text-slate-950">{gettext("Publish plan version")}</h2>
           <p class="mt-1 text-sm leading-6 text-slate-500">
             {gettext("The version, typed features and price are committed atomically.")}
           </p>
@@ -207,7 +207,7 @@
             id="publish-platform-plan"
             type="submit"
             phx-disable-with={gettext("Publishing...")}
-            class="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-6 text-sm font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,.2)] transition hover:bg-blue-700"
+            class="inline-flex h-11 items-center justify-center rounded-xl bg-clubeira-orange px-6 text-sm font-bold text-white transition hover:bg-orange-600"
           >
             {gettext("Publish plan version")}
           </button>
@@ -215,10 +215,10 @@
       </.form>
     </section>
 
-    <section class="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]">
+    <section class="mt-7 overflow-hidden rounded-xl border border-clubeira-line bg-white">
       <div class="flex flex-col gap-2 border-b border-slate-100 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div>
-          <h2 class="text-lg font-black text-slate-950">{gettext("Managed inventory")}</h2>
+          <h2 class="text-lg font-bold text-slate-950">{gettext("Managed inventory")}</h2>
           <p class="mt-1 text-sm text-slate-500">
             {gettext(
               "All immutable versions are shown, regardless of current purchase eligibility."
@@ -249,7 +249,7 @@
         >
           <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div class="min-w-0">
-              <h3 class="truncate text-lg font-black text-slate-950">{plan.name}</h3>
+              <h3 class="truncate text-lg font-bold text-slate-950">{plan.name}</h3>
               <p class="mt-1 truncate font-mono text-xs text-slate-400">{plan.code}</p>
             </div>
             <span
@@ -265,11 +265,11 @@
               :for={version <- plan.versions}
               id={"managed-platform-plan-version-#{version.id}"}
               data-plan-version={version.version}
-              class="rounded-xl border border-slate-200 bg-slate-50/70 p-4"
+              class="rounded-xl border border-clubeira-line bg-slate-50/70 p-4"
             >
               <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p class="text-sm font-black text-slate-950">{version.name}</p>
+                  <p class="text-sm font-bold text-slate-950">{version.name}</p>
                   <p class="mt-1 text-xs text-slate-500">
                     {gettext("Version %{version}", version: version.version)}
                   </p>
@@ -311,7 +311,7 @@
                       id={"managed-platform-price-#{price.id}"}
                       data-price-amount={price.amount}
                     >
-                      <p class="text-sm font-black text-slate-950">
+                      <p class="text-sm font-bold text-slate-950">
                         {price.currency} {price.amount}
                       </p>
                       <p class="mt-1 text-xs text-slate-500">{price_period(price)}</p>
@@ -339,7 +339,7 @@
       <.link
         id="managed-platform-plans-next-page"
         patch={@next_page_path}
-        class="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white"
+        class="inline-flex h-11 items-center gap-2 rounded-xl bg-clubeira-orange px-5 text-sm font-bold text-white"
       >
         {gettext("Next page")}
         <.icon name="hero-arrow-right" class="size-4" />
