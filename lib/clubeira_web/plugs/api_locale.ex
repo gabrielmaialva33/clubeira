@@ -11,6 +11,7 @@ defmodule ClubeiraWeb.Plugs.ApiLocale do
   alias ClubeiraWeb.Gettext, as: GettextBackend
 
   @default_locale "en"
+  @locales ~w(en pt_BR)
   @supported_locales %{
     "en" => "en",
     "pt" => "pt_BR",
@@ -19,17 +20,34 @@ defmodule ClubeiraWeb.Plugs.ApiLocale do
   @content_languages %{"en" => "en", "pt_BR" => "pt-BR"}
 
   @spec init(keyword()) :: keyword()
-  def init(options), do: options
+  def init(options) do
+    options = Keyword.validate!(options, default_locale: @default_locale, store_in_session: false)
+
+    unless options[:default_locale] in @locales do
+      raise ArgumentError, "unsupported default locale: #{inspect(options[:default_locale])}"
+    end
+
+    options
+  end
 
   @spec call(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
-  def call(conn, _options) do
+  def call(conn, options) do
+    default_locale = Keyword.get(options, :default_locale, @default_locale)
+
     locale =
       conn
       |> get_req_header("accept-language")
       |> List.first()
-      |> negotiate()
+      |> negotiate(default_locale)
 
     Gettext.put_locale(GettextBackend, locale)
+
+    conn =
+      if Keyword.get(options, :store_in_session, false) do
+        put_session(conn, "locale", locale)
+      else
+        conn
+      end
 
     conn
     |> assign(:locale, locale)
@@ -37,19 +55,22 @@ defmodule ClubeiraWeb.Plugs.ApiLocale do
     |> add_vary("accept-language")
   end
 
-  defp negotiate(nil), do: @default_locale
+  defp negotiate(nil, default_locale), do: default_locale
 
-  defp negotiate(header) when is_binary(header) and byte_size(header) <= 1_024 do
+  defp negotiate(header, default_locale)
+       when is_binary(header) and byte_size(header) <= 1_024 do
     header
     |> String.split(",", trim: true)
     |> Enum.with_index()
     |> Enum.map(&parse_preference/1)
     |> Enum.reject(&is_nil/1)
     |> Enum.sort_by(fn {_tag, quality, index} -> {-quality, index} end)
-    |> Enum.find_value(@default_locale, fn {tag, _quality, _index} -> supported_locale(tag) end)
+    |> Enum.find_value(default_locale, fn {tag, _quality, _index} ->
+      supported_locale(tag, default_locale)
+    end)
   end
 
-  defp negotiate(_oversized), do: @default_locale
+  defp negotiate(_oversized, default_locale), do: default_locale
 
   defp parse_preference({preference, index}) do
     case String.split(preference, ";", trim: true) do
@@ -82,9 +103,9 @@ defmodule ClubeiraWeb.Plugs.ApiLocale do
 
   defp parse_quality(_name, _value), do: nil
 
-  defp supported_locale("*"), do: @default_locale
+  defp supported_locale("*", default_locale), do: default_locale
 
-  defp supported_locale(tag) do
+  defp supported_locale(tag, _default_locale) do
     Map.get(@supported_locales, tag) ||
       tag |> String.split("-", parts: 2) |> List.first() |> then(&Map.get(@supported_locales, &1))
   end
