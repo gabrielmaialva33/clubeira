@@ -9,27 +9,27 @@
   <div id="partner-places-page" class="mx-auto max-w-[1320px]">
     <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
+        <p class="clubeira-page-kicker">
           {gettext("Partner operation")}
         </p>
-        <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">
+        <h1 class="clubeira-page-title mt-1.5">
           {gettext("My places")}
         </h1>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+        <p class="clubeira-page-copy mt-1.5">
           {gettext("Keep each public profile and opening schedule ready for members.")}
         </p>
       </div>
       <.link
         id="partner-places-reviews-link"
         navigate={"/partner/reviews?#{URI.encode_query(%{"polo" => @current_polo.slug})}"}
-        class="inline-flex h-11 items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-4 text-sm font-black text-orange-700 transition hover:bg-orange-100"
+        class="clubeira-button-secondary border-orange-200 bg-clubeira-orange-soft text-clubeira-orange hover:bg-orange-100"
       >
         <.icon name="hero-chat-bubble-left-right" class="size-5" />
         {gettext("Review inbox")}
       </.link>
     </header>
 
-    <section class="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]">
+    <section class="mt-7 overflow-hidden rounded-xl border border-clubeira-line bg-white">
       <div id="partner-places" phx-update="stream" class="divide-y divide-slate-100">
         <div
           id="partner-places-empty"
@@ -45,7 +45,7 @@
           class="grid gap-4 px-5 py-5 transition hover:bg-slate-50/80 sm:px-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] lg:items-center"
         >
           <div class="flex min-w-0 items-center gap-4">
-            <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-sm font-black text-blue-700">
+            <span class="clubeira-icon-tile shrink-0 text-sm font-bold">
               {participation.place.name |> String.first() |> String.upcase()}
             </span>
             <div class="min-w-0">
@@ -54,7 +54,7 @@
                 navigate={"/partner/places/#{@current_polo.slug}/#{participation.id}"}
                 class="group block"
               >
-                <h2 class="truncate text-sm font-black text-slate-950 transition group-hover:text-blue-700">
+                <h2 class="truncate text-sm font-bold text-slate-950 transition group-hover:text-blue-700">
                   {participation.place.name}
                 </h2>
                 <p class="mt-1 truncate text-xs text-slate-400">{participation.place.slug}</p>
@@ -88,7 +88,7 @@
       <.link
         id="partner-places-next-page"
         patch={@next_page_path}
-        class="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,.2)] transition hover:bg-blue-700"
+        class="inline-flex h-11 items-center gap-2 rounded-xl bg-clubeira-orange px-5 text-sm font-bold text-white transition hover:bg-orange-600"
       >
         {gettext("Next page")}
         <.icon name="hero-arrow-right" class="size-4" />
