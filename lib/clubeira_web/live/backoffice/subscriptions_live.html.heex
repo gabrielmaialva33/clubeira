@@ -91,9 +91,19 @@
               <.icon name="hero-identification" class="size-5" />
             </span>
             <div class="min-w-0">
-              <h2 class="truncate text-sm font-black text-slate-950">
-                {subscription.offering.name}
-              </h2>
+              <.link
+                id={"subscription-link-#{subscription.id}"}
+                navigate={
+                  ~p"/admin/subscriptions/#{subscription.id}?#{[polo: @current_polo.slug]}"
+                }
+                class="group/link inline-flex max-w-full items-center gap-1.5 text-sm font-black text-slate-950 transition hover:text-blue-700"
+              >
+                <span class="truncate">{subscription.offering.name}</span>
+                <.icon
+                  name="hero-arrow-up-right"
+                  class="size-3.5 shrink-0 text-slate-300 transition group-hover/link:text-blue-600"
+                />
+              </.link>
               <p class="mt-1 truncate text-xs text-slate-400">
                 {subscription.order.order_number}
               </p>

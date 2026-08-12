@@ -182,6 +182,26 @@ defmodule ClubeiraWeb.Backoffice.SubscriptionsLiveTest do
     assert_patch(view, "/admin/subscriptions?polo=#{fixture.polo_route.slug}")
   end
 
+  test "rejects malformed browser events without terminating the inventory", %{conn: conn} do
+    fixture = BillingFixtures.create!()
+    admin_scope = grant_admin!(fixture)
+    {_order, contract} = captured_subscription!(fixture)
+    session = authenticate!(admin_scope.actor_user_id)
+
+    {:ok, view, _html} =
+      conn
+      |> init_test_session(%{"backoffice_session_token" => session.token})
+      |> live("/admin/subscriptions?polo=#{fixture.polo_route.slug}")
+
+    render_change(view, "change_polo", %{})
+    assert has_element?(view, "#flash-error")
+    assert has_element?(view, "#subscription-#{contract.id}")
+
+    render_submit(view, "filter", %{})
+    assert has_element?(view, "#flash-error")
+    assert has_element?(view, "#subscription-#{contract.id}")
+  end
+
   defp grant_admin!(fixture) do
     ReviewsFixtures.grant_moderator!(
       %{ids: %{polo: fixture.polo.id}, scope: fixture.service_scope},
