@@ -11,8 +11,11 @@ defmodule Clubeira.Accounts do
   require Logger
 
   alias Clubeira.Accounts.EmailVerification
+  alias Clubeira.Accounts.EmailVerificationSubmission
   alias Clubeira.Accounts.PasswordCredential
   alias Clubeira.Accounts.PasswordRecovery
+  alias Clubeira.Accounts.PasswordResetCompletion
+  alias Clubeira.Accounts.PasswordResetRequest
   alias Clubeira.Accounts.Registration
   alias Clubeira.Accounts.RequestContext
   alias Clubeira.Accounts.Scope
@@ -46,6 +49,24 @@ defmodule Clubeira.Accounts do
   end
 
   def register(attributes), do: Registration.new(attributes)
+
+  @doc false
+  @spec change_registration(term()) :: Ecto.Changeset.t()
+  def change_registration(attributes \\ %{}), do: Registration.change(attributes)
+
+  @doc false
+  @spec change_password_reset_request(term()) :: Ecto.Changeset.t()
+  def change_password_reset_request(attributes \\ %{}),
+    do: PasswordResetRequest.change(attributes)
+
+  @doc false
+  @spec change_password_reset(term()) :: Ecto.Changeset.t()
+  def change_password_reset(attributes \\ %{}), do: PasswordResetCompletion.change(attributes)
+
+  @doc false
+  @spec change_email_verification(term()) :: Ecto.Changeset.t()
+  def change_email_verification(attributes \\ %{}),
+    do: EmailVerificationSubmission.change(attributes)
 
   @spec register(map(), RequestContext.t()) ::
           {:ok, login_result()} | {:error, registration_error()}

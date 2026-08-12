@@ -132,6 +132,24 @@ defmodule Clubeira.AccountsTest do
            } == before_counts
   end
 
+  test "rejects malformed authentication boundary values without raising" do
+    context = RequestContext.new!()
+
+    for result <- [Accounts.register(:invalid), Accounts.register(:invalid, context)] do
+      assert {:error, %Ecto.Changeset{} = changeset} = result
+      refute changeset.valid?
+    end
+
+    assert Accounts.login(:invalid, @password) == {:error, :invalid_credentials}
+    assert Accounts.login("", "", context) == {:error, :invalid_credentials}
+    assert Accounts.login(:invalid, @password, context) == {:error, :invalid_credentials}
+
+    assert Accounts.fetch_scope_by_api_token(:invalid) == :error
+    assert Accounts.fetch_scope_by_api_token(String.duplicate("x", 129)) == :error
+    assert Accounts.fetch_scope_by_api_token(:invalid, context) == :error
+    assert Accounts.fetch_scope_by_api_token(String.duplicate("x", 129), context) == :error
+  end
+
   test "requires the current consumer terms before hashing or writing" do
     before_counts = {
       Repo.aggregate(User, :count),

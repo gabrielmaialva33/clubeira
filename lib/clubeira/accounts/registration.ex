@@ -8,7 +8,7 @@ defmodule Clubeira.Accounts.Registration do
 
   use Ecto.Schema
 
-  import Ecto.Changeset
+  import Ecto.Changeset, except: [change: 1, change: 2]
 
   @primary_key false
 
@@ -24,8 +24,27 @@ defmodule Clubeira.Accounts.Registration do
           legal_document_version_ids: [Ecto.UUID.t()]
         }
 
-  @spec new(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
-  def new(attributes) when is_map(attributes) do
+  @spec change(term()) :: Ecto.Changeset.t()
+  def change(attributes \\ %{})
+
+  def change(attributes) when is_map(attributes) and not is_struct(attributes),
+    do: changeset(attributes)
+
+  def change(_attributes), do: invalid_changeset()
+
+  @spec new(term()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
+  def new(attributes) when is_map(attributes) and not is_struct(attributes) do
+    attributes
+    |> changeset()
+    |> apply_action(:register)
+  end
+
+  def new(_attributes) do
+    invalid_changeset()
+    |> apply_action(:register)
+  end
+
+  defp changeset(attributes) do
     %__MODULE__{}
     |> cast(attributes, [:email, :password, :legal_document_version_ids])
     |> update_change(:email, &normalize_email/1)
@@ -35,14 +54,12 @@ defmodule Clubeira.Accounts.Registration do
     |> validate_length(:password, min: 15, max: 128)
     |> validate_length(:legal_document_version_ids, min: 1, max: 16)
     |> validate_change(:legal_document_version_ids, &validate_unique_versions/2)
-    |> apply_action(:register)
   end
 
-  def new(_attributes) do
+  defp invalid_changeset do
     %__MODULE__{}
-    |> change()
+    |> Ecto.Changeset.change()
     |> add_error(:base, "must be a map")
-    |> apply_action(:register)
   end
 
   defp normalize_email(email), do: email |> String.trim() |> String.downcase()
