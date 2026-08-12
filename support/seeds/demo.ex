@@ -14,6 +14,7 @@ defmodule Clubeira.Seeds.Demo do
   alias Clubeira.Seeds.Demo.Member
   alias Clubeira.Seeds.Demo.Moderator
   alias Clubeira.Seeds.Demo.Partner
+  alias Clubeira.Seeds.Demo.Platform
   alias Clubeira.Seeds.Demo.Polo
   alias Clubeira.Seeds.Demo.Profiles
 
@@ -97,11 +98,12 @@ defmodule Clubeira.Seeds.Demo do
     moderator = Moderator.run!()
     admin = Admin.run!()
     partner = Partner.run!()
+    platform = Platform.run!(legal)
 
     %{
       profile: :demo,
       cities: 2,
-      organizations: 2,
+      organizations: 3,
       brands: 2,
       places: 3,
       place_categories: 4,
@@ -111,6 +113,7 @@ defmodule Clubeira.Seeds.Demo do
       benefit_offers: 3,
       merchant_account_id: billing.account.id,
       merchant_account_reference: billing.account.provider_account_reference,
+      platform_merchant_account_id: billing.platform_account.id,
       legal_document_version_id: legal.version.id,
       validation_point_id: id(:validation_point_sobral),
       member_email: member.email,
@@ -118,6 +121,7 @@ defmodule Clubeira.Seeds.Demo do
       moderator_email: moderator.email,
       admin_email: admin.email,
       partner_email: partner.email,
+      platform_plan_code: platform.plan.code,
       payment_provider: billing.provider.code,
       subscriptions: member.subscriptions,
       vouchers: member.vouchers

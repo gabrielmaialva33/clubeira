@@ -127,7 +127,17 @@ defmodule Clubeira.Seeds.Demo.Ids do
     organization_role_local_manager: "019fe30d-f777-703b-88e4-9e1d176fd0a6",
     organization_membership_local_partner: "019fe30d-f777-7062-a797-1f7e15c54d21",
     place_staff_role_local_manager: "019fe30d-f777-7140-8a20-97c9b76475ed",
-    place_staff_assignment_local_partner: "019fe30e-093b-78d5-a0af-2da2b25bf976"
+    place_staff_assignment_local_partner: "019fe30e-093b-78d5-a0af-2da2b25bf976",
+    platform_organization: "019ff7b2-07eb-7221-a25a-4a2c96d90410",
+    platform_admin_role: "019ff7b2-07eb-73ae-84ae-e65c5a6d0c3b",
+    platform_admin_membership: "019ff7b2-07eb-74c5-adfd-908978c6ab64",
+    legal_document_consumer_consent: "019ff7b2-07eb-75ac-acc9-f7af45359e57",
+    legal_document_version_consumer_consent_pt_br: "019ff7b2-07eb-761b-97ec-794e4acf50b9",
+    demo_privacy_request: "019ff7b2-07eb-76d5-a302-e5418e8c303c",
+    platform_seed_request: "019ff7b5-d399-79c5-8bfe-71b59681a9f7",
+    member_profile_seed_request: "019ff7b5-d399-7b6a-abd5-d915a557f62f",
+    privacy_request_seed_request: "019ff7b5-d399-7ca2-b1d8-1c5e5afc53d5",
+    merchant_account_mercado_pago_platform_demo: "019ff7b5-d399-7d67-b514-b2a4deff5c3a"
   }
 
   @spec fetch!(atom()) :: Ecto.UUID.t()

@@ -40,9 +40,12 @@ defmodule Clubeira.SeedsTest do
   alias Clubeira.Legal.Acceptance
   alias Clubeira.Legal.Document
   alias Clubeira.Legal.DocumentVersion
+  alias Clubeira.People
+  alias Clubeira.PlatformBilling
   alias Clubeira.Polos.Polo
   alias Clubeira.Polos.PoloPlace
   alias Clubeira.Polos.PoloRoute
+  alias Clubeira.Privacy
   alias Clubeira.Redemptions
   alias Clubeira.Redemptions.ValidationCredential
   alias Clubeira.Redemptions.ValidationPoint
@@ -67,9 +70,10 @@ defmodule Clubeira.SeedsTest do
 
     assert Clubeira.TestDatabaseRole.as_owner(&Seeds.run!/0) == first_result
     assert {:ok, scope} = Accounts.fetch_scope_by_api_token(session.token)
+    assert first_result.organizations == 3
 
     assert Repo.aggregate(City, :count) == 2
-    assert Repo.aggregate(Organization, :count) == 2
+    assert Repo.aggregate(Organization, :count) == 3
     assert Repo.aggregate(OrganizationIdentifier, :count) == 2
     assert Repo.aggregate(Brand, :count) == 2
     assert Repo.aggregate(Place, :count) == 3
@@ -78,16 +82,16 @@ defmodule Clubeira.SeedsTest do
     assert Repo.aggregate(PoloRoute, :count) == 2
     assert Repo.aggregate(User, :count) == 4
     assert Repo.aggregate(PasswordCredential, :count) == 4
-    assert Repo.aggregate(OrganizationRole, :count) == 1
-    assert Repo.aggregate(OrganizationMembership, :count) == 1
-    assert Repo.aggregate(OrganizationMembershipRole, :count) == 1
+    assert Repo.aggregate(OrganizationRole, :count) == 2
+    assert Repo.aggregate(OrganizationMembership, :count) == 2
+    assert Repo.aggregate(OrganizationMembershipRole, :count) == 2
     assert Repo.aggregate(PlaceStaffRole, :count) == 1
     assert Repo.aggregate(PlaceStaffAssignment, :count) == 1
     assert Repo.aggregate(PlaceStaffAssignmentRole, :count) == 1
     assert Repo.aggregate(PaymentProvider, :count) == 1
-    assert Repo.aggregate(MerchantAccount, :count) == 1
-    assert Repo.aggregate(Document, :count) == 1
-    assert Repo.aggregate(DocumentVersion, :count) == 1
+    assert Repo.aggregate(MerchantAccount, :count) == 2
+    assert Repo.aggregate(Document, :count) == 2
+    assert Repo.aggregate(DocumentVersion, :count) == 2
 
     assert first_result.legal_document_version_id ==
              Ids.fetch!(:legal_document_version_consumer_terms_pt_br)
@@ -137,6 +141,7 @@ defmodule Clubeira.SeedsTest do
     assert_moderator_scenario(first_result, review)
     assert_partner_scenario(first_result)
     assert_admin_scenario(first_result)
+    assert_platform_scenario(first_result)
   end
 
   test "canonical identifiers are unique UUIDv7 values" do
@@ -423,5 +428,44 @@ defmodule Clubeira.SeedsTest do
 
     assert {:error, :partner_access_required} =
              Directory.list_partner_places(londrina_scope, %{})
+  end
+
+  defp assert_platform_scenario(seed_result) do
+    admin_password = System.get_env("CLUBEIRA_DEMO_ADMIN_PASSWORD", "clubeira-admin-local")
+    assert {:ok, admin_session} = Accounts.login(seed_result.admin_email, admin_password)
+    platform_scope = ActorScope.new!(admin_session.user.id, Ecto.UUID.generate(version: 7))
+
+    assert {:ok, %{plans: [%{code: "operacao"} = plan], page: %{has_more: false}}} =
+             PlatformBilling.list_managed_plans(platform_scope, %{})
+
+    assert [%{version: 1, prices: [%{amount: amount}]}] = plan.versions
+    assert amount == Decimal.new("299.90")
+
+    billing_scope =
+      Scope.new!(Ids.fetch!(:polo_sobral),
+        actor_user_id: admin_session.user.id,
+        request_id: Ecto.UUID.generate(version: 7)
+      )
+
+    assert {:ok, [%{plan: %{code: "operacao"}}]} =
+             PlatformBilling.list_subscription_options(billing_scope)
+
+    assert {:ok, [%{code: "product-communications", legal_basis: "consent"}]} =
+             Privacy.list_processing_purposes(platform_scope)
+
+    member_password = System.get_env("CLUBEIRA_DEMO_PASSWORD", "clubeira-demo-local")
+    assert {:ok, member_session} = Accounts.login(seed_result.member_email, member_password)
+    member_scope = ActorScope.new!(member_session.user.id, Ecto.UUID.generate(version: 7))
+
+    assert {:ok, %{display_name: "Membro Demo Clubeira"}} = People.get_self_profile(member_scope)
+
+    assert {:ok, [%{processing_purpose: %{code: "product-communications"}, state: "not_set"}]} =
+             Privacy.list_consents(member_scope)
+
+    assert {:ok, [%{request_type: "information", status: "received"}]} =
+             Privacy.list_requests(member_scope)
+
+    assert {:ok, %{requests: [%{request_type: "information"}], page: %{has_more: false}}} =
+             Privacy.list_platform_requests(platform_scope, %{})
   end
 end

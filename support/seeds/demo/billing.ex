@@ -33,7 +33,7 @@ defmodule Clubeira.Seeds.Demo.Billing do
         @provider_fields
       )
 
-    account =
+    consumer_account =
       Writer.upsert!(
         :merchant_account,
         %{
@@ -47,19 +47,33 @@ defmodule Clubeira.Seeds.Demo.Billing do
         @account_fields
       )
 
+    platform_account =
+      Writer.upsert!(
+        :merchant_account,
+        %{
+          id: id(:merchant_account_mercado_pago_platform_demo),
+          payment_provider: provider,
+          kind: "platform",
+          name: "Mercado Pago Plataforma Demo",
+          provider_account_reference: "mercado-pago-platform-demo",
+          status: "active"
+        },
+        @account_fields
+      )
+
     Enum.each([id(:polo_sobral), id(:polo_londrina)], fn polo_id ->
       Seeds.with_polo!(polo_id, fn ->
         Writer.insert_once!(:polo_merchant_account, %{
           polo: Repo.get!(Polo, polo_id),
           payment_provider: provider,
-          merchant_account: account,
+          merchant_account: consumer_account,
           role: "primary",
           valid_during: Factory.tstz_range(~U[2026-01-01 00:00:00Z])
         })
       end)
     end)
 
-    %{account: account, provider: provider}
+    %{account: consumer_account, platform_account: platform_account, provider: provider}
   end
 
   defp id(name), do: Ids.fetch!(name)
