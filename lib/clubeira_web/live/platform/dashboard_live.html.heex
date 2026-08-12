@@ -1,0 +1,57 @@
+<PlatformComponents.shell
+  account_scope={@current_account_scope}
+  access={@platform_access}
+  flash={@flash}
+  active_section={:overview}
+>
+  <div id="platform-dashboard" class="mx-auto max-w-[1500px]">
+    <section class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
+          <span class="size-1.5 rounded-full bg-orange-500" />
+          {gettext("Global administration")}
+        </div>
+        <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">
+          {gettext("Platform overview")}
+        </h1>
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+          {gettext("Operate Clubeira's global capabilities without entering a tenant context.")}
+        </p>
+      </div>
+      <div class="inline-flex w-fit items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
+        <span class="size-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.12)]" />
+        {gettext("Control plane online")}
+      </div>
+    </section>
+
+    <section class="mt-7 grid gap-4 md:grid-cols-2">
+      <article
+        :if={:manage_privacy in @platform_access.capabilities}
+        id="platform-capability-manage-privacy"
+        class="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,.035)]"
+      >
+        <span class="grid size-11 place-items-center rounded-xl bg-blue-50 text-blue-600">
+          <.icon name="hero-shield-check" class="size-5" />
+        </span>
+        <h2 class="mt-5 text-sm font-black text-slate-900">{gettext("Privacy operations")}</h2>
+        <p class="mt-1.5 text-xs leading-5 text-slate-500">
+          {gettext("Data-subject requests, processing purposes and immutable evidence.")}
+        </p>
+      </article>
+
+      <article
+        :if={:manage_platform_billing in @platform_access.capabilities}
+        id="platform-capability-manage-platform-billing"
+        class="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,.035)]"
+      >
+        <span class="grid size-11 place-items-center rounded-xl bg-orange-50 text-orange-600">
+          <.icon name="hero-banknotes" class="size-5" />
+        </span>
+        <h2 class="mt-5 text-sm font-black text-slate-900">{gettext("Platform billing")}</h2>
+        <p class="mt-1.5 text-xs leading-5 text-slate-500">
+          {gettext("Global plans, prices and SaaS subscription control.")}
+        </p>
+      </article>
+    </section>
+  </div>
+</PlatformComponents.shell>

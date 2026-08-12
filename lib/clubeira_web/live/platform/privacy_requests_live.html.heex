@@ -1,0 +1,93 @@
+<PlatformComponents.shell
+  account_scope={@current_account_scope}
+  access={@platform_access}
+  flash={@flash}
+  active_section={:privacy}
+>
+  <div id="platform-privacy-requests-page" class="mx-auto max-w-[1400px]">
+    <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
+          {gettext("Privacy operations")}
+        </p>
+        <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">
+          {gettext("Data-subject requests")}
+        </h1>
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+          {gettext("Review each request and its immutable lifecycle before taking action.")}
+        </p>
+      </div>
+
+      <.link
+        id="platform-privacy-purposes-link"
+        navigate={~p"/platform/privacy/purposes"}
+        class="inline-flex h-11 items-center justify-center rounded-xl border border-blue-200 bg-white px-4 text-sm font-black text-blue-700 transition hover:bg-blue-50"
+      >
+        {gettext("Processing purposes")}
+      </.link>
+    </header>
+
+    <section class="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]">
+      <div id="platform-privacy-requests" phx-update="stream" class="divide-y divide-slate-100">
+        <div
+          id="platform-privacy-requests-empty"
+          class="hidden only:flex items-center gap-3 px-6 py-12 text-sm text-slate-500"
+        >
+          <.icon name="hero-shield-check" class="size-5 text-emerald-500" />
+          {gettext("There are no privacy requests in this queue.")}
+        </div>
+
+        <article
+          :for={{id, request} <- @streams.requests}
+          id={id}
+          data-status={request.status}
+          class="grid gap-4 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center"
+        >
+          <div class="min-w-0">
+            <p class="text-sm font-black capitalize text-slate-950">
+              {humanized(request.request_type)}
+            </p>
+            <p class="mt-1 text-xs text-slate-400">
+              {gettext("Received %{at}", at: timestamp(request.inserted_at, @locale))}
+            </p>
+          </div>
+
+          <div class="text-left lg:text-right">
+            <p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+              {gettext("Due")}
+            </p>
+            <p class="mt-1 text-xs font-bold text-slate-700">
+              {timestamp(request.due_at, @locale)}
+            </p>
+          </div>
+
+          <div class="flex items-center gap-3 lg:justify-end">
+            <span class="rounded-full bg-blue-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-blue-700">
+              {humanized(request.status)}
+            </span>
+            <.link
+              id={"privacy-request-open-#{request.id}"}
+              navigate={~p"/platform/privacy/requests/#{request.id}"}
+              class="grid size-9 place-items-center rounded-xl border border-slate-200 text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+              aria-label={gettext("Open request")}
+            >
+              <.icon name="hero-arrow-right" class="size-4" />
+            </.link>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <div :if={@page.has_more} class="mt-5 flex justify-center">
+      <button
+        id="platform-privacy-requests-load-more"
+        type="button"
+        phx-click="load_more"
+        phx-disable-with={gettext("Loading...")}
+        class="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-black text-white shadow-[0_10px_24px_rgba(37,99,235,.2)] transition hover:bg-blue-700"
+      >
+        {gettext("Load more requests")}
+      </button>
+    </div>
+  </div>
+</PlatformComponents.shell>

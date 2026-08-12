@@ -1,0 +1,188 @@
+<PlatformComponents.shell
+  account_scope={@current_account_scope}
+  access={@platform_access}
+  flash={@flash}
+  active_section={:privacy}
+>
+  <div id="platform-privacy-purposes-page" class="mx-auto max-w-[1400px]">
+    <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
+          {gettext("Privacy governance")}
+        </p>
+        <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">
+          {gettext("Processing purposes")}
+        </h1>
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+          {gettext("Manage the legal basis and current published evidence for each purpose.")}
+        </p>
+      </div>
+
+      <.link
+        id="platform-privacy-requests-link"
+        navigate={~p"/platform/privacy/requests"}
+        class="inline-flex h-11 items-center justify-center rounded-xl border border-blue-200 bg-white px-4 text-sm font-black text-blue-700 transition hover:bg-blue-50"
+      >
+        {gettext("Privacy requests")}
+      </.link>
+    </header>
+
+    <div class="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.62fr)]">
+      <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]">
+        <div class="border-b border-slate-100 px-5 py-5 sm:px-6">
+          <h2 class="text-lg font-black text-slate-950">{gettext("Registered purposes")}</h2>
+          <p class="mt-1 text-sm text-slate-500">
+            {gettext("Stable codes keep consent and audit history interpretable.")}
+          </p>
+        </div>
+
+        <div
+          id="platform-processing-purposes"
+          phx-update="stream"
+          class="divide-y divide-slate-100"
+        >
+          <div
+            id="platform-processing-purposes-empty"
+            class="hidden only:flex items-center gap-3 px-6 py-12 text-sm text-slate-500"
+          >
+            <.icon name="hero-document-check" class="size-5 text-slate-300" />
+            {gettext("No processing purposes have been registered.")}
+          </div>
+
+          <article
+            :for={{id, purpose} <- @streams.purposes}
+            id={id}
+            data-code={purpose.code}
+            class="grid gap-4 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
+          >
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <h3 class="text-sm font-black text-slate-950">{purpose.name}</h3>
+                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-slate-600">
+                  {humanized(purpose.status)}
+                </span>
+              </div>
+              <p class="mt-1 break-all text-xs font-bold text-blue-700">{purpose.code}</p>
+              <p class="mt-2 text-xs capitalize text-slate-400">
+                {humanized(purpose.legal_basis)}
+              </p>
+            </div>
+
+            <button
+              id={"processing-purpose-edit-#{purpose.id}"}
+              type="button"
+              phx-click="edit_purpose"
+              phx-value-purpose-id={purpose.id}
+              class="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+            >
+              <.icon name="hero-pencil-square" class="size-4" />
+              {gettext("Edit")}
+            </button>
+          </article>
+        </div>
+      </section>
+
+      <section class="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:p-6">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-black text-slate-950">
+              {if @editing_code, do: gettext("Edit purpose"), else: gettext("New purpose")}
+            </h2>
+            <p class="mt-1 text-sm leading-6 text-slate-500">
+              {gettext("The server validates legal evidence again when saving.")}
+            </p>
+          </div>
+
+          <button
+            :if={@editing_code}
+            id="processing-purpose-new"
+            type="button"
+            phx-click="new_purpose"
+            class="text-xs font-black text-blue-700 hover:text-blue-900"
+          >
+            {gettext("Create new")}
+          </button>
+        </div>
+
+        <.form
+          for={@purpose_form}
+          id="processing-purpose-form"
+          phx-change="validate_purpose"
+          phx-submit="save_purpose"
+          class="mt-5"
+        >
+          <.input
+            :if={!@editing_code}
+            field={@purpose_form[:code]}
+            id="processing-purpose-code"
+            type="text"
+            label={gettext("Stable code")}
+            minlength="2"
+            maxlength="100"
+            required
+          />
+
+          <div
+            :if={@editing_code}
+            id="processing-purpose-editing-code"
+            class="mb-4 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200"
+          >
+            <p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+              {gettext("Stable code")}
+            </p>
+            <p class="mt-1 break-all text-sm font-black text-slate-800">{@editing_code}</p>
+          </div>
+
+          <.input
+            field={@purpose_form[:name]}
+            id="processing-purpose-name"
+            type="text"
+            label={gettext("Name")}
+            minlength="2"
+            maxlength="160"
+            required
+          />
+          <.input
+            field={@purpose_form[:legal_basis]}
+            id="processing-purpose-legal-basis"
+            type="select"
+            label={gettext("Legal basis")}
+            options={legal_basis_options()}
+            required
+          />
+          <.input
+            field={@purpose_form[:legal_document_version_id]}
+            id="processing-purpose-legal-version-id"
+            type="select"
+            label={gettext("Published legal evidence")}
+            options={legal_version_options(@legal_versions)}
+          />
+          <p
+            :if={@legal_versions == []}
+            id="processing-purpose-no-legal-options"
+            class="-mt-2 mb-4 text-xs text-orange-700"
+          >
+            {gettext("No current legal version is eligible for this basis and locale.")}
+          </p>
+          <.input
+            field={@purpose_form[:status]}
+            id="processing-purpose-status"
+            type="select"
+            label={gettext("Status")}
+            options={status_options()}
+            required
+          />
+
+          <button
+            id="processing-purpose-submit"
+            type="submit"
+            phx-disable-with={gettext("Saving...")}
+            class="inline-flex h-11 w-full items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-black text-white shadow-[0_10px_24px_rgba(37,99,235,.2)] transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-70"
+          >
+            {gettext("Save purpose")}
+          </button>
+        </.form>
+      </section>
+    </div>
+  </div>
+</PlatformComponents.shell>
