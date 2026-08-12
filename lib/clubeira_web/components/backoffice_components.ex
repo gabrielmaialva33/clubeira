@@ -8,7 +8,11 @@ defmodule ClubeiraWeb.BackofficeComponents do
   attr :current_polo, :map, required: true
   attr :polo_form, Phoenix.HTML.Form, required: true
   attr :flash, :map, required: true
-  attr :active_section, :atom, values: [:overview, :places], default: :overview
+
+  attr :active_section, :atom,
+    values: [:overview, :places, :subscriptions],
+    default: :overview
+
   slot :inner_block, required: true
 
   def shell(assigns) do
@@ -18,6 +22,10 @@ defmodule ClubeiraWeb.BackofficeComponents do
       |> assign(:capabilities, MapSet.new(assigns.current_polo.capabilities))
       |> assign(:dashboard_path, ~p"/admin?#{[polo: assigns.current_polo.slug]}")
       |> assign(:places_path, ~p"/admin/places?#{[polo: assigns.current_polo.slug]}")
+      |> assign(
+        :subscriptions_path,
+        ~p"/admin/subscriptions?#{[polo: assigns.current_polo.slug]}"
+      )
 
     ~H"""
     <div id="backoffice-shell" class="min-h-screen bg-[#f4f7fb] text-slate-950">
@@ -79,9 +87,10 @@ defmodule ClubeiraWeb.BackofficeComponents do
             <.nav_item
               :if={MapSet.member?(@capabilities, :manage_billing)}
               id="backoffice-nav-subscriptions"
-              href={"#{@dashboard_path}#subscriptions-section"}
+              navigate={@subscriptions_path}
               icon="hero-user-group"
               label={gettext("Subscriptions")}
+              active={@active_section == :subscriptions}
             />
             <.nav_item
               :if={MapSet.member?(@capabilities, :manage_billing)}
