@@ -26,6 +26,7 @@ defmodule ClubeiraWeb.Router.BackofficeRoutes do
           live "/places/:polo_place_id", PlaceLive, :show
           live "/subscriptions", SubscriptionsLive, :index
           live "/subscriptions/:contract_id", SubscriptionLive, :show
+          live "/payments/:payment_id", PaymentLive, :show
         end
       end
 

@@ -10,7 +10,7 @@ defmodule ClubeiraWeb.BackofficeComponents do
   attr :flash, :map, required: true
 
   attr :active_section, :atom,
-    values: [:overview, :places, :subscriptions],
+    values: [:overview, :places, :subscriptions, :payments],
     default: :overview
 
   slot :inner_block, required: true
@@ -98,6 +98,7 @@ defmodule ClubeiraWeb.BackofficeComponents do
               href={"#{@dashboard_path}#payments-section"}
               icon="hero-banknotes"
               label={gettext("Finance")}
+              active={@active_section == :payments}
             />
           </div>
         </nav>

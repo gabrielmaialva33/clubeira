@@ -223,9 +223,10 @@
             <.icon name="hero-banknotes" class="size-5 text-slate-300" />
             {gettext("No payments recorded in this polo.")}
           </div>
-          <div
+          <.link
             :for={{id, payment} <- @streams.payments}
             id={id}
+            navigate={~p"/admin/payments/#{payment.id}?#{[polo: @current_polo.slug]}"}
             class="flex items-center gap-4 px-5 py-4 transition hover:bg-slate-50/80 sm:px-6"
           >
             <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-orange-50 text-orange-600">
@@ -245,7 +246,7 @@
             ]}>
               {status_label(payment.status)}
             </span>
-          </div>
+          </.link>
         </div>
       </section>
     </div>
