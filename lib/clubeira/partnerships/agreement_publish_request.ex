@@ -3,7 +3,7 @@ defmodule Clubeira.Partnerships.AgreementPublishRequest do
 
   use Ecto.Schema
 
-  import Ecto.Changeset
+  import Ecto.Changeset, except: [change: 1, change: 2]
 
   @primary_key false
 
@@ -53,10 +53,23 @@ defmodule Clubeira.Partnerships.AgreementPublishRequest do
     idempotency_key
   )a
 
-  @spec new(map()) :: {:ok, struct()} | {:error, Ecto.Changeset.t()}
-  def new(attributes) when is_map(attributes) do
+  @spec change(term()) :: Ecto.Changeset.t()
+  def change(attributes \\ %{})
+
+  def change(attributes) when is_map(attributes) and not is_struct(attributes) do
+    cast(%__MODULE__{}, attributes, @fields)
+  end
+
+  def change(_attributes) do
     %__MODULE__{}
-    |> cast(attributes, @fields)
+    |> Ecto.Changeset.change()
+    |> add_error(:base, "must be a map")
+  end
+
+  @spec new(term()) :: {:ok, struct()} | {:error, Ecto.Changeset.t()}
+  def new(attributes) when is_map(attributes) and not is_struct(attributes) do
+    attributes
+    |> change()
     |> update_change(:agreement_number, &normalize_number/1)
     |> update_change(:name, &String.trim/1)
     |> normalize_ids()
@@ -81,9 +94,8 @@ defmodule Clubeira.Partnerships.AgreementPublishRequest do
   end
 
   def new(_attributes) do
-    %__MODULE__{}
+    :invalid
     |> change()
-    |> add_error(:base, "must be a map")
     |> apply_action(:publish_partner_agreement)
   end
 
