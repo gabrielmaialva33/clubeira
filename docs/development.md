@@ -123,6 +123,17 @@ reautorizada pelo context. A chave idempotente nasce no servidor; conflito ou
 mudança concorrente força a releitura do status vencedor antes de oferecer a
 próxima ação.
 
+Os pagamentos recentes do dashboard abrem `/admin/payments/:payment_id`. O
+detalhe relê pedido, pagamento, último refund e último chargeback pelo read
+model tenant-aware, sem renderizar referência do PSP, motivo, motivo da falha ou
+chave idempotente. Um pagamento capturado pode receber somente refund integral: a
+LiveView gera a chave, aceita apenas o motivo e deixa o context derivar valor,
+moeda, conta e identidade do pagamento. A sessão é revalidada antes do submit,
+a membership é reautorizada no banco e qualquer sucesso, conflito ou estado
+stale recarrega o vencedor. Em timeout, o formulário preserva exatamente chave
+e motivo para retry; rejeição definitiva mostra a tentativa falha e oferece
+uma nova chave sem alterar a venda.
+
 ## Contrato HTTP e Redocly
 
 O contrato editável parte de `openapi/openapi.yaml`, separa operações por

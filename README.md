@@ -7,7 +7,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL_18-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![OTP](https://img.shields.io/badge/OTP_29-A90533?style=for-the-badge&logo=erlang&logoColor=white)](https://www.erlang.org/)
 [![RLS](https://img.shields.io/badge/RLS-FORCED-16A34A?style=for-the-badge)](#-multi-tenancy)
-[![Tests](https://img.shields.io/badge/tests-661-2563EB?style=for-the-badge)](./test)
+[![Tests](https://img.shields.io/badge/tests-677-2563EB?style=for-the-badge)](./test)
 [![Migrations](https://img.shields.io/badge/migrations-139-F97316?style=for-the-badge)](./priv/repo/migrations)
 [![License](https://img.shields.io/badge/license-MIT-16A34A?style=for-the-badge)](./LICENSE)
 
@@ -84,7 +84,7 @@ flowchart LR
 | ✅ **Resgate** | enrollment sem persistir segredo, chave Ed25519 do dispositivo com prova de posse, grant assinado e curto, lifecycle do ponto, consumo atômico com anti-replay, ledger, auditoria, evento e outbox |
 | ⭐ **UGC** | avaliações verificadas, mídia validada pelo storage, resposta versionada do parceiro, denúncia, moderação append-only e feed público consistente |
 | 🧾 **Plataforma** | catálogo versionado de planos e features, assinatura SaaS do polo, nota, itens e pagamento liquidados por webhook autenticado |
-| 🖥️ **Backoffice web** | login com sessão cifrada, navegação por capability, dashboard responsivo, inventários com filtros/keyset e detalhes operacionais de estabelecimentos e assinaturas, sempre pelos contexts reais |
+| 🖥️ **Backoffice web** | login com sessão cifrada, navegação por capability, dashboard responsivo, inventários com filtros/keyset e detalhes operacionais de estabelecimentos, assinaturas e pagamentos, incluindo reembolso integral pelo context real |
 | 🧪 **Base** | migrations reversíveis, seeds determinísticas, factories, RLS forçado, E2E HTTP por TCP e testes de concorrência contra bancos isolados reais |
 
 O fluxo de venda implementado no domínio é:
@@ -133,6 +133,9 @@ instala as dependências Node, valida o contrato OpenAPI e compila os assets.
 | <http://localhost:4000/admin> | painel administrativo |
 | <http://localhost:4000/admin/places> | inventário de estabelecimentos do polo |
 | `/admin/places/:polo_place_id` | detalhe e lifecycle da participação selecionada |
+| <http://localhost:4000/admin/subscriptions> | inventário de assinaturas do polo |
+| `/admin/subscriptions/:contract_id` | detalhe e lifecycle do contrato selecionado |
+| `/admin/payments/:payment_id` | detalhe financeiro, refund integral e acompanhamento de chargeback |
 | <http://localhost:4000/health> | liveness do processo |
 | <http://localhost:4000/ready> | readiness da role runtime e das migrations |
 | <http://localhost:4000/api/docs> | documentação navegável Redocly |
