@@ -7,7 +7,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL_18-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![OTP](https://img.shields.io/badge/OTP_29-A90533?style=for-the-badge&logo=erlang&logoColor=white)](https://www.erlang.org/)
 [![RLS](https://img.shields.io/badge/RLS-FORCED-16A34A?style=for-the-badge)](#-multi-tenancy)
-[![Tests](https://img.shields.io/badge/tests-677-2563EB?style=for-the-badge)](./test)
+[![Tests](https://img.shields.io/badge/tests-680-2563EB?style=for-the-badge)](./test)
 [![Migrations](https://img.shields.io/badge/migrations-139-F97316?style=for-the-badge)](./priv/repo/migrations)
 [![License](https://img.shields.io/badge/license-MIT-16A34A?style=for-the-badge)](./LICENSE)
 

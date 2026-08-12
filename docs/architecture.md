@@ -152,11 +152,11 @@ reautorizada no banco. O DTO mantém referências externas, motivo, motivo da
 falha e chave idempotente fora da borda e expõe somente os resumos operacionais do último
 refund e chargeback. Para estornar, a LiveView revalida a sessão e entrega ao
 `Billing.refund_payment/3` apenas motivo e chave idempotente; pagamento, valor,
-moeda e conta são ligados no servidor ao registro renderizado. Timeout preserva
-o mesmo comando para retry, rejeição terminaliza somente aquela tentativa com
-uma nova chave disponível, e sucesso, conflito ou estado concorrente sempre
-forçam nova leitura antes da próxima ação. Reserva, I/O no PSP, settlement,
-auditoria, eventos e outbox continuam exclusivamente no domínio.
+moeda e conta são ligados no servidor ao registro renderizado. Falhas não
+terminais preservam o mesmo comando para retry, rejeição terminaliza somente
+aquela tentativa com uma nova chave disponível, e sucesso, conflito ou estado
+concorrente sempre forçam nova leitura antes da próxima ação. Reserva, I/O no
+PSP, settlement, auditoria, eventos e outbox continuam exclusivamente no domínio.
 
 ## Diretório público
 

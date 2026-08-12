@@ -130,9 +130,9 @@ chave idempotente. Um pagamento capturado pode receber somente refund integral: 
 LiveView gera a chave, aceita apenas o motivo e deixa o context derivar valor,
 moeda, conta e identidade do pagamento. A sessão é revalidada antes do submit,
 a membership é reautorizada no banco e qualquer sucesso, conflito ou estado
-stale recarrega o vencedor. Em timeout, o formulário preserva exatamente chave
-e motivo para retry; rejeição definitiva mostra a tentativa falha e oferece
-uma nova chave sem alterar a venda.
+stale recarrega o vencedor. Em falha não terminal do PSP, o formulário preserva
+exatamente chave e motivo para retry; rejeição definitiva mostra a tentativa
+falha e oferece uma nova chave sem alterar a venda.
 
 ## Contrato HTTP e Redocly
 
