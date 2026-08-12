@@ -32,7 +32,9 @@ defmodule Clubeira.ReviewsFixtures do
     membership_id = uuid7()
     suffix = String.slice(String.replace(user_id, "-", ""), -12, 12)
 
-    RedemptionsFixtures.insert_user!(user_id, "moderator-#{suffix}@example.test")
+    if Keyword.get(options, :insert_user, true) do
+      RedemptionsFixtures.insert_user!(user_id, "moderator-#{suffix}@example.test")
+    end
 
     RedemptionsFixtures.scoped_query!(
       fixture,

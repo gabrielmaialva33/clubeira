@@ -22,6 +22,7 @@ defmodule Clubeira.Directory do
   alias Clubeira.Directory.PlaceCategory
   alias Clubeira.Directory.PlaceOperator
   alias Clubeira.Directory.PlaceParticipationLifecycle
+  alias Clubeira.Directory.PlaceParticipationLifecycleRequest
   alias Clubeira.Directory.PlaceProfilePublisher
   alias Clubeira.Directory.PlaceProfileView
   alias Clubeira.Directory.PoloPlaceOpeningPeriod
@@ -98,7 +99,10 @@ defmodule Clubeira.Directory do
     do: {:error, :partner_admin_required}
 
   @doc """
-  Suspends or reactivates the current participation of a place in one polo.
+  Suspends, reactivates or retires one exact participation of a place in a polo.
+
+  The expected participation identity and revision protect the command from
+  stale forms and replacement-participation ABA races.
   """
   @spec transition_place_participation(Scope.t(), Ecto.UUID.t(), map()) ::
           {:ok, PlaceParticipationLifecycle.result()}
@@ -111,12 +115,25 @@ defmodule Clubeira.Directory do
   def transition_place_participation(_scope, _place_id, _attributes),
     do: {:error, :partner_admin_required}
 
+  @doc false
+  @spec change_place_participation_lifecycle(term()) :: Ecto.Changeset.t()
+  def change_place_participation_lifecycle(attributes \\ %{}) do
+    PlaceParticipationLifecycleRequest.change(attributes)
+  end
+
   @doc """
   Lists polo participation records even when their public profile is missing.
   """
   @spec list_backoffice_places(Scope.t(), map()) ::
           {:ok, %{places: [map()], page: map()}} | {:error, term()}
   defdelegate list_backoffice_places(scope, params), to: BackofficePlaceReader, as: :list
+
+  @doc """
+  Gets one exact place participation inside an authorized polo.
+  """
+  @spec get_backoffice_place(Scope.t(), Ecto.UUID.t()) ::
+          {:ok, map()} | {:error, :partner_admin_required | :place_not_found | term()}
+  defdelegate get_backoffice_place(scope, polo_place_id), to: BackofficePlaceReader, as: :get
 
   @spec fetch_public(String.t(), map()) ::
           {:ok, public_directory()} | {:error, :invalid_pagination | :polo_not_found}

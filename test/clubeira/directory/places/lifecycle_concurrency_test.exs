@@ -16,6 +16,8 @@ defmodule Clubeira.Directory.PlaceParticipationConcurrencyTest do
     request = %{
       action: "suspend",
       reason: "Isolamento concorrente da participação",
+      expected_polo_place_id: fixture.ids.polo_place,
+      expected_revision: 1,
       idempotency_key: "place-participation-concurrent-suspension-retry"
     }
 
@@ -54,6 +56,8 @@ defmodule Clubeira.Directory.PlaceParticipationConcurrencyTest do
           Directory.transition_place_participation(scope, fixture.ids.place, %{
             action: "suspend",
             reason: "Primeira suspensão concorrente",
+            expected_polo_place_id: fixture.ids.polo_place,
+            expected_revision: 1,
             idempotency_key: "place-participation-concurrent-suspension-first"
           })
         end,
@@ -61,6 +65,8 @@ defmodule Clubeira.Directory.PlaceParticipationConcurrencyTest do
           Directory.transition_place_participation(scope, fixture.ids.place, %{
             action: "suspend",
             reason: "Segunda suspensão concorrente",
+            expected_polo_place_id: fixture.ids.polo_place,
+            expected_revision: 1,
             idempotency_key: "place-participation-concurrent-suspension-second"
           })
         end
@@ -71,7 +77,7 @@ defmodule Clubeira.Directory.PlaceParticipationConcurrencyTest do
 
     assert Enum.count(
              results,
-             &match?({:error, :invalid_place_participation_transition}, &1)
+             &match?({:error, :stale_place_participation}, &1)
            ) == 1
 
     assert count_deltas(before, place_participation_lifecycle_counts(fixture)) == %{
@@ -100,6 +106,8 @@ defmodule Clubeira.Directory.PlaceParticipationConcurrencyTest do
           Directory.transition_place_participation(scope, fixture.ids.place, %{
             action: "retire",
             reason: "Primeiro encerramento concorrente",
+            expected_polo_place_id: fixture.ids.polo_place,
+            expected_revision: 1,
             idempotency_key: "place-participation-concurrent-retirement-first"
           })
         end,
@@ -107,6 +115,8 @@ defmodule Clubeira.Directory.PlaceParticipationConcurrencyTest do
           Directory.transition_place_participation(scope, fixture.ids.place, %{
             action: "retire",
             reason: "Segundo encerramento concorrente",
+            expected_polo_place_id: fixture.ids.polo_place,
+            expected_revision: 1,
             idempotency_key: "place-participation-concurrent-retirement-second"
           })
         end
@@ -117,7 +127,7 @@ defmodule Clubeira.Directory.PlaceParticipationConcurrencyTest do
 
     assert Enum.count(
              results,
-             &match?({:error, :invalid_place_participation_transition}, &1)
+             &match?({:error, :stale_place_participation}, &1)
            ) == 1
 
     assert count_deltas(before, place_participation_lifecycle_counts(fixture)) == %{

@@ -40,29 +40,47 @@ defmodule Clubeira.Directory.BackofficePlaceReader do
 
   def list(_scope, _params), do: {:error, :partner_admin_required}
 
+  @spec get(Scope.t(), Ecto.UUID.t()) ::
+          {:ok, map()} | {:error, :partner_admin_required | :place_not_found | term()}
+  def get(%Scope{actor_user_id: nil}, _polo_place_id), do: {:error, :partner_admin_required}
+
+  def get(%Scope{} = scope, polo_place_id) do
+    with {:ok, polo_place_id} <- cast_place_id(polo_place_id) do
+      Repo.transact_in_polo(scope, &get_authorized(&1, scope, polo_place_id))
+    end
+  end
+
+  def get(_scope, _polo_place_id), do: {:error, :partner_admin_required}
+
   defp list_authorized(repo, scope, status, profile_status, place_id, pagination) do
     with :ok <- Authorization.authorize(repo, scope, :manage_partners, transaction_time(repo)) do
       {:ok, place_page(repo, scope, status, profile_status, place_id, pagination)}
     end
   end
 
+  defp get_authorized(repo, scope, polo_place_id) do
+    with :ok <- Authorization.authorize(repo, scope, :manage_partners, transaction_time(repo)) do
+      fetch_place(repo, scope, polo_place_id)
+    end
+  end
+
+  defp fetch_place(repo, scope, polo_place_id) do
+    place =
+      scope
+      |> place_query()
+      |> with_participation(polo_place_id)
+      |> select_place()
+      |> repo.one()
+
+    if place, do: {:ok, place_data(place)}, else: {:error, :place_not_found}
+  end
+
   defp place_page(repo, scope, status, profile_status, place_id, pagination) do
     query_limit = pagination.limit + 1
 
     rows =
-      PoloPlace
-      |> from(as: :polo_place)
-      |> join(:inner, [polo_place: participation], place in Place,
-        as: :place,
-        on: place.id == participation.place_id
-      )
-      |> join(:left, [polo_place: participation], profile in PoloPlaceProfile,
-        as: :profile,
-        on:
-          profile.polo_id == participation.polo_id and
-            profile.polo_place_id == participation.id
-      )
-      |> where([polo_place: participation], participation.polo_id == ^scope.polo_id)
+      scope
+      |> place_query()
       |> with_status(status)
       |> with_profile_status(profile_status)
       |> with_place(place_id)
@@ -86,6 +104,22 @@ defmodule Clubeira.Directory.BackofficePlaceReader do
         next_cursor: next_cursor(page_rows, has_more)
       }
     }
+  end
+
+  defp place_query(scope) do
+    PoloPlace
+    |> from(as: :polo_place)
+    |> join(:inner, [polo_place: participation], place in Place,
+      as: :place,
+      on: place.id == participation.place_id
+    )
+    |> join(:left, [polo_place: participation], profile in PoloPlaceProfile,
+      as: :profile,
+      on:
+        profile.polo_id == participation.polo_id and
+          profile.polo_place_id == participation.id
+    )
+    |> where([polo_place: participation], participation.polo_id == ^scope.polo_id)
   end
 
   defp select_place(query) do
@@ -153,6 +187,9 @@ defmodule Clubeira.Directory.BackofficePlaceReader do
 
   defp with_place(query, nil), do: query
   defp with_place(query, place_id), do: where(query, [place: place], place.id == ^place_id)
+
+  defp with_participation(query, polo_place_id),
+    do: where(query, [polo_place: participation], participation.id == ^polo_place_id)
 
   defp after_place(query, nil), do: query
 
@@ -228,6 +265,13 @@ defmodule Clubeira.Directory.BackofficePlaceReader do
   end
 
   defp parse_place_id(_place_id), do: {:error, :invalid_place_id}
+
+  defp cast_place_id(place_id) do
+    case Ecto.UUID.cast(place_id) do
+      {:ok, place_id} -> {:ok, place_id}
+      :error -> {:error, :place_not_found}
+    end
+  end
 
   defp transaction_time(repo) do
     %{rows: [[now]]} = repo.query!("SELECT transaction_timestamp()")

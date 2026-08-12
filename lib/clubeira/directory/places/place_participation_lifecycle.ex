@@ -18,7 +18,8 @@ defmodule Clubeira.Directory.PlaceParticipationLifecycle do
   @idempotency_scope "directory.transition_place_participation"
   @replay_reasons %{
     "invalid_place_participation_transition" => :invalid_place_participation_transition,
-    "place_unavailable" => :place_unavailable
+    "place_unavailable" => :place_unavailable,
+    "stale_place_participation" => :stale_place_participation
   }
 
   @type result :: %{String.t() => term()}
@@ -77,60 +78,69 @@ defmodule Clubeira.Directory.PlaceParticipationLifecycle do
   end
 
   defp transition_new(repo, scope, place_id, request, idempotency_id) do
-    with {:ok, participation} <- lock_current_participation(repo, scope, place_id) do
-      now = transaction_time(repo)
-
-      case transition_participation(repo, participation, request.action, now) do
-        {:ok, updated} ->
-          complete_transition!(
-            repo,
-            scope,
-            participation,
-            updated,
-            request,
-            idempotency_id,
-            now
-          )
-
-        {:error, reason} ->
-          reject!(repo, scope, participation, request, idempotency_id, reason, now)
-      end
+    with {:ok, participation} <-
+           lock_expected_participation(repo, scope, place_id, request.expected_polo_place_id) do
+      transition_locked(repo, scope, participation, request, idempotency_id)
     end
   end
 
-  defp lock_current_participation(repo, scope, place_id) do
-    current =
+  defp transition_locked(repo, scope, participation, request, idempotency_id) do
+    now = transaction_time(repo)
+
+    if participation.revision == request.expected_revision do
+      transition_current(repo, scope, participation, request, idempotency_id, now)
+    else
+      reject!(
+        repo,
+        scope,
+        participation,
+        request,
+        idempotency_id,
+        :stale_place_participation,
+        now
+      )
+    end
+  end
+
+  defp transition_current(repo, scope, participation, request, idempotency_id, now) do
+    case transition_participation(repo, participation, request.action, now) do
+      {:ok, updated} ->
+        complete_transition!(
+          repo,
+          scope,
+          participation,
+          updated,
+          request,
+          idempotency_id,
+          now
+        )
+
+      {:error, reason} ->
+        reject!(repo, scope, participation, request, idempotency_id, reason, now)
+    end
+  end
+
+  defp lock_expected_participation(repo, scope, place_id, polo_place_id) do
+    participation =
       PoloPlace
       |> where(
         [participation],
-        participation.polo_id == ^scope.polo_id and participation.place_id == ^place_id
+        participation.id == ^polo_place_id and
+          participation.polo_id == ^scope.polo_id and
+          participation.place_id == ^place_id
       )
       |> where(
         [participation],
-        fragment("? @> statement_timestamp()", participation.participation_during)
+        participation.status == "retired" or
+          fragment("? @> statement_timestamp()", participation.participation_during)
       )
       |> lock("FOR UPDATE")
       |> repo.one()
-
-    participation = current || lock_retired_participation(repo, scope, place_id)
 
     case participation do
       %PoloPlace{} -> {:ok, participation}
       nil -> {:error, :place_not_found}
     end
-  end
-
-  defp lock_retired_participation(repo, scope, place_id) do
-    PoloPlace
-    |> where(
-      [participation],
-      participation.polo_id == ^scope.polo_id and participation.place_id == ^place_id and
-        participation.status == "retired"
-    )
-    |> order_by([participation], desc: participation.updated_at, desc: participation.id)
-    |> limit(1)
-    |> lock("FOR UPDATE")
-    |> repo.one()
   end
 
   defp transition_participation(
@@ -280,6 +290,8 @@ defmodule Clubeira.Directory.PlaceParticipationLifecycle do
       metadata: %{
         "action" => request.action,
         "current_status" => participation.status,
+        "current_revision" => participation.revision,
+        "expected_revision" => request.expected_revision,
         "reason" => Atom.to_string(reason),
         "operator_reason" => request.reason
       },
@@ -328,8 +340,10 @@ defmodule Clubeira.Directory.PlaceParticipationLifecycle do
       scope.polo_id,
       scope.actor_user_id,
       place_id,
+      request.expected_polo_place_id,
       request.action,
-      request.reason
+      request.reason,
+      request.expected_revision
     })
   end
 
