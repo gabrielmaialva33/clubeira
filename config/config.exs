@@ -9,7 +9,8 @@ import Config
 
 config :clubeira,
   ecto_repos: [Clubeira.Repo],
-  generators: [timestamp_type: :utc_datetime, binary_id: true]
+  generators: [timestamp_type: :utc_datetime, binary_id: true],
+  secure_browser_cookies: false
 
 config :clubeira, Clubeira.Billing.Gateways,
   adapters: %{"mercado_pago" => Clubeira.Billing.Gateways.MercadoPago},
@@ -138,7 +139,7 @@ config :tailwind,
 # Configure Elixir's Logger
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id]
+  metadata: [:request_id, :section, :polo_id, :polo_place_id, :place_id, :reason]
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason

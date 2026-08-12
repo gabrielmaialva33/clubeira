@@ -52,6 +52,23 @@ defmodule ClubeiraWeb.Telemetry do
         unit: {:native, :millisecond}
       ),
 
+      # LiveView Metrics
+      summary("phoenix.live_view.mount.stop.duration",
+        tags: [:view],
+        tag_values: &live_view_tags/1,
+        unit: {:native, :millisecond}
+      ),
+      summary("phoenix.live_view.handle_params.stop.duration",
+        tags: [:view],
+        tag_values: &live_view_tags/1,
+        unit: {:native, :millisecond}
+      ),
+      summary("phoenix.live_view.handle_event.stop.duration",
+        tags: [:view, :event],
+        tag_values: &live_view_tags/1,
+        unit: {:native, :millisecond}
+      ),
+
       # Database Metrics
       summary("clubeira.repo.query.total_time",
         unit: {:native, :millisecond},
@@ -90,5 +107,9 @@ defmodule ClubeiraWeb.Telemetry do
       # This function must call :telemetry.execute/3 and a metric must be added above.
       # {ClubeiraWeb, :count_users, []}
     ]
+  end
+
+  defp live_view_tags(%{socket: socket} = metadata) do
+    %{view: socket.view, event: Map.get(metadata, :event)}
   end
 end
