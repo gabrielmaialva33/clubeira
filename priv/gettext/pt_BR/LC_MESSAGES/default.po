@@ -31,7 +31,7 @@ msgstr "Ações"
 msgid "Active"
 msgstr "Ativo"
 
-#: lib/clubeira_web/components/backoffice_components.ex:112
+#: lib/clubeira_web/components/backoffice_components.ex:113
 #, elixir-autogen, elixir-format
 msgid "Administrator"
 msgstr "Administrador"
@@ -65,6 +65,7 @@ msgid "Billing"
 msgstr "Cobrança"
 
 #: lib/clubeira_web/live/backoffice/dashboard_live.ex:146
+#: lib/clubeira_web/live/backoffice/payment_live.ex:323
 #, elixir-autogen, elixir-format
 msgid "Captured"
 msgstr "Capturado"
@@ -84,12 +85,12 @@ msgstr "Confira seu e-mail e senha e tente novamente."
 msgid "Close navigation"
 msgstr "Fechar navegação"
 
-#: lib/clubeira_web/live/backoffice/dashboard_live.html.heex:262
+#: lib/clubeira_web/live/backoffice/dashboard_live.html.heex:263
 #, elixir-autogen, elixir-format
 msgid "Current contract and benefit-cycle snapshot"
 msgstr "Visão atual dos contratos e ciclos de benefícios"
 
-#: lib/clubeira_web/components/backoffice_components.ex:145
+#: lib/clubeira_web/components/backoffice_components.ex:146
 #, elixir-autogen, elixir-format
 msgid "Current operation"
 msgstr "Operação atual"
@@ -161,12 +162,14 @@ msgstr "Nenhum pagamento registrado neste polo."
 msgid "No places available in this polo."
 msgstr "Nenhum estabelecimento disponível neste polo."
 
-#: lib/clubeira_web/live/backoffice/dashboard_live.html.heex:272
+#: lib/clubeira_web/live/backoffice/dashboard_live.html.heex:273
 #, elixir-autogen, elixir-format
 msgid "No subscriptions recorded in this polo."
 msgstr "Nenhuma assinatura registrada neste polo."
 
 #: lib/clubeira_web/live/backoffice/dashboard_live.ex:133
+#: lib/clubeira_web/live/backoffice/payment_live.ex:310
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:87
 #: lib/clubeira_web/live/backoffice/subscription_live.ex:296
 #: lib/clubeira_web/live/backoffice/subscriptions_live.ex:155
 #, elixir-autogen, elixir-format
@@ -178,7 +181,7 @@ msgstr "Não disponível"
 msgid "One operation. Every polo in context."
 msgstr "Uma operação. Cada polo no contexto certo."
 
-#: lib/clubeira_web/components/backoffice_components.ex:139
+#: lib/clubeira_web/components/backoffice_components.ex:140
 #, elixir-autogen, elixir-format
 msgid "Open navigation"
 msgstr "Abrir navegação"
@@ -254,6 +257,7 @@ msgid "Payments, subscriptions and financial health."
 msgstr "Pagamentos, assinaturas e saúde financeira."
 
 #: lib/clubeira_web/live/backoffice/dashboard_live.ex:147
+#: lib/clubeira_web/live/backoffice/payment_live.ex:332
 #: lib/clubeira_web/live/backoffice/subscription_live.ex:308
 #: lib/clubeira_web/live/backoffice/subscription_live.ex:315
 #: lib/clubeira_web/live/backoffice/subscriptions_live.ex:167
@@ -295,7 +299,7 @@ msgstr "Pagamentos recentes"
 msgid "Recent places"
 msgstr "Estabelecimentos recentes"
 
-#: lib/clubeira_web/live/backoffice/dashboard_live.html.heex:260
+#: lib/clubeira_web/live/backoffice/dashboard_live.html.heex:261
 #, elixir-autogen, elixir-format
 msgid "Recent subscriptions"
 msgstr "Assinaturas recentes"
@@ -310,7 +314,7 @@ msgstr "Reputação"
 msgid "Secure tenant isolation, audited actions and real-time authorization."
 msgstr "Isolamento seguro entre polos, ações auditadas e autorização em tempo real."
 
-#: lib/clubeira_web/components/backoffice_components.ex:158
+#: lib/clubeira_web/components/backoffice_components.ex:159
 #, elixir-autogen, elixir-format
 msgid "Select polo"
 msgstr "Selecionar polo"
@@ -320,7 +324,7 @@ msgstr "Selecionar polo"
 msgid "Sign in to your operation"
 msgstr "Entre na sua operação"
 
-#: lib/clubeira_web/components/backoffice_components.ex:121
+#: lib/clubeira_web/components/backoffice_components.ex:122
 #, elixir-autogen, elixir-format
 msgid "Sign out"
 msgstr "Sair"
@@ -398,7 +402,7 @@ msgstr "Área de trabalho"
 msgid "Your club operation, clear from end to end."
 msgstr "A operação do seu clube, clara de ponta a ponta."
 
-#: lib/clubeira_web/live/backoffice/dashboard_live.html.heex:287
+#: lib/clubeira_web/live/backoffice/dashboard_live.html.heex:288
 #, elixir-autogen, elixir-format
 msgid "available units"
 msgstr "unidades disponíveis"
@@ -414,6 +418,7 @@ msgid "Your session has expired or does not have backoffice access."
 msgstr "Sua sessão expirou ou não possui acesso ao backoffice."
 
 #: lib/clubeira_web/live/backoffice/dashboard_live.ex:150
+#: lib/clubeira_web/live/backoffice/payment_live.ex:322
 #, elixir-autogen, elixir-format
 msgid "Authorized"
 msgstr "Autorizado"
@@ -424,6 +429,8 @@ msgid "Authorized areas"
 msgstr "Áreas autorizadas"
 
 #: lib/clubeira_web/live/backoffice/dashboard_live.ex:152
+#: lib/clubeira_web/live/backoffice/payment_live.ex:325
+#: lib/clubeira_web/live/backoffice/payment_live.ex:335
 #: lib/clubeira_web/live/backoffice/subscription_live.ex:312
 #: lib/clubeira_web/live/backoffice/subscription_live.ex:318
 #: lib/clubeira_web/live/backoffice/subscriptions_live.ex:171
@@ -433,12 +440,15 @@ msgid "Cancelled"
 msgstr "Cancelado"
 
 #: lib/clubeira_web/live/backoffice/dashboard_live.ex:154
+#: lib/clubeira_web/live/backoffice/payment_live.ex:327
+#: lib/clubeira_web/live/backoffice/payment_live.ex:338
 #: lib/clubeira_web/live/backoffice/subscription_live.ex:321
 #, elixir-autogen, elixir-format
 msgid "Charged back"
 msgstr "Contestado"
 
 #: lib/clubeira_web/live/backoffice/dashboard_live.ex:155
+#: lib/clubeira_web/live/backoffice/payment_live.ex:336
 #: lib/clubeira_web/live/backoffice/subscription_live.ex:313
 #: lib/clubeira_web/live/backoffice/subscription_live.ex:319
 #: lib/clubeira_web/live/backoffice/subscriptions_live.ex:172
@@ -448,6 +458,7 @@ msgid "Expired"
 msgstr "Expirado"
 
 #: lib/clubeira_web/live/backoffice/dashboard_live.ex:151
+#: lib/clubeira_web/live/backoffice/payment_live.ex:324
 #, elixir-autogen, elixir-format
 msgid "Failed"
 msgstr "Falhou"
@@ -461,6 +472,8 @@ msgid "Invited"
 msgstr "Convidado"
 
 #: lib/clubeira_web/live/backoffice/dashboard_live.ex:153
+#: lib/clubeira_web/live/backoffice/payment_live.ex:326
+#: lib/clubeira_web/live/backoffice/payment_live.ex:337
 #: lib/clubeira_web/live/backoffice/subscription_live.ex:320
 #, elixir-autogen, elixir-format
 msgid "Refunded"
@@ -565,7 +578,7 @@ msgid "items per page"
 msgstr "itens por página"
 
 #: lib/clubeira_web/live/backoffice/place_live.html.heex:99
-#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:149
+#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:152
 #, elixir-autogen, elixir-format
 msgid "Action"
 msgstr "Ação"
@@ -591,7 +604,7 @@ msgid "Lifecycle actions are protected by authorization, idempotency and revisio
 msgstr "As ações de ciclo de vida são protegidas por autorização, idempotência e controle de revisão."
 
 #: lib/clubeira_web/live/backoffice/place_live.html.heex:107
-#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:157
+#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:161
 #, elixir-autogen, elixir-format
 msgid "Operational reason"
 msgstr "Motivo operacional"
@@ -679,12 +692,14 @@ msgstr "Os detalhes do estabelecimento estão temporariamente indisponíveis."
 msgid "The place was not found in this polo."
 msgstr "O estabelecimento não foi encontrado neste polo."
 
+#: lib/clubeira_web/live/backoffice/payment_live.ex:37
 #: lib/clubeira_web/live/backoffice/place_live.ex:54
 #: lib/clubeira_web/live/backoffice/subscription_live.ex:37
 #, elixir-autogen, elixir-format
 msgid "The selected polo is invalid."
 msgstr "O polo selecionado é inválido."
 
+#: lib/clubeira_web/live/backoffice/payment_live.ex:272
 #: lib/clubeira_web/live/backoffice/place_live.ex:568
 #: lib/clubeira_web/live/backoffice/subscription_live.ex:271
 #, elixir-autogen, elixir-format
@@ -719,6 +734,7 @@ msgstr "Esta participação ainda não possui um perfil público."
 msgid "This participation has no available lifecycle actions."
 msgstr "Esta participação não possui ações de ciclo de vida disponíveis."
 
+#: lib/clubeira_web/live/backoffice/payment_live.ex:142
 #: lib/clubeira_web/live/backoffice/place_live.ex:344
 #: lib/clubeira_web/live/backoffice/subscription_live.ex:163
 #, elixir-autogen, elixir-format
@@ -737,7 +753,7 @@ msgid "Update participation"
 msgstr "Atualizar participação"
 
 #: lib/clubeira_web/live/backoffice/place_live.html.heex:125
-#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:168
+#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:172
 #, elixir-autogen, elixir-format
 msgid "Updating..."
 msgstr "Atualizando..."
@@ -747,6 +763,7 @@ msgstr "Atualizando..."
 msgid "You do not have access to manage places."
 msgstr "Você não possui acesso para gerenciar estabelecimentos."
 
+#: lib/clubeira_web/live/backoffice/payment_live.ex:293
 #: lib/clubeira_web/live/backoffice/place_live.ex:589
 #: lib/clubeira_web/live/backoffice/subscription_live.ex:292
 #, elixir-autogen, elixir-format
@@ -992,13 +1009,13 @@ msgstr "aposentada"
 msgid "Apply filters"
 msgstr "Aplicar filtros"
 
-#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:105
+#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:108
 #: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:140
 #, elixir-autogen, elixir-format
 msgid "Available"
 msgstr "Disponíveis"
 
-#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:113
+#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:116
 #: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:148
 #, elixir-autogen, elixir-format
 msgid "Consumed"
@@ -1014,13 +1031,13 @@ msgstr "Status do contrato"
 msgid "Current contract, cycle and entitlement balance for every subscription."
 msgstr "Contrato, ciclo e saldo de benefícios atuais de cada assinatura."
 
-#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:78
+#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:81
 #: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:115
 #, elixir-autogen, elixir-format
 msgid "Current cycle"
 msgstr "Ciclo atual"
 
-#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:82
+#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:85
 #: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:119
 #, elixir-autogen, elixir-format
 msgid "Cycle %{sequence}"
@@ -1031,7 +1048,7 @@ msgstr "Ciclo %{sequence}"
 msgid "Exact order number"
 msgstr "Número exato do pedido"
 
-#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:97
+#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:100
 #: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:132
 #, elixir-autogen, elixir-format
 msgid "Issued"
@@ -1043,7 +1060,7 @@ msgstr "Emitidas"
 msgid "Member operation"
 msgstr "Operação de membros"
 
-#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:91
+#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:94
 #: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:125
 #, elixir-autogen, elixir-format
 msgid "No current cycle"
@@ -1084,11 +1101,12 @@ msgstr "O inventário de assinaturas está temporariamente indisponível."
 msgid "You do not have access to the subscription inventory."
 msgstr "Você não tem acesso ao inventário de assinaturas."
 
-#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:68
+#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:71
 #, elixir-autogen, elixir-format
 msgid "Activated at"
 msgstr "Ativada em"
 
+#: lib/clubeira_web/live/backoffice/payment_live.ex:333
 #: lib/clubeira_web/live/backoffice/subscription_live.ex:316
 #, elixir-autogen, elixir-format
 msgid "Awaiting payment"
@@ -1099,32 +1117,36 @@ msgstr "Aguardando pagamento"
 msgid "Back to subscriptions"
 msgstr "Voltar para assinaturas"
 
-#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:127
+#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:130
 #, elixir-autogen, elixir-format
 msgid "Contract operation"
 msgstr "Operação do contrato"
 
-#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:133
+#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:136
 #, elixir-autogen, elixir-format
 msgid "Lifecycle actions are authorized again in the database and recorded with idempotency, audit and domain events."
 msgstr "As ações de ciclo de vida são reautorizadas no banco e registradas com idempotência, auditoria e eventos de domínio."
 
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:45
 #: lib/clubeira_web/live/backoffice/subscription_live.html.heex:45
 #, elixir-autogen, elixir-format
 msgid "Order"
 msgstr "Pedido"
 
-#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:52
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:52
+#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:55
 #, elixir-autogen, elixir-format
 msgid "Order status"
 msgstr "Status do pedido"
 
+#: lib/clubeira_web/live/backoffice/payment_live.ex:334
 #: lib/clubeira_web/live/backoffice/subscription_live.ex:317
 #, elixir-autogen, elixir-format
 msgid "Paid"
 msgstr "Pago"
 
-#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:62
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:62
+#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:65
 #, elixir-autogen, elixir-format
 msgid "Placed at"
 msgstr "Realizado em"
@@ -1134,7 +1156,7 @@ msgstr "Realizado em"
 msgid "Subscription details"
 msgstr "Detalhes da assinatura"
 
-#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:130
+#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:133
 #, elixir-autogen, elixir-format
 msgid "Subscription lifecycle"
 msgstr "Ciclo de vida da assinatura"
@@ -1159,12 +1181,12 @@ msgstr "A assinatura não foi encontrada neste polo."
 msgid "The updated subscription could not be reloaded."
 msgstr "Não foi possível recarregar a assinatura atualizada."
 
-#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:179
+#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:183
 #, elixir-autogen, elixir-format
 msgid "This subscription has no available lifecycle actions."
 msgstr "Esta assinatura não possui ações de ciclo de vida disponíveis."
 
-#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:171
+#: lib/clubeira_web/live/backoffice/subscription_live.html.heex:175
 #, elixir-autogen, elixir-format
 msgid "Update subscription"
 msgstr "Atualizar assinatura"
@@ -1173,3 +1195,165 @@ msgstr "Atualizar assinatura"
 #, elixir-autogen, elixir-format
 msgid "You do not have access to manage subscriptions."
 msgstr "Você não possui acesso para gerenciar assinaturas."
+
+#: lib/clubeira_web/live/backoffice/payment_live.ex:113
+#: lib/clubeira_web/live/backoffice/payment_live.ex:177
+#, elixir-autogen, elixir-format
+msgid "A refund is no longer available for this payment."
+msgstr "O reembolso não está mais disponível para este pagamento."
+
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:16
+#, elixir-autogen, elixir-format
+msgid "Back to finance"
+msgstr "Voltar ao financeiro"
+
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:91
+#, elixir-autogen, elixir-format
+msgid "Captured at"
+msgstr "Capturado em"
+
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:22
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:163
+#, elixir-autogen, elixir-format
+msgid "Financial operation"
+msgstr "Operação financeira"
+
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:166
+#, elixir-autogen, elixir-format
+msgid "Full payment refund"
+msgstr "Reembolso integral do pagamento"
+
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:136
+#, elixir-autogen, elixir-format
+msgid "Latest chargeback"
+msgstr "Chargeback mais recente"
+
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:112
+#, elixir-autogen, elixir-format
+msgid "Latest refund"
+msgstr "Reembolso mais recente"
+
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:153
+#, elixir-autogen, elixir-format
+msgid "No chargeback recorded."
+msgstr "Nenhum chargeback registrado."
+
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:126
+#, elixir-autogen, elixir-format
+msgid "No refund recorded."
+msgstr "Nenhum reembolso registrado."
+
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:78
+#, elixir-autogen, elixir-format
+msgid "Payment"
+msgstr "Pagamento"
+
+#: lib/clubeira_web/live/backoffice/payment_live.ex:15
+#, elixir-autogen, elixir-format
+msgid "Payment details"
+msgstr "Detalhes do pagamento"
+
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:85
+#, elixir-autogen, elixir-format
+msgid "Payment method"
+msgstr "Meio de pagamento"
+
+#: lib/clubeira_web/live/backoffice/payment_live.ex:329
+#, elixir-autogen, elixir-format
+msgid "Processing"
+msgstr "Em processamento"
+
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:68
+#, elixir-autogen, elixir-format
+msgid "Purchaser ID"
+msgstr "ID do comprador"
+
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:97
+#, elixir-autogen, elixir-format
+msgid "Recorded at"
+msgstr "Registrado em"
+
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:201
+#, elixir-autogen, elixir-format
+msgid "Refund full payment"
+msgstr "Reembolsar pagamento integral"
+
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:187
+#, elixir-autogen, elixir-format
+msgid "Refund reason"
+msgstr "Motivo do reembolso"
+
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:198
+#, elixir-autogen, elixir-format
+msgid "Refunding..."
+msgstr "Reembolsando..."
+
+#: lib/clubeira_web/live/backoffice/payment_live.ex:328
+#, elixir-autogen, elixir-format
+msgid "Requested"
+msgstr "Solicitado"
+
+#: lib/clubeira_web/live/backoffice/payment_live.ex:161
+#, elixir-autogen, elixir-format
+msgid "Review the refund request before submitting."
+msgstr "Revise a solicitação de reembolso antes de enviar."
+
+#: lib/clubeira_web/live/backoffice/payment_live.ex:330
+#, elixir-autogen, elixir-format
+msgid "Succeeded"
+msgstr "Concluído"
+
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:169
+#, elixir-autogen, elixir-format
+msgid "The amount is derived from the captured payment. Authorization, reservation, provider confirmation and settlement remain idempotent and auditable."
+msgstr "O valor é derivado do pagamento capturado. Autorização, reserva, confirmação do provedor e liquidação permanecem idempotentes e auditáveis."
+
+#: lib/clubeira_web/live/backoffice/payment_live.ex:79
+#, elixir-autogen, elixir-format
+msgid "The payment details are temporarily unavailable."
+msgstr "Os detalhes do pagamento estão temporariamente indisponíveis."
+
+#: lib/clubeira_web/live/backoffice/payment_live.ex:135
+#, elixir-autogen, elixir-format
+msgid "The payment provider did not confirm the refund. Retry with the same values."
+msgstr "O provedor de pagamentos não confirmou o reembolso. Tente novamente com os mesmos valores."
+
+#: lib/clubeira_web/live/backoffice/payment_live.ex:152
+#, elixir-autogen, elixir-format
+msgid "The payment provider rejected this attempt. Review it and submit a new request."
+msgstr "O provedor de pagamentos rejeitou esta tentativa. Revise-a e envie uma nova solicitação."
+
+#: lib/clubeira_web/live/backoffice/payment_live.ex:279
+#, elixir-autogen, elixir-format
+msgid "The payment was not found in this polo."
+msgstr "O pagamento não foi encontrado neste polo."
+
+#: lib/clubeira_web/live/backoffice/payment_live.ex:126
+#, elixir-autogen, elixir-format
+msgid "The payment was refunded successfully."
+msgstr "O pagamento foi reembolsado com sucesso."
+
+#: lib/clubeira_web/live/backoffice/payment_live.ex:197
+#, elixir-autogen, elixir-format
+msgid "The refund could not be completed."
+msgstr "Não foi possível concluir o reembolso."
+
+#: lib/clubeira_web/live/backoffice/payment_live.ex:49
+#, elixir-autogen, elixir-format
+msgid "The refund request was invalid and was not processed."
+msgstr "A solicitação de reembolso era inválida e não foi processada."
+
+#: lib/clubeira_web/live/backoffice/payment_live.ex:226
+#, elixir-autogen, elixir-format
+msgid "The updated payment could not be reloaded."
+msgstr "Não foi possível recarregar o pagamento atualizado."
+
+#: lib/clubeira_web/live/backoffice/payment_live.html.heex:209
+#, elixir-autogen, elixir-format
+msgid "This payment has no refund action available."
+msgstr "Este pagamento não possui ação de reembolso disponível."
+
+#: lib/clubeira_web/live/backoffice/payment_live.ex:286
+#, elixir-autogen, elixir-format
+msgid "You do not have access to manage payments."
+msgstr "Você não possui acesso para gerenciar pagamentos."
