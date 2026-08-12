@@ -3,7 +3,7 @@ defmodule Clubeira.Platform.PlanPublishRequest do
 
   use Ecto.Schema
 
-  import Ecto.Changeset
+  import Ecto.Changeset, except: [change: 1, change: 2]
 
   alias Clubeira.Platform.PlanFeatureRequest
 
@@ -40,32 +40,18 @@ defmodule Clubeira.Platform.PlanPublishRequest do
           features: [PlanFeatureRequest.t()]
         }
 
-  @spec new(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
-  def new(attributes) when is_map(attributes) do
-    changeset =
-      %__MODULE__{}
-      |> cast(flatten(attributes), @fields)
-      |> cast_embed(:features, required: true, with: &PlanFeatureRequest.changeset/2)
-      |> update_change(:name, &String.trim/1)
-      |> update_change(:version_name, &String.trim/1)
-      |> update_change(:description, &String.trim/1)
-      |> update_change(:currency, &(&1 |> String.trim() |> String.upcase()))
-      |> validate_required(@fields)
-      |> validate_length(:name, min: 2, max: 160)
-      |> validate_length(:version_name, min: 2, max: 160)
-      |> validate_length(:description, min: 3, max: 5_000)
-      |> validate_length(:currency, is: 3)
-      |> validate_format(:currency, ~r/^[A-Z]{3}$/)
-      |> validate_number(:amount,
-        greater_than_or_equal_to: 0,
-        less_than: Decimal.new("1000000000000")
-      )
-      |> validate_number(:billing_interval_count, greater_than: 0, less_than: 32_768)
-      |> validate_inclusion(:billing_interval_unit, ~w(month year))
-      |> validate_decimal_scale(:amount, 2)
-      |> validate_period()
-      |> validate_feature_set()
-      |> update_change(:amount, &Decimal.round(&1, 2))
+  @spec change(term()) :: Ecto.Changeset.t()
+  def change(attributes \\ %{})
+
+  def change(attributes) when is_map(attributes) and not is_struct(attributes) do
+    changeset(attributes)
+  end
+
+  def change(_attributes), do: invalid_changeset()
+
+  @spec new(term()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
+  def new(attributes) when is_map(attributes) and not is_struct(attributes) do
+    changeset = attributes |> flatten() |> changeset()
 
     case apply_action(changeset, :publish_platform_plan) do
       {:ok, request} ->
@@ -76,7 +62,42 @@ defmodule Clubeira.Platform.PlanPublishRequest do
     end
   end
 
-  def new(_attributes), do: new(%{})
+  def new(_attributes) do
+    invalid_changeset()
+    |> apply_action(:publish_platform_plan)
+  end
+
+  defp changeset(attributes) do
+    %__MODULE__{}
+    |> cast(attributes, @fields)
+    |> cast_embed(:features, required: true, with: &PlanFeatureRequest.changeset/2)
+    |> update_change(:name, &String.trim/1)
+    |> update_change(:version_name, &String.trim/1)
+    |> update_change(:description, &String.trim/1)
+    |> update_change(:currency, &(&1 |> String.trim() |> String.upcase()))
+    |> validate_required(@fields)
+    |> validate_length(:name, min: 2, max: 160)
+    |> validate_length(:version_name, min: 2, max: 160)
+    |> validate_length(:description, min: 3, max: 5_000)
+    |> validate_length(:currency, is: 3)
+    |> validate_format(:currency, ~r/^[A-Z]{3}$/)
+    |> validate_number(:amount,
+      greater_than_or_equal_to: 0,
+      less_than: Decimal.new("1000000000000")
+    )
+    |> validate_number(:billing_interval_count, greater_than: 0, less_than: 32_768)
+    |> validate_inclusion(:billing_interval_unit, ~w(month year))
+    |> validate_decimal_scale(:amount, 2)
+    |> validate_period()
+    |> validate_feature_set()
+    |> update_change(:amount, &Decimal.round(&1, 2))
+  end
+
+  defp invalid_changeset do
+    %__MODULE__{}
+    |> Ecto.Changeset.change()
+    |> add_error(:base, "must be a map")
+  end
 
   defp flatten(attributes) do
     price = child_map(attributes, "price")

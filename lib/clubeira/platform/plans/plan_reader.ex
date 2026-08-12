@@ -3,6 +3,7 @@ defmodule Clubeira.Platform.PlanReader do
 
   import Ecto.Query
 
+  alias Clubeira.Platform.Authorization
   alias Clubeira.Platform.Feature
   alias Clubeira.Platform.Plan
   alias Clubeira.Platform.PlanVersion
@@ -11,24 +12,28 @@ defmodule Clubeira.Platform.PlanReader do
   alias Clubeira.Repo
   alias Clubeira.Tenancy.ActorScope
 
-  @spec list(ActorScope.t()) :: {:ok, [map()]} | {:error, :invalid_actor_scope}
+  @spec list(ActorScope.t()) ::
+          {:ok, [map()]}
+          | {:error, :invalid_actor_scope | :platform_billing_admin_required}
   def list(%ActorScope{} = scope) do
     Repo.transact_as_actor(scope, fn repo ->
       now = transaction_time(repo)
 
-      plans =
-        repo.all(
-          from(plan in Plan,
-            where: plan.status == "active",
-            order_by: [asc: plan.code],
-            lock: "FOR SHARE"
+      with :ok <- Authorization.authorize(repo, scope, :manage_platform_billing, now) do
+        plans =
+          repo.all(
+            from(plan in Plan,
+              where: plan.status == "active",
+              order_by: [asc: plan.code],
+              lock: "FOR SHARE"
+            )
           )
-        )
 
-      {:ok,
-       plans
-       |> Enum.map(&latest_published_view(repo, &1, now))
-       |> Enum.reject(&is_nil/1)}
+        {:ok,
+         plans
+         |> Enum.map(&latest_published_view(repo, &1, now))
+         |> Enum.reject(&is_nil/1)}
+      end
     end)
   end
 

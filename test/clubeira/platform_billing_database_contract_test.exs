@@ -50,6 +50,13 @@ defmodule Clubeira.PlatformBilling.DatabaseContractTest do
              "(merchant_account_id, provider_reference)"
   end
 
+  test "managed platform plan inventory has an index matching its keyset order" do
+    indexes = index_definitions()
+
+    assert indexes["platform_plans_management_feed_idx"] =~
+             "(inserted_at, id)"
+  end
+
   defp constraint_definitions do
     %{rows: rows} =
       Repo.query!("""
@@ -78,7 +85,8 @@ defmodule Clubeira.PlatformBilling.DatabaseContractTest do
           'polo_platform_subscriptions_current_uidx',
           'polo_platform_subscriptions_actor_idempotency_uidx',
           'platform_invoices_provider_reference_uidx',
-          'platform_payments_provider_reference_uidx'
+          'platform_payments_provider_reference_uidx',
+          'platform_plans_management_feed_idx'
         )
       """)
 
