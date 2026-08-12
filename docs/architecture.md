@@ -95,7 +95,36 @@ Workers globais não devem reutilizar a role web nem receber bypass irrestrito.
 Quando surgirem, cada categoria terá uma role mínima e uma policy explícita,
 com lote e finalidade auditáveis.
 
-## Borda web do backoffice
+## Bordas web
+
+Phoenix organiza cinco superfícies sem criar um segundo domínio: descoberta
+pública em `/explorar` e `/termos`, conta e operação do membro em `/app`,
+backoffice do polo em `/admin`, autoatendimento do parceiro em `/partner` e
+control plane global em `/platform`. Controllers e LiveViews dependem dos
+contexts públicos; autorização, RLS, idempotência, auditoria, eventos e outbox
+continuam nas fronteiras transacionais existentes.
+
+A superfície pública resolve identidades por slugs e aplica locale sem criar um
+scope autenticado. Cadastro, verificação de e-mail e recuperação de senha usam
+os mesmos comandos globais de `Accounts` da API e os mesmos limites por IP,
+identidade ou token. As quatro áreas privadas validam novamente a sessão opaca
+em cada mount, e nenhuma capability renderizada substitui a autorização no
+banco.
+
+O membro consulta catálogo, pedidos, contratos, carteira, perfil e privacidade
+pelos read models existentes. A interface oferece Pix, mas bloqueia ofertas e
+pedidos de renovação automática enquanto não existir cancelamento autenticado e
+sincronizado com o PSP. A carteira emite o grant curto do membro; QR visual,
+leitor/POS e a credencial do ponto pertencem ao protocolo de confirmação
+separado e não são simulados pelo browser.
+
+O parceiro continua exigindo simultaneamente membership tenant, organização,
+lugar e operador vigentes antes de listar lugares, publicar perfil ou responder
+avaliações. A plataforma exige uma membership global
+`platform_billing_admin` ou `platform_admin` para planos e operação LGPD; essa
+role não concede capacidade administrativa em nenhum polo.
+
+### Backoffice
 
 O backoffice Phoenix LiveView é uma borda fina sobre os mesmos contexts públicos
 usados pela API. A interface pode ocultar ou mostrar áreas conforme as
@@ -518,8 +547,9 @@ As bordas iniciais são:
 - `DELETE /api/v1/auth/session` — revoga a sessão corrente;
 - `GET /api/v1/me` — relê identidade, verificação de e-mail e validade da
   sessão autenticada;
-- `GET/PUT /api/v1/me/profile` — lê ou substitui o perfil civil do próprio ator
-  sem devolver CPF ou telefone;
+- `GET/PUT /api/v1/me/profile` — lê ou atualiza o perfil civil do próprio ator
+  sem devolver CPF ou telefone; por serem write-only, campos sensíveis omitidos
+  são preservados e `null` ou vazio revoga explicitamente o valor;
 - `/api/v1/me/privacy/*` — mantém consentimentos e pedidos do titular;
 - `GET /api/v1/polos/:slug/checkout-options` — lista as combinações comerciais
   públicas atualmente provisionáveis para o polo;
@@ -660,6 +690,8 @@ event, auditoria, evento e outbox na mesma transação. O timestamp remoto é
 evidência; início e fim do novo ciclo partem do relógio transacional e da
 política histórica contratada. Falha, inadimplência, cancelamento remoto e troca
 de meio de pagamento continuam transições explícitas ainda não implementadas.
+Os adapters e contratos locais não substituem a aceitação com credenciais reais
+contra o sandbox externo do PSP antes de um deploy.
 
 Chargeback usa o tópico oficial `topic_chargebacks_wh`; query e body precisam
 concordar, e o adaptador relê tanto o chargeback quanto o pagamento no PSP. A
@@ -676,6 +708,18 @@ inicia a assinatura SaaS usando uma merchant account global configurada pelo
 runtime. O mesmo webhook autenticado relê a cobrança autorizada e cria
 `platform_invoice`, itens, pagamento e período da assinatura sob RLS e FKs
 compostas. Nenhuma falha nessa cobrança concede ou remove benefício do membro.
+
+`PlatformBilling.list_plans/1` continua uma leitura do control plane global:
+exige uma role global de billing e retorna somente versões publicadas com preço
+vigente. Ela não é alargada para servir como catálogo do polo.
+`PlatformBilling.list_managed_plans/2` é o inventário administrativo global
+separado: exige a mesma capability, pagina identidades por keyset e agrega todas
+as versões imutáveis, seus estados, features e preços, inclusive os de vigência
+futura, sem alterar a semântica do catálogo corrente.
+`PlatformBilling.list_subscription_options/1` é a fronteira tenant-aware
+separada: exige `manage_billing` sob RLS e retorna apenas preços atualmente
+aceitos por `start_subscription/2`, permitindo ao admin financeiro escolher o
+`platform_price_id` sem receber uma role global.
 
 O histórico de resgates usa keyset decrescente sobre
 `redemption_attempts.requested_at + id`. Esse é também o índice composto por

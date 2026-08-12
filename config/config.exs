@@ -34,12 +34,12 @@ config :clubeira, Clubeira.Accounts.SessionJanitor,
 
 config :clubeira, Clubeira.Accounts.PasswordRecovery,
   token_ttl_seconds: 30 * 60,
-  reset_url: "http://localhost:4000/reset-password",
+  reset_url: "http://localhost:4000/redefinir-senha",
   from: {"Clubeira", "no-reply@clubeira.local"}
 
 config :clubeira, Clubeira.Accounts.EmailVerification,
   token_ttl_seconds: 24 * 60 * 60,
-  verification_url: "http://localhost:4000/verify-email",
+  verification_url: "http://localhost:4000/verificar-email",
   from: {"Clubeira", "no-reply@clubeira.local"}
 
 config :clubeira, Clubeira.Outbox.Worker,
@@ -145,8 +145,17 @@ config :logger, :default_formatter,
     :polo_id,
     :polo_place_id,
     :place_id,
+    :access_id,
     :access_contract_id,
+    :message_id,
+    :offering_id,
+    :order_id,
     :payment_id,
+    :price_id,
+    :purpose_code,
+    :purpose_id,
+    :report_id,
+    :review_id,
     :reason
   ]
 

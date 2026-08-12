@@ -7,8 +7,8 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL_18-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![OTP](https://img.shields.io/badge/OTP_29-A90533?style=for-the-badge&logo=erlang&logoColor=white)](https://www.erlang.org/)
 [![RLS](https://img.shields.io/badge/RLS-FORCED-16A34A?style=for-the-badge)](#-multi-tenancy)
-[![Tests](https://img.shields.io/badge/tests-680-2563EB?style=for-the-badge)](./test)
-[![Migrations](https://img.shields.io/badge/migrations-139-F97316?style=for-the-badge)](./priv/repo/migrations)
+[![Tests](https://img.shields.io/badge/tests-1095-2563EB?style=for-the-badge)](./test)
+[![Migrations](https://img.shields.io/badge/migrations-141-F97316?style=for-the-badge)](./priv/repo/migrations)
 [![License](https://img.shields.io/badge/license-MIT-16A34A?style=for-the-badge)](./LICENSE)
 
 **[🏗️ Arquitetura](docs/architecture.md)** · **[🛠️ Desenvolvimento](docs/development.md)** · **[🤝 Contribuir](CONTRIBUTING.md)** · **[🔐 Segurança](SECURITY.md)**
@@ -31,7 +31,7 @@
 
 ## 🎯 Visão geral
 
-Clubeira é o núcleo transacional e o painel administrativo de um SaaS
+Clubeira é o núcleo transacional e as superfícies web de um SaaS
 multi-tenant para clubes de vouchers por assinatura. Um único produto atende
 vários polos independentes — cidades, regiões ou franquias — e o mesmo usuário
 mantém contratos, ciclos e benefícios separados em cada um.
@@ -84,7 +84,11 @@ flowchart LR
 | ✅ **Resgate** | enrollment sem persistir segredo, chave Ed25519 do dispositivo com prova de posse, grant assinado e curto, lifecycle do ponto, consumo atômico com anti-replay, ledger, auditoria, evento e outbox |
 | ⭐ **UGC** | avaliações verificadas, mídia validada pelo storage, resposta versionada do parceiro, denúncia, moderação append-only e feed público consistente |
 | 🧾 **Plataforma** | catálogo versionado de planos e features, assinatura SaaS do polo, nota, itens e pagamento liquidados por webhook autenticado |
-| 🖥️ **Backoffice web** | login com sessão cifrada, navegação por capability, dashboard responsivo, inventários com filtros/keyset e detalhes operacionais de estabelecimentos, assinaturas e pagamentos, incluindo reembolso integral pelo context real |
+| 🌐 **Web pública** | termos vigentes, descoberta de polos, catálogo e detalhe de estabelecimentos em `/explorar`, sem expor UUIDs como rota pública |
+| 👤 **Web do membro** | cadastro, verificação e recuperação de conta, catálogo, pedidos Pix, assinaturas, carteira, perfil civil e privacidade em `/app` |
+| 🖥️ **Backoffice web** | dashboard e operação por capability em `/admin`: comercial, parceiros, lugares, cobrança, validação, moderação, auditoria e outbox |
+| 🤝 **Web do parceiro** | lugares atribuídos, perfil público e respostas a avaliações em `/partner`, preservando a autorização composta do parceiro |
+| 🧭 **Web da plataforma** | planos SaaS e operação LGPD global em `/platform`, isolada das capabilities de cada polo |
 | 🧪 **Base** | migrations reversíveis, seeds determinísticas, factories, RLS forçado, E2E HTTP por TCP e testes de concorrência contra bancos isolados reais |
 
 O fluxo de venda implementado no domínio é:
@@ -110,6 +114,9 @@ identidade local antes do I/O e só revoga direitos após confirmação do PSP.
 Cartão e reembolso parcial continuam fatias separadas. A API online de resgate já
 entrega o grant que um cliente pode renderizar como QR; placard estático,
 operação offline e o componente visual de leitura continuam bordas próprias.
+O browser vende somente ofertas sem renovação automática enquanto o membro não
+possuir cancelamento sincronizado com o PSP. A recorrência continua disponível
+na API e no domínio, mas não é apresentada nem retomada pela interface web.
 
 ---
 
@@ -129,13 +136,19 @@ instala as dependências Node, valida o contrato OpenAPI e compila os assets.
 
 | Endereço | O que é |
 |:--|:--|
-| <http://localhost:4000> | aplicação |
+| <http://localhost:4000> | redireciona para a descoberta pública |
+| <http://localhost:4000/explorar> | polos, catálogo e estabelecimentos públicos |
+| <http://localhost:4000/termos> | documentos legais vigentes |
+| <http://localhost:4000/registrar> | cadastro do membro; recuperação e verificação usam as rotas públicas relacionadas |
+| <http://localhost:4000/app> | área autenticada do membro |
 | <http://localhost:4000/admin> | painel administrativo |
 | <http://localhost:4000/admin/places> | inventário de estabelecimentos do polo |
 | `/admin/places/:polo_place_id` | detalhe e lifecycle da participação selecionada |
 | <http://localhost:4000/admin/subscriptions> | inventário de assinaturas do polo |
 | `/admin/subscriptions/:contract_id` | detalhe e lifecycle do contrato selecionado |
 | `/admin/payments/:payment_id` | detalhe financeiro, refund integral e acompanhamento de chargeback |
+| <http://localhost:4000/partner> | operação do parceiro atribuído |
+| <http://localhost:4000/platform> | control plane global da plataforma |
 | <http://localhost:4000/health> | liveness do processo |
 | <http://localhost:4000/ready> | readiness da role runtime e das migrations |
 | <http://localhost:4000/api/docs> | documentação navegável Redocly |
@@ -161,7 +174,8 @@ As seeds criam `membro.demo@clubeira.local` com a senha local
 para trocar esse valor. O backoffice separa
 `moderador.demo@clubeira.local` / `clubeira-moderador-local` de
 `admin.demo@clubeira.local` / `clubeira-admin-local`; só o segundo pode
-cadastrar parceiros. O cenário também cria
+cadastrar parceiros e ele também recebe a role global `platform_admin` para
+operar `/platform`. O cenário também cria
 `parceiro.demo@clubeira.local` / `clubeira-parceiro-local`, vinculado somente
 ao Sabores do Acaraú Demo em Sobral. Sobral também recebe um ponto de validação cuja chave
 local de demonstração é
@@ -172,6 +186,10 @@ qualquer ambiente compartilhado. Para testar o sandbox Pix, defina também
 rodar as seeds. O mesmo membro possui contratos independentes em Sobral e
 Londrina. Os três estabelecimentos demo já possuem perfil público completo,
 com taxonomia curada, contato, semana de funcionamento e exceções de calendário.
+Ao todo são três organizações; a organização de plataforma publica o plano
+`operacao`, a finalidade `product-communications` e uma solicitação LGPD do
+membro. A conta PSP global da plataforma usa o UUID estável
+`019ff7b5-d399-7d67-b514-b2a4deff5c3a`.
 
 </details>
 
@@ -893,6 +911,7 @@ alterar a configuração versionada.
 | Release OTP, container e readiness de produção | ✅ |
 | Bootstrap produtivo idempotente do primeiro polo/admin | ✅ |
 | Erros HTTP localizados em pt-BR/en | ✅ |
+| Web pública, membro, backoffice, parceiro e plataforma | ✅ |
 | Cadastro, sessão e aceite legal | ✅ |
 | Catálogo, diretório e checkout-options públicos | ✅ |
 | Perfil operacional do estabelecimento | ✅ |
@@ -931,6 +950,9 @@ alterar a configuração versionada.
 | Planos e cobrança SaaS do polo | ✅ |
 | Chave Ed25519 do dispositivo com prova de posse | ✅ |
 | Mídia e resposta versionada do parceiro em avaliações | ✅ |
+| Cancelamento recorrente sincronizado com o PSP no browser | ⏳ |
+| E2E de navegador real com JavaScript | ⏳ |
+| Aceite contra sandbox externo do PSP e e-mail | ⏳ |
 | Cartão e reembolso parcial | ⏳ |
 | Falha, inadimplência e cancelamento remoto da recorrência | ⏳ |
 | QR estático, placard e modo offline | ⏳ |

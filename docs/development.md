@@ -32,8 +32,9 @@ mix phx.server
 O alias executa, nesta ordem: dependências, container saudável, criação do
 banco, migrations, seeds, instalação e validação do Redocly e build dos assets. As seeds são
 determinísticas e idempotentes: representam Sobral, Londrina, uma franquia nos
-dois polos, um parceiro local apenas em Sobral e um membro com assinatura e
-ciclo independentes nos dois polos. Os três estabelecimentos já saem publicados
+dois polos, um parceiro local apenas em Sobral, a organização global da
+plataforma e um membro com assinatura e ciclo independentes nos dois polos. Os
+três estabelecimentos já saem publicados
 no diretório com categorias globais curadas, contato público, semana completa e
 exceções de Natal e Réveillon. IDs de perfil e período são estáveis; cada rerun
 substitui os filhos desse cenário dentro da transação tenant, sem acumular
@@ -53,18 +54,25 @@ O backoffice usa `moderador.demo@clubeira.local` com a senha local
 recebe o papel `review_moderator` nos dois polos sem qualquer bypass de RLS.
 O cadastro de parceiros usa uma identidade separada:
 `admin.demo@clubeira.local` com `clubeira-admin-local`, configuráveis por
-`CLUBEIRA_DEMO_ADMIN_EMAIL` e `CLUBEIRA_DEMO_ADMIN_PASSWORD`. Ela recebe apenas
-o role key `admin` nos mesmos polos e pode exercitar tanto o onboarding quanto a
-publicação `PUT` do perfil. O acesso self-service usa
+`CLUBEIRA_DEMO_ADMIN_EMAIL` e `CLUBEIRA_DEMO_ADMIN_PASSWORD`. Ela recebe o role
+key `admin` nos mesmos polos e uma membership global `platform_admin`, podendo
+exercitar o onboarding, a publicação `PUT` do perfil e o control plane em
+`/platform`. O acesso self-service usa
 `parceiro.demo@clubeira.local` com `clubeira-parceiro-local`, configuráveis por
 `CLUBEIRA_DEMO_PARTNER_EMAIL` e `CLUBEIRA_DEMO_PARTNER_PASSWORD`. Essa conta
 possui role `partner_manager` somente em Sobral e vínculos vigentes com a
 organização e o estabelecimento Sabores do Acaraú Demo. As organizações demo
 têm CNPJs fictícios válidos e cifrados; nenhum documento real pertence às
 fixtures.
-As seeds também criam o provedor `mercado_pago`, uma conta global
-`mercado-pago-demo` e vínculos primários com os dois polos. A saída da seed
-mostra o UUID usado na URL do webhook. Sobral recebe ainda um ponto de
+As seeds também criam o provedor `mercado_pago`, a conta consumer global
+`mercado-pago-demo`, seus vínculos primários com os dois polos e a conta global
+`mercado-pago-platform-demo`. Esta última possui UUID estável
+`019ff7b5-d399-7d67-b514-b2a4deff5c3a` e alimenta
+`PLATFORM_BILLING_MERCHANT_ACCOUNT_ID`. A saída da seed mostra os UUIDs
+operacionais. O cenário publica ainda o plano SaaS `operacao`, a finalidade de
+consentimento `product-communications`, o perfil civil do membro e uma
+solicitação LGPD `information`; no total são três organizações, dois documentos
+legais e duas merchant accounts. Sobral recebe ainda um ponto de
 validação de API. Sua chave é lida de `CLUBEIRA_DEMO_VALIDATION_SECRET` e deve
 ser base64url sem padding de exatamente 32 bytes; o default documentado é
 somente para uso local.
@@ -72,6 +80,27 @@ somente para uso local.
 Factories vivem em `support/factory.ex` e são compiladas apenas em `dev` e
 `test`. Dados estruturais das seeds sempre recebem IDs e valores estáveis;
 Faker fica restrito a texto de apresentação irrelevante para a regra testada.
+
+## Superfícies web
+
+As cinco superfícies usam os mesmos contexts públicos da API; LiveViews e
+controllers não reimplementam autorização nem escrevem diretamente no banco.
+
+| Superfície | Entrada | Cenário local |
+|:--|:--|:--|
+| Pública | `/explorar` e `/termos` | sem login; lista polos, lugares, catálogo e documentos vigentes |
+| Membro | `/app` | `membro.demo@clubeira.local` / `clubeira-demo-local` |
+| Backoffice | `/admin` | admin completo ou moderador restrito |
+| Parceiro | `/partner` | `parceiro.demo@clubeira.local` / `clubeira-parceiro-local` |
+| Plataforma | `/platform` | `admin.demo@clubeira.local` / `clubeira-admin-local` |
+
+Cadastro, solicitação e conclusão de reset e verificação de e-mail ficam em
+`/registrar`, `/esqueci-minha-senha`, `/redefinir-senha` e `/verificar-email`.
+A área do membro cobre catálogo, pedidos Pix, assinaturas, carteira, perfil
+civil, consentimentos e solicitações LGPD. Ofertas `renewal_policy=automatic`
+não aparecem nem podem ser retomadas no browser enquanto não houver
+cancelamento autenticado e sincronizado com o PSP; a fronteira recorrente da API
+permanece disponível para integrações controladas.
 
 ## Painel administrativo
 
@@ -475,8 +504,9 @@ A integração segue a [Orders API](https://www.mercadopago.com.br/developers/pt
 o recurso oficial de assinaturas e a validação de notificações do provedor.
 Todos os tópicos passam pela mesma autenticação HMAC, conferem a identidade
 entre URL e payload e releem o recurso remoto antes do core.
-Use o simulador do painel para provar `200`; uma captura real de sandbox ainda
-deve ser validada com credenciais próprias antes do deploy.
+Use o simulador do painel para provar `200`; captura, recorrência, reembolso e
+e-mail reais de sandbox ainda precisam de aceitação externa com credenciais
+próprias antes do deploy.
 
 O estorno operacional é integral e parte de um `payment_id` interno já
 capturado. Descubra esse ID no feed tenant-aware; `status` aceita os estados de
@@ -559,7 +589,7 @@ assinatura e suas notas continuam tenant-aware e exigem `manage_billing` no
 polo. Configure a conta global usada pela Clubeira para cobrar os polos:
 
 ```sh
-export PLATFORM_BILLING_MERCHANT_ACCOUNT_ID='<merchant-account-uuid>'
+export PLATFORM_BILLING_MERCHANT_ACCOUNT_ID='019ff7b5-d399-7d67-b514-b2a4deff5c3a'
 ```
 
 O UUID precisa existir em `merchant_accounts` e ter credenciais no mesmo
@@ -614,6 +644,10 @@ revogação explícita nunca pode ser renovada. O grant expira em 120 segundos p
 padrão. O endpoint final rejeita polo
 divergente, assinatura alterada, chave revogada/expirada e replay de nonce antes
 de qualquer segundo consumo.
+
+A carteira web emite e apresenta o token curto do grant. Renderização visual
+do QR, leitor/POS e autenticação do ponto continuam um protocolo separado; o
+browser do membro não recebe nem simula a credencial de validação.
 
 O lifecycle exige um motivo de 3 a 500 caracteres. `suspend` preserva a
 credencial, mas corta sua autenticação imediatamente; `reactivate` só retorna o
@@ -820,10 +854,9 @@ mix precommit
 `mix quality` roda formatação em check, lint Redocly com verificação do bundle
 OpenAPI, compilação com warnings como erro, dependências não usadas, Credo
 strict, auditoria de dependências, auditoria Hex, Sobelow e a suíte com cobertura
-backend mínima de 90%. Enquanto o produto não
-possui frontend, somente o scaffold `ClubeiraWeb.CoreComponents` fica fora do
-denominador; controllers, JSON, domínio, workers e demais módulos continuam no
-gate. `mix precommit` formata antes de repetir o gate completo.
+backend mínima de 90%. Controllers, LiveViews, JSON, contexts, workers e demais
+módulos entram no mesmo gate; `mix precommit` formata antes de repeti-lo por
+completo.
 
 Testes de banco usam SQL Sandbox. O setup cria e assume uma role PostgreSQL
 temporária sem bypass de RLS dentro da transação, para que a suíte não ganhe
@@ -842,7 +875,8 @@ checkout idempotente, criação Pix, webhook HMAC, liquidação, assinatura, cha
 Ed25519 do dispositivo, carteira, resgate, review, moderação e reembolso com
 PostgreSQL real. Somente a API remota do PSP termina em `Req.Test`; a borda HTTP
 da aplicação não é substituída. Ele roda dentro de `mix test` e não substitui os
-testes isolados de contrato nem uma validação futura contra o PSP em sandbox.
+testes isolados de contrato, um E2E de navegador real com JavaScript nem a
+aceitação contra PSP e e-mail externos em sandbox.
 
 ## Multi-tenancy no código
 
