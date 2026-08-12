@@ -41,9 +41,36 @@ defmodule Clubeira.Billing.BackofficePaymentReader do
 
   def list(_scope, _params), do: {:error, :billing_admin_required}
 
+  @spec get(Scope.t(), Ecto.UUID.t()) ::
+          {:ok, map()} | {:error, :billing_admin_required | :payment_not_found | term()}
+  def get(%Scope{actor_user_id: nil}, _payment_id), do: {:error, :billing_admin_required}
+
+  def get(%Scope{} = scope, payment_id) do
+    with {:ok, payment_id} <- cast_payment_id(payment_id) do
+      Repo.transact_in_polo(scope, &get_authorized(&1, scope, payment_id))
+    end
+  end
+
+  def get(_scope, _payment_id), do: {:error, :billing_admin_required}
+
   defp list_authorized(repo, scope, status, order_number, pagination) do
     with :ok <- Authorization.authorize(repo, scope, :manage_billing, transaction_time(repo)) do
       {:ok, payment_page(repo, scope, status, order_number, pagination)}
+    end
+  end
+
+  defp get_authorized(repo, scope, payment_id) do
+    with :ok <- Authorization.authorize(repo, scope, :manage_billing, transaction_time(repo)) do
+      payment =
+        scope
+        |> base_payments_query()
+        |> where([payment], payment.id == ^payment_id)
+        |> select_payment()
+        |> repo.one()
+
+      if payment,
+        do: {:ok, payment_data(payment)},
+        else: {:error, :payment_not_found}
     end
   end
 
@@ -51,25 +78,8 @@ defmodule Clubeira.Billing.BackofficePaymentReader do
     query_limit = pagination.limit + 1
 
     rows =
-      Payment
-      |> join(:inner, [payment], intent in PaymentIntent,
-        on:
-          intent.id == payment.payment_intent_id and
-            intent.polo_id == payment.polo_id and
-            intent.merchant_account_id == payment.merchant_account_id
-      )
-      |> join(:inner, [_payment, intent], order in Order,
-        on: order.id == intent.order_id and order.polo_id == intent.polo_id
-      )
-      |> join(:inner, [payment, _intent, _order], account in MerchantAccount,
-        on: account.id == payment.merchant_account_id
-      )
-      |> join(:inner, [_payment, _intent, _order, account], provider in PaymentProvider,
-        on: provider.id == account.payment_provider_id
-      )
-      |> join_latest_refund(scope.polo_id)
-      |> join_latest_chargeback(scope.polo_id)
-      |> where([payment], payment.polo_id == ^scope.polo_id)
+      scope
+      |> base_payments_query()
       |> with_status(status)
       |> with_order_number(order_number)
       |> after_payment(pagination.after)
@@ -89,6 +99,28 @@ defmodule Clubeira.Billing.BackofficePaymentReader do
         next_cursor: next_cursor(page_rows, has_more)
       }
     }
+  end
+
+  defp base_payments_query(scope) do
+    Payment
+    |> join(:inner, [payment], intent in PaymentIntent,
+      on:
+        intent.id == payment.payment_intent_id and
+          intent.polo_id == payment.polo_id and
+          intent.merchant_account_id == payment.merchant_account_id
+    )
+    |> join(:inner, [_payment, intent], order in Order,
+      on: order.id == intent.order_id and order.polo_id == intent.polo_id
+    )
+    |> join(:inner, [payment, _intent, _order], account in MerchantAccount,
+      on: account.id == payment.merchant_account_id
+    )
+    |> join(:inner, [_payment, _intent, _order, account], provider in PaymentProvider,
+      on: provider.id == account.payment_provider_id
+    )
+    |> join_latest_refund(scope.polo_id)
+    |> join_latest_chargeback(scope.polo_id)
+    |> where([payment], payment.polo_id == ^scope.polo_id)
   end
 
   defp join_latest_refund(query, polo_id) do
@@ -297,6 +329,13 @@ defmodule Clubeira.Billing.BackofficePaymentReader do
   end
 
   defp parse_order_number(_order_number), do: {:error, :invalid_order_number}
+
+  defp cast_payment_id(payment_id) do
+    case Ecto.UUID.cast(payment_id) do
+      {:ok, payment_id} -> {:ok, payment_id}
+      :error -> {:error, :payment_not_found}
+    end
+  end
 
   defp transaction_time(repo) do
     %{rows: [[now]]} = repo.query!("SELECT transaction_timestamp()")

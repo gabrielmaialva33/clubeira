@@ -39,6 +39,10 @@ defmodule Clubeira.Billing do
           {:ok, %{payments: [map()], page: map()}} | {:error, term()}
   defdelegate list_backoffice_payments(scope, params), to: BackofficePaymentReader, as: :list
 
+  @spec get_backoffice_payment(Scope.t(), Ecto.UUID.t()) ::
+          {:ok, map()} | {:error, term()}
+  defdelegate get_backoffice_payment(scope, payment_id), to: BackofficePaymentReader, as: :get
+
   @spec read_account_billing(Scope.t()) ::
           {:ok, %{agreements: [map()]}} | {:error, term()}
   defdelegate read_account_billing(scope), to: AccountBillingReader, as: :read

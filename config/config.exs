@@ -146,6 +146,7 @@ config :logger, :default_formatter,
     :polo_place_id,
     :place_id,
     :access_contract_id,
+    :payment_id,
     :reason
   ]
 
