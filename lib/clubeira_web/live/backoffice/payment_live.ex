@@ -187,14 +187,17 @@ defmodule ClubeiraWeb.Backoffice.PaymentLive do
     redirect_unauthorized(socket, socket.assigns.current_polo)
   end
 
-  defp handle_refund_result({:error, reason}, socket, _params) do
+  defp handle_refund_result({:error, reason}, socket, params) do
     Logger.error("could not refund backoffice payment",
       polo_id: socket.assigns.current_polo.id,
       payment_id: socket.assigns.payment.id,
       reason: inspect(reason)
     )
 
-    {:noreply, put_flash(socket, :error, gettext("The refund could not be completed."))}
+    {:noreply,
+     socket
+     |> assign(:refund_form, form_from_params(params))
+     |> put_flash(:error, gettext("The refund could not be completed."))}
   end
 
   defp refresh_after_refund(socket, message, flash_kind \\ :info) do

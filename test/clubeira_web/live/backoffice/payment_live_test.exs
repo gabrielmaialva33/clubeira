@@ -44,6 +44,10 @@ defmodule ClubeiraWeb.Backoffice.PaymentLiveTest do
     assert has_element?(detail, "#payment-detail-order-status[data-status='paid']")
     assert has_element?(detail, "#back-to-finance", "Voltar ao financeiro")
     refute has_element?(detail, "[data-provider-reference]")
+
+    {:ok, default_polo_detail, _html} = live(conn, "/admin/payments/#{payment.id}")
+
+    assert has_element?(default_polo_detail, "#payment-detail-status[data-status='captured']")
   end
 
   test "formats the payment detail for the negotiated English locale", %{conn: conn} do
@@ -255,6 +259,52 @@ defmodule ClubeiraWeb.Backoffice.PaymentLiveTest do
     assert_receive {:provider_key, second_provider_key}
     assert second_provider_key == first_provider_key
     assert has_element?(view, "#payment-detail-status[data-status='refunded']")
+  end
+
+  test "an unsupported provider preserves the reserved refund command and exposes its lifecycle",
+       %{
+         conn: conn
+       } do
+    fixture = BillingFixtures.create!()
+    admin_scope = grant_admin!(fixture)
+    {_order, payment} = captured_payment!(fixture, admin_scope)
+    session = authenticate!(admin_scope.actor_user_id)
+    path = "/admin/payments/#{payment.id}?polo=#{fixture.polo_route.slug}"
+
+    {:ok, view, _html} =
+      conn
+      |> init_test_session(%{"backoffice_session_token" => session.token})
+      |> live(path)
+
+    idempotency_key = input_value(view, "#refund_idempotency_key")
+    reason = "Reembolso reservado enquanto a configuração do PSP é corrigida"
+
+    view
+    |> form("[id^='payment-refund-form-']", refund: %{reason: reason})
+    |> render_submit()
+
+    assert has_element?(view, "#flash-error")
+    assert input_value(view, "#refund_idempotency_key") == idempotency_key
+    assert has_element?(view, "#payment-refund-reason-#{idempotency_key}", reason)
+
+    render_patch(view, path)
+
+    assert has_element?(view, "#payment-refund-summary [data-status='requested']")
+    assert has_element?(view, "#payment-refund-unavailable")
+
+    assert {:ok, %{num_rows: 1}} =
+             Repo.transact_in_polo(admin_scope, fn repo ->
+               {:ok,
+                repo.query!(
+                  "UPDATE refunds SET status = 'processing' WHERE payment_id = $1",
+                  [Ecto.UUID.dump!(payment.id)]
+                )}
+             end)
+
+    render_patch(view, path)
+
+    assert has_element?(view, "#payment-refund-summary [data-status='processing']")
+    assert has_element?(view, "#payment-refund-unavailable")
   end
 
   test "an idempotency conflict reloads the refund won by another session", %{conn: conn} do
@@ -531,6 +581,86 @@ defmodule ClubeiraWeb.Backoffice.PaymentLiveTest do
     refute html =~ "private-provider-reason"
   end
 
+  test "the detail renders every persisted payment and order status" do
+    fixture = BillingFixtures.create!()
+    admin_scope = grant_admin!(fixture)
+    {order, payment} = captured_payment!(fixture, admin_scope)
+    session = authenticate!(admin_scope.actor_user_id)
+    path = "/admin/payments/#{payment.id}?polo=#{fixture.polo_route.slug}"
+
+    states = [
+      {"authorized", "pending"},
+      {"authorized", "awaiting_payment"},
+      {"failed", "cancelled"},
+      {"cancelled", "expired"},
+      {"refunded", "refunded"},
+      {"charged_back", "charged_back"}
+    ]
+
+    Enum.each(states, fn {payment_status, order_status} ->
+      set_payment_states!(admin_scope, payment, order, payment_status, order_status)
+
+      {:ok, view, _html} =
+        Phoenix.ConnTest.build_conn()
+        |> put_req_header("accept-language", "en")
+        |> init_test_session(%{
+          "backoffice_session_token" => session.token,
+          "locale" => "en"
+        })
+        |> live(path)
+
+      assert has_element?(view, "#payment-detail-status[data-status='#{payment_status}']")
+
+      assert has_element?(
+               view,
+               "#payment-detail-order-status[data-status='#{order_status}']"
+             )
+
+      if order_status == "pending" do
+        assert has_element?(view, "#payment-detail-placed-at", "Not available")
+        assert has_element?(view, "#payment-detail-captured-at", "Not available")
+      end
+    end)
+  end
+
+  test "tampered and malformed polo selection never retargets the payment", %{conn: conn} do
+    fixture = BillingFixtures.create!()
+    admin_scope = grant_admin!(fixture)
+    {_order, payment} = captured_payment!(fixture, admin_scope)
+    session = authenticate!(admin_scope.actor_user_id)
+    conn = init_test_session(conn, %{"backoffice_session_token" => session.token})
+    expected_path = "/admin?polo=#{fixture.polo_route.slug}#payments-section"
+
+    assert {:error, {:redirect, %{to: ^expected_path}}} =
+             live(conn, "/admin/payments/#{payment.id}?polo=not-authorized")
+
+    {:ok, switch_view, _html} =
+      live(conn, "/admin/payments/#{payment.id}?polo=#{fixture.polo_route.slug}")
+
+    render_change(switch_view, "change_polo", %{
+      "context" => %{"polo" => fixture.polo_route.slug}
+    })
+
+    assert_redirect(switch_view, expected_path)
+
+    {:ok, unknown_polo_view, _html} =
+      live(conn, "/admin/payments/#{payment.id}?polo=#{fixture.polo_route.slug}")
+
+    render_change(unknown_polo_view, "change_polo", %{
+      "context" => %{"polo" => "not-authorized"}
+    })
+
+    assert_redirect(unknown_polo_view, expected_path)
+
+    {:ok, view, _html} =
+      live(conn, "/admin/payments/#{payment.id}?polo=#{fixture.polo_route.slug}")
+
+    render_change(view, "change_polo", %{})
+
+    assert has_element?(view, "#flash-error")
+    assert has_element?(view, "#payment-detail-status[data-status='captured']")
+  end
+
   defp grant_admin!(fixture) do
     ReviewsFixtures.grant_moderator!(
       %{ids: %{polo: fixture.polo.id}, scope: fixture.service_scope},
@@ -590,6 +720,55 @@ defmodule ClubeiraWeb.Backoffice.PaymentLiveTest do
         Application.delete_env(:clubeira, MercadoPago)
       end
     end)
+  end
+
+  defp set_payment_states!(scope, payment, order, payment_status, order_status) do
+    assert {:ok, :updated} =
+             Repo.transact_in_polo(scope, fn repo ->
+               assert %{num_rows: 1} =
+                        repo.query!(
+                          """
+                          UPDATE payments
+                          SET status = $2,
+                              captured_at = CASE
+                                WHEN $2 IN ('captured', 'refunded', 'charged_back')
+                                  THEN COALESCE(captured_at, statement_timestamp())
+                                ELSE NULL
+                              END,
+                              failed_at = CASE
+                                WHEN $2 = 'failed' THEN statement_timestamp()
+                                ELSE NULL
+                              END,
+                              refunded_at = CASE
+                                WHEN $2 = 'refunded' THEN statement_timestamp()
+                                ELSE NULL
+                              END,
+                              charged_back_at = CASE
+                                WHEN $2 = 'charged_back' THEN statement_timestamp()
+                                ELSE NULL
+                              END
+                          WHERE id = $1
+                          """,
+                          [Ecto.UUID.dump!(payment.id), payment_status]
+                        )
+
+               assert %{num_rows: 1} =
+                        repo.query!(
+                          """
+                          UPDATE orders
+                          SET status = $2,
+                              placed_at = CASE
+                                WHEN $2 = 'pending' THEN NULL
+                                ELSE COALESCE(placed_at, statement_timestamp())
+                              END,
+                              updated_at = statement_timestamp()
+                          WHERE id = $1
+                          """,
+                          [Ecto.UUID.dump!(order.id), order_status]
+                        )
+
+               {:ok, :updated}
+             end)
   end
 
   defp refund_order_response(fixture, order, provider_refund_reference) do

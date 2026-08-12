@@ -60,7 +60,7 @@
           </div>
           <div class="flex items-center justify-between gap-4">
             <dt class="font-bold text-slate-500">{gettext("Placed at")}</dt>
-            <dd class="text-right text-slate-900">
+            <dd id="payment-detail-placed-at" class="text-right text-slate-900">
               {timestamp(@payment.order.placed_at, @locale)}
             </dd>
           </div>
@@ -89,13 +89,13 @@
           </div>
           <div class="flex items-center justify-between gap-4">
             <dt class="font-bold text-slate-500">{gettext("Captured at")}</dt>
-            <dd class="text-right text-slate-900">
+            <dd id="payment-detail-captured-at" class="text-right text-slate-900">
               {timestamp(@payment.captured_at, @locale)}
             </dd>
           </div>
           <div class="flex items-center justify-between gap-4">
             <dt class="font-bold text-slate-500">{gettext("Recorded at")}</dt>
-            <dd class="text-right text-slate-900">
+            <dd id="payment-detail-recorded-at" class="text-right text-slate-900">
               {timestamp(@payment.recorded_at, @locale)}
             </dd>
           </div>
