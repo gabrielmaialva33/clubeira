@@ -74,6 +74,19 @@ defmodule ClubeiraWeb.Backoffice.PlaceLive do
      )}
   end
 
+  def handle_event(
+        "validate_profile",
+        %{"profile" => _params},
+        %{assigns: %{profile_form_data: nil}} = socket
+      ) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       gettext("The public profile can no longer be edited in the current state.")
+     )}
+  end
+
   def handle_event("validate_profile", %{"profile" => params}, socket) when is_map(params) do
     {:noreply, assign_profile_form(socket, params, :validate)}
   end
@@ -361,10 +374,11 @@ defmodule ClubeiraWeb.Backoffice.PlaceLive do
     scope = tenant_scope(socket.assigns.current_account_scope, socket.assigns.current_polo)
     polo_place_id = socket.assigns.place.id
 
-    case Directory.get_backoffice_place(scope, polo_place_id) do
-      {:ok, place} ->
+    case load_place_data(scope, polo_place_id) do
+      {:ok, place, categories} ->
         {:noreply,
          socket
+         |> assign(:place_categories, categories)
          |> assign_place(place)
          |> put_flash(flash_kind, message)}
 

@@ -134,6 +134,121 @@ defmodule ClubeiraWeb.Backoffice.PlaceLiveTest do
              Directory.get_backoffice_place(admin_scope, fixture.ids.polo_place)
   end
 
+  test "rejects a stale profile editor and reloads the winning revision", %{conn: conn} do
+    fixture = RedemptionsFixtures.create!()
+    admin_scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    category = Factory.insert(:place_category, key: "cafe", name: "Cafe")
+
+    assert {:ok, _profile} =
+             Directory.publish_place_profile(admin_scope, fixture.ids.place, %{
+               contact: %{email: "original@perfil.example", phone: "+5588999990101"},
+               category_keys: [category.key],
+               weekly_hours: [%{weekday: 1, opens_at: "09:00", closes_at: "18:00"}],
+               special_hours: [],
+               expected_polo_place_id: fixture.ids.polo_place,
+               expected_revision: 0,
+               idempotency_key: "place-live-profile-original"
+             })
+
+    session = authenticate!(admin_scope.actor_user_id)
+
+    {:ok, view, _html} =
+      conn
+      |> init_test_session(%{"backoffice_session_token" => session.token})
+      |> live("/admin/places/#{fixture.ids.polo_place}?polo=#{fixture.polo_slug}")
+
+    old_key = input_value(view, "#profile_idempotency_key")
+
+    assert {:ok, %{"profile" => %{"revision" => 2}}} =
+             Directory.publish_place_profile(admin_scope, fixture.ids.place, %{
+               contact: %{email: "vencedor@perfil.example", phone: "+5588999990202"},
+               category_keys: [category.key],
+               weekly_hours: [%{weekday: 2, opens_at: "10:00", closes_at: "19:00"}],
+               special_hours: [],
+               expected_polo_place_id: fixture.ids.polo_place,
+               expected_revision: 1,
+               idempotency_key: "place-live-profile-winner"
+             })
+
+    view
+    |> form("#place-profile-form", profile: %{public_email: "perdedor@perfil.example"})
+    |> render_submit()
+
+    assert has_element?(view, "#flash-error")
+    assert has_element?(view, "#place-profile-revision", "2")
+    assert has_element?(view, "#profile_public_email[value='vencedor@perfil.example']")
+    refute input_value(view, "#profile_idempotency_key") == old_key
+
+    assert {:ok, %{profile: %{revision: 2, public_email: "vencedor@perfil.example"}}} =
+             Directory.get_backoffice_place(admin_scope, fixture.ids.polo_place)
+  end
+
+  test "rejects profile writes after the browser session is revoked", %{conn: conn} do
+    fixture = RedemptionsFixtures.create!()
+    admin_scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    Factory.insert(:place_category, key: "cafe", name: "Cafe")
+    session = authenticate!(admin_scope.actor_user_id)
+
+    {:ok, view, _html} =
+      conn
+      |> init_test_session(%{"backoffice_session_token" => session.token})
+      |> live("/admin/places/#{fixture.ids.polo_place}?polo=#{fixture.polo_slug}")
+
+    assert {:ok, account_scope} = Accounts.fetch_scope_by_api_token(session.token)
+    assert :ok = Accounts.revoke_session(account_scope)
+
+    view
+    |> form("#place-profile-form",
+      profile: %{
+        public_email: "bloqueado@perfil.example",
+        public_phone: "+5588999990101",
+        category_keys: ["cafe"]
+      }
+    )
+    |> render_submit()
+
+    assert_redirect(view, "/admin/login")
+
+    assert %{rows: [[0]]} =
+             RedemptionsFixtures.scoped_query!(
+               fixture,
+               "SELECT count(*) FROM polo_place_profiles WHERE polo_place_id = $1",
+               [fixture.ids.polo_place]
+             )
+  end
+
+  test "handles malformed and unavailable profile events without terminating the LiveView", %{
+    conn: conn
+  } do
+    fixture = RedemptionsFixtures.create!()
+    admin_scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    session = authenticate!(admin_scope.actor_user_id)
+
+    {:ok, view, _html} =
+      conn
+      |> init_test_session(%{"backoffice_session_token" => session.token})
+      |> live("/admin/places/#{fixture.ids.polo_place}?polo=#{fixture.polo_slug}")
+
+    render_submit(view, "save_profile", %{})
+    assert has_element?(view, "#flash-error")
+    assert has_element?(view, "#place-profile-form")
+
+    view
+    |> form("#place-lifecycle-form",
+      lifecycle: %{action: "suspend", reason: "Bloqueio temporário do perfil"}
+    )
+    |> render_submit()
+
+    assert has_element?(view, "#place-profile-editor-unavailable")
+    refute has_element?(view, "#place-profile-form")
+
+    render_submit(view, "save_profile", %{"profile" => %{}})
+    render_change(view, "validate_profile", %{"profile" => %{}})
+
+    assert has_element?(view, "#flash-error")
+    assert has_element?(view, "#place-profile-editor-unavailable")
+  end
+
   test "renders an invited participation without lifecycle controls", %{conn: conn} do
     fixture = RedemptionsFixtures.create!()
     admin_scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")

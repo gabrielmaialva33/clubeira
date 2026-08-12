@@ -380,7 +380,9 @@ defmodule Clubeira.E2E.MemberCheckoutTest do
                  "weekly_hours" => [
                    %{"weekday" => 1, "opens_at" => "08:00", "closes_at" => "18:00"}
                  ],
-                 "special_hours" => []
+                 "special_hours" => [],
+                 "expected_polo_place_id" => fixture.polo_place.id,
+                 "expected_revision" => 0
                },
                retry: false
              )

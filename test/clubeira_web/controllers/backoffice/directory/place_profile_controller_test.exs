@@ -264,6 +264,30 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileControllerTest do
              )
              |> json_response(422) == %{"errors" => %{"detail" => "Unprocessable Content"}}
     end
+
+    for invalid_request <- [
+          Map.put(profile_request(fixture), "unexpected", true),
+          put_in(profile_request(fixture), ["contact", "unexpected"], true),
+          update_in(
+            profile_request(fixture),
+            ["weekly_hours", Access.at(0)],
+            &Map.put(&1, "unexpected", true)
+          ),
+          put_in(profile_request(fixture), ["special_hours", Access.at(0), "unexpected"], true)
+        ] do
+      assert conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{token}")
+             |> put_req_header(
+               "idempotency-key",
+               "place-profile-unknown-field-#{System.unique_integer()}"
+             )
+             |> put(
+               "/api/v1/polos/#{fixture.polo_slug}/backoffice/places/#{fixture.ids.place}/profile",
+               invalid_request
+             )
+             |> json_response(422) == %{"errors" => %{"detail" => "Unprocessable Content"}}
+    end
   end
 
   test "publishing records one versioned event, outbox envelope and audit without contact data",
