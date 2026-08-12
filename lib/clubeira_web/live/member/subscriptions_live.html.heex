@@ -1,0 +1,84 @@
+<MemberComponents.shell
+  account_scope={@current_account_scope}
+  flash={@flash}
+  active_section={:subscriptions}
+>
+  <div id="member-subscriptions" class="mx-auto max-w-5xl">
+    <section>
+      <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
+        {gettext("Memberships")}
+      </p>
+      <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] sm:text-4xl">
+        {gettext("My subscriptions")}
+      </h1>
+      <p class="mt-2 text-sm leading-6 text-slate-500">
+        {gettext("Contracts and current benefit cycles across every Clubeira polo.")}
+      </p>
+    </section>
+
+    <div id="member-subscriptions-list" phx-update="stream" class="mt-7 grid gap-4">
+      <div
+        id="member-subscriptions-empty"
+        class="hidden only:block rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-sm text-slate-500"
+      >
+        {gettext("No subscription found. Explore a polo to join Clubeira.")}
+      </div>
+      <article
+        :for={{id, subscription} <- @streams.subscriptions}
+        id={id}
+        class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]"
+      >
+        <div class="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6">
+          <span class="grid size-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-700"><.icon
+            name="hero-ticket"
+            class="size-6"
+          /></span>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <h2 class="text-base font-black text-slate-950">{subscription.offering.name}</h2>
+              <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-700">{status_label(
+                subscription.status
+              )}</span>
+            </div>
+            <p class="mt-1 text-sm text-slate-500">{subscription.polo.name}</p>
+            <p class="mt-3 text-xs leading-5 text-slate-500">
+              {subscription.offering.description}
+            </p>
+          </div>
+          <div class="grid grid-cols-2 gap-2 sm:w-60">
+            <div class="rounded-xl bg-slate-50 p-3">
+              <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                {gettext("Started")}
+              </p>
+              <p class="mt-1 text-xs font-bold">{date(subscription.starts_at, @locale)}</p>
+            </div>
+            <div class="rounded-xl bg-slate-50 p-3">
+              <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                {gettext("Ends")}
+              </p>
+              <p class="mt-1 text-xs font-bold">{date(subscription.ends_at, @locale)}</p>
+            </div>
+          </div>
+        </div>
+        <div
+          :if={subscription.current_cycle}
+          class="border-t border-slate-100 bg-slate-50/70 px-5 py-3 text-xs text-slate-600 sm:px-6"
+        >
+          {gettext("Cycle %{sequence}", sequence: subscription.current_cycle.sequence)} · {date(
+            subscription.current_cycle.starts_at,
+            @locale
+          )} — {date(subscription.current_cycle.ends_at, @locale)}
+        </div>
+      </article>
+    </div>
+
+    <.link
+      :if={@next_page_path}
+      id="member-subscriptions-next-page"
+      patch={@next_page_path}
+      class="mt-6 inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 shadow-sm hover:border-blue-200 hover:text-blue-700"
+    >
+      {gettext("Next page")} <.icon name="hero-arrow-right" class="size-4" />
+    </.link>
+  </div>
+</MemberComponents.shell>
