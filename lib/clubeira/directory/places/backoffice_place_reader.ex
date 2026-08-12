@@ -3,8 +3,12 @@ defmodule Clubeira.Directory.BackofficePlaceReader do
 
   import Ecto.Query
 
+  alias Clubeira.Directory.BackofficePlaceProfileView
   alias Clubeira.Directory.Place
+  alias Clubeira.Directory.PlaceCategory
+  alias Clubeira.Directory.PoloPlaceOpeningPeriod
   alias Clubeira.Directory.PoloPlaceProfile
+  alias Clubeira.Directory.PoloPlaceProfileCategory
   alias Clubeira.Polos.Authorization
   alias Clubeira.Polos.PoloPlace
   alias Clubeira.Repo
@@ -52,6 +56,16 @@ defmodule Clubeira.Directory.BackofficePlaceReader do
 
   def get(_scope, _polo_place_id), do: {:error, :partner_admin_required}
 
+  @spec list_categories(Scope.t()) ::
+          {:ok, [map()]} | {:error, :partner_admin_required | term()}
+  def list_categories(%Scope{actor_user_id: nil}), do: {:error, :partner_admin_required}
+
+  def list_categories(%Scope{} = scope) do
+    Repo.transact_in_polo(scope, &list_categories_authorized(&1, scope))
+  end
+
+  def list_categories(_scope), do: {:error, :partner_admin_required}
+
   defp list_authorized(repo, scope, status, profile_status, place_id, pagination) do
     with :ok <- Authorization.authorize(repo, scope, :manage_partners, transaction_time(repo)) do
       {:ok, place_page(repo, scope, status, profile_status, place_id, pagination)}
@@ -64,6 +78,23 @@ defmodule Clubeira.Directory.BackofficePlaceReader do
     end
   end
 
+  defp list_categories_authorized(repo, scope) do
+    with :ok <- Authorization.authorize(repo, scope, :manage_partners, transaction_time(repo)) do
+      categories =
+        PlaceCategory
+        |> where([category], category.status == "active")
+        |> order_by([category], asc: category.display_order, asc: category.key)
+        |> select([category], %{
+          key: category.key,
+          name: category.name,
+          display_order: category.display_order
+        })
+        |> repo.all()
+
+      {:ok, categories}
+    end
+  end
+
   defp fetch_place(repo, scope, polo_place_id) do
     place =
       scope
@@ -72,7 +103,45 @@ defmodule Clubeira.Directory.BackofficePlaceReader do
       |> select_place()
       |> repo.one()
 
-    if place, do: {:ok, place_data(place)}, else: {:error, :place_not_found}
+    if place do
+      {:ok, place |> place_data() |> Map.put(:profile, full_profile(repo, place))}
+    else
+      {:error, :place_not_found}
+    end
+  end
+
+  defp full_profile(_repo, %{profile_id: nil}), do: nil
+
+  defp full_profile(repo, row) do
+    profile = repo.get!(PoloPlaceProfile, row.profile_id)
+
+    categories =
+      PoloPlaceProfileCategory
+      |> join(:inner, [profile_category], category in PlaceCategory,
+        on: category.id == profile_category.place_category_id
+      )
+      |> where(
+        [profile_category],
+        profile_category.polo_id == ^profile.polo_id and
+          profile_category.polo_place_profile_id == ^profile.id
+      )
+      |> select([_profile_category, category], %{
+        key: category.key,
+        name: category.name,
+        status: category.status,
+        display_order: category.display_order
+      })
+      |> repo.all()
+
+    periods =
+      PoloPlaceOpeningPeriod
+      |> where(
+        [period],
+        period.polo_id == ^profile.polo_id and period.polo_place_profile_id == ^profile.id
+      )
+      |> repo.all()
+
+    BackofficePlaceProfileView.build(profile, categories, periods)
   end
 
   defp place_page(repo, scope, status, profile_status, place_id, pagination) do

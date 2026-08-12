@@ -135,6 +135,15 @@ defmodule Clubeira.Directory do
           {:ok, map()} | {:error, :partner_admin_required | :place_not_found | term()}
   defdelegate get_backoffice_place(scope, polo_place_id), to: BackofficePlaceReader, as: :get
 
+  @doc """
+  Lists the active global category catalog for an authorized place editor.
+  """
+  @spec list_backoffice_place_categories(Scope.t()) ::
+          {:ok, [map()]} | {:error, :partner_admin_required | term()}
+  defdelegate list_backoffice_place_categories(scope),
+    to: BackofficePlaceReader,
+    as: :list_categories
+
   @spec fetch_public(String.t(), map()) ::
           {:ok, public_directory()} | {:error, :invalid_pagination | :polo_not_found}
   def fetch_public(slug, params \\ %{})
