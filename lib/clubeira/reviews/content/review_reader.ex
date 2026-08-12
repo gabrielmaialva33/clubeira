@@ -50,6 +50,20 @@ defmodule Clubeira.Reviews.ReviewReader do
 
   def list_public(_scope, _place_id, _params), do: {:error, :place_not_found}
 
+  @spec get_public(Scope.t(), Ecto.UUID.t(), Ecto.UUID.t()) ::
+          {:ok, map()} | {:error, :place_not_found | :review_not_found | term()}
+  def get_public(%Scope{} = scope, place_id, review_id) do
+    with {:ok, place_id} <- cast_place_id(place_id),
+         {:ok, review_id} <- cast_review_id(review_id) do
+      Repo.transact_in_polo(
+        scope,
+        &get_public_in_scope(&1, scope, place_id, review_id)
+      )
+    end
+  end
+
+  def get_public(_scope, _place_id, _review_id), do: {:error, :review_not_found}
+
   defp list_for_moderation_in_scope(repo, scope, status, pagination) do
     now = transaction_time(repo)
 
@@ -64,6 +78,22 @@ defmodule Clubeira.Reviews.ReviewReader do
 
     if public_place?(repo, scope.polo_id, place_id, now) do
       {:ok, public_page(repo, scope, place_id, pagination)}
+    else
+      {:error, :place_not_found}
+    end
+  end
+
+  defp get_public_in_scope(repo, scope, place_id, review_id) do
+    now = transaction_time(repo)
+
+    if public_place?(repo, scope.polo_id, place_id, now) do
+      case public_reviews_query(scope, place_id)
+           |> where([review], review.id == ^review_id)
+           |> select_public_review()
+           |> repo.one() do
+        nil -> {:error, :review_not_found}
+        review -> {:ok, review |> List.wrap() |> decorate_public_reviews(repo) |> hd()}
+      end
     else
       {:error, :place_not_found}
     end
@@ -93,14 +123,8 @@ defmodule Clubeira.Reviews.ReviewReader do
     query_limit = pagination.limit + 1
 
     rows =
-      Review
-      |> join(:inner, [review], redemption in Redemption,
-        on: redemption.id == review.source_redemption_id
-      )
-      |> join_latest_revision()
-      |> where([review, redemption], redemption.polo_id == ^scope.polo_id)
-      |> where([review], review.place_id == ^place_id and review.status == "published")
-      |> where([review], not is_nil(review.published_at))
+      scope
+      |> public_reviews_query(place_id)
       |> after_public_review(pagination.after)
       |> order_by([review], desc: review.published_at, desc: review.id)
       |> select_public_review()
@@ -108,18 +132,30 @@ defmodule Clubeira.Reviews.ReviewReader do
       |> repo.all()
 
     result = page(rows, pagination.limit, :cursor_at)
-    responses = public_responses(repo, Enum.map(result.reviews, & &1.id))
-    media = public_media(repo, Enum.map(result.reviews, & &1.review_revision_id))
+    %{result | reviews: decorate_public_reviews(result.reviews, repo)}
+  end
 
-    reviews =
-      Enum.map(result.reviews, fn review ->
-        review
-        |> Map.put(:response, responses[review.id])
-        |> Map.put(:media, Map.get(media, review.review_revision_id, []))
-        |> Map.delete(:review_revision_id)
-      end)
+  defp public_reviews_query(scope, place_id) do
+    Review
+    |> join(:inner, [review], redemption in Redemption,
+      on: redemption.id == review.source_redemption_id
+    )
+    |> join_latest_revision()
+    |> where([review, redemption], redemption.polo_id == ^scope.polo_id)
+    |> where([review], review.place_id == ^place_id and review.status == "published")
+    |> where([review], not is_nil(review.published_at))
+  end
 
-    %{result | reviews: reviews}
+  defp decorate_public_reviews(reviews, repo) do
+    responses = public_responses(repo, Enum.map(reviews, & &1.id))
+    media = public_media(repo, Enum.map(reviews, & &1.review_revision_id))
+
+    Enum.map(reviews, fn review ->
+      review
+      |> Map.put(:response, responses[review.id])
+      |> Map.put(:media, Map.get(media, review.review_revision_id, []))
+      |> Map.delete(:review_revision_id)
+    end)
   end
 
   defp public_media(_repo, []), do: %{}
@@ -347,6 +383,13 @@ defmodule Clubeira.Reviews.ReviewReader do
     case Ecto.UUID.cast(place_id) do
       {:ok, casted} -> {:ok, casted}
       :error -> {:error, :place_not_found}
+    end
+  end
+
+  defp cast_review_id(review_id) do
+    case Ecto.UUID.cast(review_id) do
+      {:ok, casted} -> {:ok, casted}
+      :error -> {:error, :review_not_found}
     end
   end
 

@@ -3,7 +3,7 @@ defmodule Clubeira.Reviews.ReviewReportRequest do
 
   use Ecto.Schema
 
-  import Ecto.Changeset
+  import Ecto.Changeset, except: [change: 1, change: 2]
 
   @primary_key false
   @required_fields ~w(place_id review_id reason_code idempotency_key)a
@@ -26,8 +26,27 @@ defmodule Clubeira.Reviews.ReviewReportRequest do
           idempotency_key: String.t()
         }
 
-  @spec new(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
-  def new(attributes) when is_map(attributes) do
+  @spec change(term()) :: Ecto.Changeset.t()
+  def change(attributes \\ %{})
+
+  def change(attributes) when is_map(attributes) and not is_struct(attributes),
+    do: changeset(attributes)
+
+  def change(_attributes), do: invalid_changeset()
+
+  @spec new(term()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
+  def new(attributes) when is_map(attributes) and not is_struct(attributes) do
+    attributes
+    |> changeset()
+    |> apply_action(:report_review)
+  end
+
+  def new(_attributes) do
+    invalid_changeset()
+    |> apply_action(:report_review)
+  end
+
+  defp changeset(attributes) do
     %__MODULE__{}
     |> cast(attributes, @required_fields ++ @optional_fields)
     |> update_change(:reason_code, &normalize_reason_code/1)
@@ -38,14 +57,12 @@ defmodule Clubeira.Reviews.ReviewReportRequest do
     |> validate_details_for_other()
     |> validate_length(:idempotency_key, min: 8, max: 128)
     |> validate_format(:idempotency_key, ~r/^[A-Za-z0-9._:-]+$/)
-    |> apply_action(:report_review)
   end
 
-  def new(_attributes) do
+  defp invalid_changeset do
     %__MODULE__{}
-    |> change()
+    |> Ecto.Changeset.change()
     |> add_error(:base, "must be a map")
-    |> apply_action(:report_review)
   end
 
   defp normalize_reason_code(value) when is_binary(value) do

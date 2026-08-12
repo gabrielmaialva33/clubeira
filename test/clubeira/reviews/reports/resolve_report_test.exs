@@ -3,8 +3,47 @@ defmodule Clubeira.Reviews.ResolveReportTest do
 
   alias Clubeira.Factory
   alias Clubeira.Reviews
+  alias Clubeira.Reviews.ReviewReportResolutionRequest
   alias Clubeira.ReviewsFixtures
   alias Clubeira.Tenancy.Scope
+
+  test "the report-resolution form boundary rejects non-map and struct payloads without raising" do
+    Enum.each([:invalid, %Clubeira.Reviews.ReviewReportResolutionRequest{}], fn attributes ->
+      changeset = Reviews.change_review_report_resolution_request(attributes)
+
+      refute changeset.valid?
+      assert {:base, {"must be a map", []}} in changeset.errors
+    end)
+  end
+
+  test "the report-resolution command normalizes decisions and rejects malformed terms" do
+    report_id = Ecto.UUID.generate(version: 7)
+
+    assert {:ok, request} =
+             ReviewReportResolutionRequest.new(%{
+               review_report_id: report_id,
+               action: " HIDE ",
+               reason: "  Viola as diretrizes.  ",
+               idempotency_key: "resolve-report-request-001"
+             })
+
+    assert request.action == "hide"
+    assert request.reason == "Viola as diretrizes."
+
+    for attributes <- [
+          :invalid,
+          %ReviewReportResolutionRequest{},
+          %{
+            review_report_id: report_id,
+            action: 1,
+            reason: 2,
+            idempotency_key: "invalid key"
+          }
+        ] do
+      assert {:error, changeset} = ReviewReportResolutionRequest.new(attributes)
+      refute changeset.valid?
+    end
+  end
 
   test "accepts a report by hiding its review with atomic private evidence" do
     fixture = open_report!()

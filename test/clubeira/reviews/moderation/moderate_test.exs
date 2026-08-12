@@ -2,8 +2,42 @@ defmodule Clubeira.Reviews.ModerateTest do
   use Clubeira.DataCase, async: false
 
   alias Clubeira.Reviews
+  alias Clubeira.Reviews.ModerationRequest
   alias Clubeira.ReviewsFixtures
   alias Clubeira.Tenancy.Scope
+
+  test "the moderation form boundary rejects non-map and struct payloads without raising" do
+    Enum.each([:invalid, %Clubeira.Reviews.ModerationRequest{}], fn attributes ->
+      changeset = Reviews.change_moderation_request(attributes)
+
+      refute changeset.valid?
+      assert {:base, {"must be a map", []}} in changeset.errors
+    end)
+  end
+
+  test "the moderation command normalizes external values and returns validation changesets" do
+    review_id = Ecto.UUID.generate(version: 7)
+
+    assert {:ok, request} =
+             ModerationRequest.new(%{
+               review_id: review_id,
+               action: " PUBLISH ",
+               reason: "  Conteúdo verificado.  ",
+               idempotency_key: "moderate-request-001"
+             })
+
+    assert request.action == "publish"
+    assert request.reason == "Conteúdo verificado."
+
+    for attributes <- [
+          :invalid,
+          %ModerationRequest{},
+          %{review_id: review_id, action: 1, reason: 2, idempotency_key: "invalid key"}
+        ] do
+      assert {:error, changeset} = ModerationRequest.new(attributes)
+      refute changeset.valid?
+    end
+  end
 
   test "publishes a pending review with append-only evidence and atomic side effects" do
     fixture = ReviewsFixtures.pending_review!()

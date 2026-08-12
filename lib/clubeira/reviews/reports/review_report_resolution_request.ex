@@ -5,7 +5,7 @@ defmodule Clubeira.Reviews.ReviewReportResolutionRequest do
 
   use Ecto.Schema
 
-  import Ecto.Changeset
+  import Ecto.Changeset, except: [change: 1, change: 2]
 
   @primary_key false
   @required_fields ~w(review_report_id action reason idempotency_key)a
@@ -25,10 +25,23 @@ defmodule Clubeira.Reviews.ReviewReportResolutionRequest do
           idempotency_key: String.t()
         }
 
-  @spec new(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
-  def new(attributes) when is_map(attributes) do
+  @spec change(term()) :: Ecto.Changeset.t()
+  def change(attributes \\ %{})
+
+  def change(attributes) when is_map(attributes) and not is_struct(attributes) do
+    cast(%__MODULE__{}, attributes, @required_fields)
+  end
+
+  def change(_attributes) do
     %__MODULE__{}
-    |> cast(attributes, @required_fields)
+    |> Ecto.Changeset.change()
+    |> add_error(:base, "must be a map")
+  end
+
+  @spec new(term()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
+  def new(attributes) when is_map(attributes) and not is_struct(attributes) do
+    attributes
+    |> change()
     |> update_change(:action, &normalize_action/1)
     |> update_change(:reason, &normalize_reason/1)
     |> validate_required(@required_fields)
@@ -40,9 +53,8 @@ defmodule Clubeira.Reviews.ReviewReportResolutionRequest do
   end
 
   def new(_attributes) do
-    %__MODULE__{}
+    :invalid
     |> change()
-    |> add_error(:base, "must be a map")
     |> apply_action(:resolve_review_report)
   end
 

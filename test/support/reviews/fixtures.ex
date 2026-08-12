@@ -6,9 +6,9 @@ defmodule Clubeira.ReviewsFixtures do
   alias Clubeira.Reviews
   alias Clubeira.Tenancy.Scope
 
-  @spec pending_review!() :: map()
-  def pending_review! do
-    fixture = RedemptionsFixtures.create!()
+  @spec pending_review!(keyword()) :: map()
+  def pending_review!(options \\ []) do
+    fixture = RedemptionsFixtures.create!(options)
     {:ok, redemption} = Redemptions.confirm(fixture.scope, fixture.request)
 
     {:ok, submission} =
