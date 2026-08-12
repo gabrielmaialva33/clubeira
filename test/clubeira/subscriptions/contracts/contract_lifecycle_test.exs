@@ -144,6 +144,12 @@ defmodule Clubeira.Subscriptions.ContractLifecycleTest do
     assert {:error, %Ecto.Changeset{}} =
              Subscriptions.transition_contract(admin_scope, uuid7(), %{})
 
+    invalid_changeset = Subscriptions.change_contract_lifecycle(:invalid)
+    assert {"must be a map", []} = invalid_changeset.errors[:base]
+
+    assert {:error, %Ecto.Changeset{errors: [base: {"must be a map", []}]}} =
+             Subscriptions.transition_contract(admin_scope, uuid7(), Date.utc_today())
+
     assert {:error, :billing_admin_required} =
              Subscriptions.transition_contract(nil, uuid7(), %{})
   end

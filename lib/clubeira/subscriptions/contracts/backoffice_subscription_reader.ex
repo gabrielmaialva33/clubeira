@@ -43,9 +43,41 @@ defmodule Clubeira.Subscriptions.BackofficeSubscriptionReader do
 
   def list(_scope, _params), do: {:error, :billing_admin_required}
 
+  @spec get(Scope.t(), Ecto.UUID.t()) ::
+          {:ok, map()}
+          | {:error, :access_contract_not_found | :billing_admin_required | term()}
+  def get(%Scope{actor_user_id: nil}, _contract_id), do: {:error, :billing_admin_required}
+
+  def get(%Scope{} = scope, contract_id) do
+    with {:ok, contract_id} <- cast_contract_id(contract_id) do
+      Repo.transact_in_polo(
+        scope,
+        &get_authorized(&1, scope, contract_id)
+      )
+    end
+  end
+
+  def get(_scope, _contract_id), do: {:error, :billing_admin_required}
+
   defp list_authorized(repo, scope, filters, pagination) do
     with :ok <- Authorization.authorize(repo, scope, :manage_billing, transaction_time(repo)) do
       {:ok, subscription_page(repo, scope, filters, pagination)}
+    end
+  end
+
+  defp get_authorized(repo, scope, contract_id) do
+    with :ok <- Authorization.authorize(repo, scope, :manage_billing, transaction_time(repo)) do
+      subscription =
+        scope
+        |> base_subscriptions_query()
+        |> where([contract: contract], contract.id == ^contract_id)
+        |> select_subscription()
+        |> repo.one()
+        |> empty_cycle_to_nil()
+
+      if subscription,
+        do: {:ok, subscription},
+        else: {:error, :access_contract_not_found}
     end
   end
 
@@ -73,6 +105,18 @@ defmodule Clubeira.Subscriptions.BackofficeSubscriptionReader do
   defp subscriptions_query(scope, filters, pagination) do
     query_limit = pagination.limit + 1
 
+    scope
+    |> base_subscriptions_query()
+    |> with_status(filters.status)
+    |> with_order_number(filters.order_number)
+    |> with_purchaser(filters.purchaser_user_id)
+    |> with_product_offering_version(filters.product_offering_version_id)
+    |> after_contract(pagination.after)
+    |> order_by([contract: contract], desc: contract.inserted_at, desc: contract.id)
+    |> limit(^query_limit)
+  end
+
+  defp base_subscriptions_query(scope) do
     AccessContract
     |> from(as: :contract)
     |> join_order_item()
@@ -81,13 +125,6 @@ defmodule Clubeira.Subscriptions.BackofficeSubscriptionReader do
     |> join_current_cycle()
     |> join_current_balance()
     |> where([contract: contract], contract.polo_id == ^scope.polo_id)
-    |> with_status(filters.status)
-    |> with_order_number(filters.order_number)
-    |> with_purchaser(filters.purchaser_user_id)
-    |> with_product_offering_version(filters.product_offering_version_id)
-    |> after_contract(pagination.after)
-    |> order_by([contract: contract], desc: contract.inserted_at, desc: contract.id)
-    |> limit(^query_limit)
   end
 
   defp join_order_item(query) do
@@ -312,6 +349,13 @@ defmodule Clubeira.Subscriptions.BackofficeSubscriptionReader do
   end
 
   defp parse_uuid_filter(_value), do: {:error, :invalid_subscription_filter}
+
+  defp cast_contract_id(contract_id) do
+    case Ecto.UUID.cast(contract_id) do
+      {:ok, casted} -> {:ok, casted}
+      :error -> {:error, :access_contract_not_found}
+    end
+  end
 
   defp balance_query do
     EntitlementAllocation

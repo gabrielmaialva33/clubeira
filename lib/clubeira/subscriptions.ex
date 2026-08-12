@@ -12,6 +12,7 @@ defmodule Clubeira.Subscriptions do
   alias Clubeira.Subscriptions.AccountSubscriptionReader
   alias Clubeira.Subscriptions.BackofficeSubscriptionReader
   alias Clubeira.Subscriptions.ContractLifecycle
+  alias Clubeira.Subscriptions.ContractLifecycleRequest
   alias Clubeira.Subscriptions.ProductOfferingLifecycle
   alias Clubeira.Subscriptions.ProductOfferingPublisher
   alias Clubeira.Subscriptions.ProductOfferingReader
@@ -55,6 +56,12 @@ defmodule Clubeira.Subscriptions do
     to: ContractLifecycle,
     as: :transition
 
+  @doc false
+  @spec change_contract_lifecycle(term()) :: Ecto.Changeset.t()
+  def change_contract_lifecycle(attributes \\ %{}) do
+    ContractLifecycleRequest.change(attributes)
+  end
+
   @doc """
   Lists the polo's access contracts for an authorized billing operator.
   """
@@ -63,6 +70,16 @@ defmodule Clubeira.Subscriptions do
   defdelegate list_backoffice_subscriptions(scope, params),
     to: BackofficeSubscriptionReader,
     as: :list
+
+  @doc """
+  Gets one exact access contract for an authorized billing operator.
+  """
+  @spec get_backoffice_subscription(TenantScope.t(), Ecto.UUID.t()) ::
+          {:ok, map()}
+          | {:error, :access_contract_not_found | :billing_admin_required | term()}
+  defdelegate get_backoffice_subscription(scope, contract_id),
+    to: BackofficeSubscriptionReader,
+    as: :get
 
   @spec list_for_account(AccountScope.t()) :: {:ok, [map()]} | {:error, term()}
   def list_for_account(%AccountScope{} = account_scope),
