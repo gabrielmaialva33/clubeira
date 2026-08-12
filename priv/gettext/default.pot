@@ -22,14 +22,16 @@ msgid "Actions"
 msgstr ""
 
 #: lib/clubeira_web/live/backoffice/dashboard_live.ex:145
-#: lib/clubeira_web/live/backoffice/place_live.ex:604
+#: lib/clubeira_web/live/backoffice/place_live.ex:608
 #: lib/clubeira_web/live/backoffice/places_live.ex:143
 #: lib/clubeira_web/live/backoffice/places_live.html.heex:50
+#: lib/clubeira_web/live/backoffice/subscriptions_live.ex:168
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:41
 #, elixir-autogen, elixir-format
 msgid "Active"
 msgstr ""
 
-#: lib/clubeira_web/components/backoffice_components.ex:103
+#: lib/clubeira_web/components/backoffice_components.ex:112
 #, elixir-autogen, elixir-format
 msgid "Administrator"
 msgstr ""
@@ -40,7 +42,7 @@ msgstr ""
 msgid "Attempting to reconnect"
 msgstr ""
 
-#: lib/clubeira_web/components/backoffice_components.ex:44
+#: lib/clubeira_web/components/backoffice_components.ex:52
 #: lib/clubeira_web/controllers/auth/browser_session_html/new.html.heex:17
 #: lib/clubeira_web/controllers/auth/browser_session_html/new.html.heex:69
 #, elixir-autogen, elixir-format
@@ -77,7 +79,7 @@ msgstr ""
 msgid "Check your email and password and try again."
 msgstr ""
 
-#: lib/clubeira_web/components/backoffice_components.ex:53
+#: lib/clubeira_web/components/backoffice_components.ex:61
 #, elixir-autogen, elixir-format
 msgid "Close navigation"
 msgstr ""
@@ -87,7 +89,7 @@ msgstr ""
 msgid "Current contract and benefit-cycle snapshot"
 msgstr ""
 
-#: lib/clubeira_web/components/backoffice_components.ex:136
+#: lib/clubeira_web/components/backoffice_components.ex:145
 #, elixir-autogen, elixir-format
 msgid "Current operation"
 msgstr ""
@@ -122,7 +124,7 @@ msgstr ""
 msgid "Everything that moves %{polo}"
 msgstr ""
 
-#: lib/clubeira_web/components/backoffice_components.ex:91
+#: lib/clubeira_web/components/backoffice_components.ex:100
 #: lib/clubeira_web/controllers/auth/browser_session_html/new.html.heex:49
 #: lib/clubeira_web/live/backoffice/dashboard_live.html.heex:215
 #, elixir-autogen, elixir-format
@@ -165,6 +167,7 @@ msgid "No subscriptions recorded in this polo."
 msgstr ""
 
 #: lib/clubeira_web/live/backoffice/dashboard_live.ex:133
+#: lib/clubeira_web/live/backoffice/subscriptions_live.ex:155
 #, elixir-autogen, elixir-format
 msgid "Not available"
 msgstr ""
@@ -174,7 +177,7 @@ msgstr ""
 msgid "One operation. Every polo in context."
 msgstr ""
 
-#: lib/clubeira_web/components/backoffice_components.ex:130
+#: lib/clubeira_web/components/backoffice_components.ex:139
 #, elixir-autogen, elixir-format
 msgid "Open navigation"
 msgstr ""
@@ -199,7 +202,7 @@ msgstr ""
 msgid "Outbox, retries and audit trail."
 msgstr ""
 
-#: lib/clubeira_web/components/backoffice_components.ex:68
+#: lib/clubeira_web/components/backoffice_components.ex:76
 #: lib/clubeira_web/live/backoffice/dashboard_live.ex:21
 #, elixir-autogen, elixir-format
 msgid "Overview"
@@ -232,6 +235,8 @@ msgid "Password"
 msgstr ""
 
 #: lib/clubeira_web/live/backoffice/dashboard_live.ex:149
+#: lib/clubeira_web/live/backoffice/subscriptions_live.ex:169
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:42
 #, elixir-autogen, elixir-format
 msgid "Past due"
 msgstr ""
@@ -247,11 +252,13 @@ msgid "Payments, subscriptions and financial health."
 msgstr ""
 
 #: lib/clubeira_web/live/backoffice/dashboard_live.ex:147
+#: lib/clubeira_web/live/backoffice/subscriptions_live.ex:167
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:40
 #, elixir-autogen, elixir-format
 msgid "Pending"
 msgstr ""
 
-#: lib/clubeira_web/components/backoffice_components.ex:76
+#: lib/clubeira_web/components/backoffice_components.ex:84
 #: lib/clubeira_web/live/backoffice/places_live.ex:18
 #: lib/clubeira_web/live/backoffice/places_live.html.heex:16
 #, elixir-autogen, elixir-format
@@ -299,7 +306,7 @@ msgstr ""
 msgid "Secure tenant isolation, audited actions and real-time authorization."
 msgstr ""
 
-#: lib/clubeira_web/components/backoffice_components.ex:149
+#: lib/clubeira_web/components/backoffice_components.ex:158
 #, elixir-autogen, elixir-format
 msgid "Select polo"
 msgstr ""
@@ -309,7 +316,7 @@ msgstr ""
 msgid "Sign in to your operation"
 msgstr ""
 
-#: lib/clubeira_web/components/backoffice_components.ex:112
+#: lib/clubeira_web/components/backoffice_components.ex:121
 #, elixir-autogen, elixir-format
 msgid "Sign out"
 msgstr ""
@@ -324,15 +331,19 @@ msgstr ""
 msgid "Something went wrong!"
 msgstr ""
 
-#: lib/clubeira_web/components/backoffice_components.ex:84
+#: lib/clubeira_web/components/backoffice_components.ex:92
+#: lib/clubeira_web/live/backoffice/subscriptions_live.ex:18
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:16
 #, elixir-autogen, elixir-format
 msgid "Subscriptions"
 msgstr ""
 
 #: lib/clubeira_web/live/backoffice/dashboard_live.ex:148
-#: lib/clubeira_web/live/backoffice/place_live.ex:606
+#: lib/clubeira_web/live/backoffice/place_live.ex:610
 #: lib/clubeira_web/live/backoffice/places_live.ex:145
 #: lib/clubeira_web/live/backoffice/places_live.html.heex:53
+#: lib/clubeira_web/live/backoffice/subscriptions_live.ex:170
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:43
 #, elixir-autogen, elixir-format
 msgid "Suspended"
 msgstr ""
@@ -372,7 +383,7 @@ msgstr ""
 msgid "Welcome back"
 msgstr ""
 
-#: lib/clubeira_web/components/backoffice_components.ex:61
+#: lib/clubeira_web/components/backoffice_components.ex:69
 #, elixir-autogen, elixir-format
 msgid "Workspace"
 msgstr ""
@@ -408,6 +419,8 @@ msgid "Authorized areas"
 msgstr ""
 
 #: lib/clubeira_web/live/backoffice/dashboard_live.ex:152
+#: lib/clubeira_web/live/backoffice/subscriptions_live.ex:171
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:44
 #, elixir-autogen, elixir-format
 msgid "Cancelled"
 msgstr ""
@@ -418,6 +431,8 @@ msgid "Charged back"
 msgstr ""
 
 #: lib/clubeira_web/live/backoffice/dashboard_live.ex:155
+#: lib/clubeira_web/live/backoffice/subscriptions_live.ex:172
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:45
 #, elixir-autogen, elixir-format
 msgid "Expired"
 msgstr ""
@@ -428,7 +443,7 @@ msgid "Failed"
 msgstr ""
 
 #: lib/clubeira_web/live/backoffice/dashboard_live.ex:156
-#: lib/clubeira_web/live/backoffice/place_live.ex:605
+#: lib/clubeira_web/live/backoffice/place_live.ex:609
 #: lib/clubeira_web/live/backoffice/places_live.ex:144
 #: lib/clubeira_web/live/backoffice/places_live.html.heex:47
 #, elixir-autogen, elixir-format
@@ -441,7 +456,7 @@ msgid "Refunded"
 msgstr ""
 
 #: lib/clubeira_web/live/backoffice/dashboard_live.ex:157
-#: lib/clubeira_web/live/backoffice/place_live.ex:607
+#: lib/clubeira_web/live/backoffice/place_live.ex:611
 #: lib/clubeira_web/live/backoffice/places_live.ex:146
 #: lib/clubeira_web/live/backoffice/places_live.html.heex:56
 #, elixir-autogen, elixir-format
@@ -454,21 +469,24 @@ msgid "All profiles"
 msgstr ""
 
 #: lib/clubeira_web/live/backoffice/places_live.html.heex:44
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:39
 #, elixir-autogen, elixir-format
 msgid "All statuses"
 msgstr ""
 
 #: lib/clubeira_web/live/backoffice/places_live.html.heex:86
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:70
 #, elixir-autogen, elixir-format
 msgid "Clear filters"
 msgstr ""
 
 #: lib/clubeira_web/live/backoffice/places_live.html.heex:144
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:160
 #, elixir-autogen, elixir-format
 msgid "Inventory pagination"
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:589
+#: lib/clubeira_web/live/backoffice/place_live.ex:593
 #: lib/clubeira_web/live/backoffice/places_live.ex:140
 #: lib/clubeira_web/live/backoffice/places_live.html.heex:74
 #, elixir-autogen, elixir-format
@@ -476,6 +494,7 @@ msgid "Missing profile"
 msgstr ""
 
 #: lib/clubeira_web/live/backoffice/places_live.html.heex:151
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:167
 #, elixir-autogen, elixir-format
 msgid "Next page"
 msgstr ""
@@ -506,7 +525,7 @@ msgstr ""
 msgid "Public profile"
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:590
+#: lib/clubeira_web/live/backoffice/place_live.ex:594
 #: lib/clubeira_web/live/backoffice/places_live.ex:141
 #: lib/clubeira_web/live/backoffice/places_live.html.heex:77
 #, elixir-autogen, elixir-format
@@ -529,6 +548,7 @@ msgid "You do not have access to the place inventory."
 msgstr ""
 
 #: lib/clubeira_web/live/backoffice/places_live.html.heex:24
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:24
 #, elixir-autogen, elixir-format
 msgid "items per page"
 msgstr ""
@@ -590,18 +610,18 @@ msgstr ""
 msgid "Public phone"
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:537
+#: lib/clubeira_web/live/backoffice/place_live.ex:541
 #, elixir-autogen, elixir-format
 msgid "Reactivate"
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:534
-#: lib/clubeira_web/live/backoffice/place_live.ex:537
+#: lib/clubeira_web/live/backoffice/place_live.ex:538
+#: lib/clubeira_web/live/backoffice/place_live.ex:541
 #, elixir-autogen, elixir-format
 msgid "Retire permanently"
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:352
+#: lib/clubeira_web/live/backoffice/place_live.ex:355
 #, elixir-autogen, elixir-format
 msgid "Review the lifecycle action before submitting."
 msgstr ""
@@ -611,12 +631,12 @@ msgstr ""
 msgid "Revision"
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:534
+#: lib/clubeira_web/live/backoffice/place_live.ex:538
 #, elixir-autogen, elixir-format
 msgid "Suspend"
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:370
+#: lib/clubeira_web/live/backoffice/place_live.ex:373
 #, elixir-autogen, elixir-format
 msgid "The lifecycle action could not be completed."
 msgstr ""
@@ -626,7 +646,7 @@ msgstr ""
 msgid "The lifecycle request was invalid and was not processed."
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:305
+#: lib/clubeira_web/live/backoffice/place_live.ex:308
 #, elixir-autogen, elixir-format
 msgid "The participation lifecycle was updated successfully."
 msgstr ""
@@ -636,7 +656,7 @@ msgstr ""
 msgid "The place details are temporarily unavailable."
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:571
+#: lib/clubeira_web/live/backoffice/place_live.ex:575
 #, elixir-autogen, elixir-format
 msgid "The place was not found in this polo."
 msgstr ""
@@ -646,23 +666,23 @@ msgstr ""
 msgid "The selected polo is invalid."
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:564
+#: lib/clubeira_web/live/backoffice/place_live.ex:568
 #, elixir-autogen, elixir-format
 msgid "The selected polo is not available for this account."
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:399
+#: lib/clubeira_web/live/backoffice/place_live.ex:403
 #, elixir-autogen, elixir-format
 msgid "The updated participation could not be reloaded."
 msgstr ""
 
 #: lib/clubeira_web/live/backoffice/place_live.ex:116
-#: lib/clubeira_web/live/backoffice/place_live.ex:323
+#: lib/clubeira_web/live/backoffice/place_live.ex:326
 #, elixir-autogen, elixir-format
 msgid "This lifecycle action is no longer available for the current state."
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:312
+#: lib/clubeira_web/live/backoffice/place_live.ex:315
 #, elixir-autogen, elixir-format
 msgid "This participation changed in another session. Review the current state and retry."
 msgstr ""
@@ -677,12 +697,12 @@ msgstr ""
 msgid "This participation has no available lifecycle actions."
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:341
+#: lib/clubeira_web/live/backoffice/place_live.ex:344
 #, elixir-autogen, elixir-format
 msgid "This request changed after it started. Review the current state and submit again."
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:334
+#: lib/clubeira_web/live/backoffice/place_live.ex:337
 #, elixir-autogen, elixir-format
 msgid "This request is still being processed. Retry with the same values."
 msgstr ""
@@ -697,12 +717,12 @@ msgstr ""
 msgid "Updating..."
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:578
+#: lib/clubeira_web/live/backoffice/place_live.ex:582
 #, elixir-autogen, elixir-format
 msgid "You do not have access to manage places."
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:585
+#: lib/clubeira_web/live/backoffice/place_live.ex:589
 #, elixir-autogen, elixir-format
 msgid "Your session has expired. Sign in again to continue."
 msgstr ""
@@ -768,12 +788,12 @@ msgstr ""
 msgid "Edit public profile"
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:598
+#: lib/clubeira_web/live/backoffice/place_live.ex:602
 #, elixir-autogen, elixir-format
 msgid "Friday"
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:594
+#: lib/clubeira_web/live/backoffice/place_live.ex:598
 #, elixir-autogen, elixir-format
 msgid "Monday"
 msgstr ""
@@ -815,12 +835,12 @@ msgid "Remove weekly window"
 msgstr ""
 
 #: lib/clubeira_web/live/backoffice/place_live.ex:226
-#: lib/clubeira_web/live/backoffice/place_live.ex:281
+#: lib/clubeira_web/live/backoffice/place_live.ex:284
 #, elixir-autogen, elixir-format
 msgid "Review the public profile before saving."
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:599
+#: lib/clubeira_web/live/backoffice/place_live.ex:603
 #, elixir-autogen, elixir-format
 msgid "Saturday"
 msgstr ""
@@ -840,7 +860,7 @@ msgstr ""
 msgid "Schedule"
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:272
+#: lib/clubeira_web/live/backoffice/place_live.ex:275
 #, elixir-autogen, elixir-format
 msgid "Select only currently available categories."
 msgstr ""
@@ -850,7 +870,7 @@ msgstr ""
 msgid "Special dates"
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:600
+#: lib/clubeira_web/live/backoffice/place_live.ex:604
 #, elixir-autogen, elixir-format
 msgid "Sunday"
 msgstr ""
@@ -876,7 +896,7 @@ msgstr ""
 msgid "The public profile can only be edited while the participation is active."
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:299
+#: lib/clubeira_web/live/backoffice/place_live.ex:302
 #, elixir-autogen, elixir-format
 msgid "The public profile could not be saved."
 msgstr ""
@@ -886,7 +906,7 @@ msgstr ""
 msgid "The public profile was saved successfully."
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:431
+#: lib/clubeira_web/live/backoffice/place_live.ex:435
 #, elixir-autogen, elixir-format
 msgid "The updated profile could not be reloaded."
 msgstr ""
@@ -906,12 +926,12 @@ msgstr ""
 msgid "This profile request is still being processed."
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:597
+#: lib/clubeira_web/live/backoffice/place_live.ex:601
 #, elixir-autogen, elixir-format
 msgid "Thursday"
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:595
+#: lib/clubeira_web/live/backoffice/place_live.ex:599
 #, elixir-autogen, elixir-format
 msgid "Tuesday"
 msgstr ""
@@ -921,7 +941,7 @@ msgstr ""
 msgid "Use Ctrl or Command to select more than one category."
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:596
+#: lib/clubeira_web/live/backoffice/place_live.ex:600
 #, elixir-autogen, elixir-format
 msgid "Wednesday"
 msgstr ""
@@ -936,7 +956,97 @@ msgstr ""
 msgid "Weekly hours"
 msgstr ""
 
-#: lib/clubeira_web/live/backoffice/place_live.ex:498
+#: lib/clubeira_web/live/backoffice/place_live.ex:502
 #, elixir-autogen, elixir-format
 msgid "retired"
+msgstr ""
+
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:63
+#, elixir-autogen, elixir-format
+msgid "Apply filters"
+msgstr ""
+
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:130
+#, elixir-autogen, elixir-format
+msgid "Available"
+msgstr ""
+
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:138
+#, elixir-autogen, elixir-format
+msgid "Consumed"
+msgstr ""
+
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:37
+#, elixir-autogen, elixir-format
+msgid "Contract status"
+msgstr ""
+
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:19
+#, elixir-autogen, elixir-format
+msgid "Current contract, cycle and entitlement balance for every subscription."
+msgstr ""
+
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:105
+#, elixir-autogen, elixir-format
+msgid "Current cycle"
+msgstr ""
+
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:109
+#, elixir-autogen, elixir-format
+msgid "Cycle %{sequence}"
+msgstr ""
+
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:53
+#, elixir-autogen, elixir-format
+msgid "Exact order number"
+msgstr ""
+
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:122
+#, elixir-autogen, elixir-format
+msgid "Issued"
+msgstr ""
+
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:13
+#, elixir-autogen, elixir-format
+msgid "Member operation"
+msgstr ""
+
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:115
+#, elixir-autogen, elixir-format
+msgid "No current cycle"
+msgstr ""
+
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:81
+#, elixir-autogen, elixir-format
+msgid "No subscriptions match this inventory."
+msgstr ""
+
+#: lib/clubeira_web/live/backoffice/subscriptions_live.html.heex:52
+#, elixir-autogen, elixir-format
+msgid "Order number"
+msgstr ""
+
+#: lib/clubeira_web/live/backoffice/subscriptions_live.ex:43
+#, elixir-autogen, elixir-format
+msgid "The selected polo could not be changed."
+msgstr ""
+
+#: lib/clubeira_web/live/backoffice/subscriptions_live.ex:100
+#, elixir-autogen, elixir-format
+msgid "The subscription filters were invalid and have been cleared."
+msgstr ""
+
+#: lib/clubeira_web/live/backoffice/subscriptions_live.ex:57
+#, elixir-autogen, elixir-format
+msgid "The subscription filters were invalid."
+msgstr ""
+
+#: lib/clubeira_web/live/backoffice/subscriptions_live.ex:115
+#, elixir-autogen, elixir-format
+msgid "The subscription inventory is temporarily unavailable."
+msgstr ""
+
+#: lib/clubeira_web/live/backoffice/subscriptions_live.ex:151
+#, elixir-autogen, elixir-format
+msgid "You do not have access to the subscription inventory."
 msgstr ""
