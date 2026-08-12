@@ -7,7 +7,14 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileController do
   alias ClubeiraWeb.ErrorJSON
   alias Plug.Conn.Status
 
-  @profile_fields ~w(contact category_keys weekly_hours special_hours)
+  @profile_fields ~w(
+    contact
+    category_keys
+    weekly_hours
+    special_hours
+    expected_polo_place_id
+    expected_revision
+  )
 
   def update(conn, %{"polo_slug" => polo_slug, "place_id" => place_id} = params) do
     with {:ok, idempotency_key} <- fetch_idempotency_key(conn),
@@ -28,6 +35,9 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileController do
 
       {:error, reason} when reason in [:idempotency_conflict, :request_in_progress] ->
         render_conflict(conn, reason)
+
+      {:error, :stale_place_profile} ->
+        render_conflict(conn, :stale_place_profile)
 
       {:error, :invalid_categories} ->
         render_error(conn, :unprocessable_entity, "invalid_categories")
@@ -70,6 +80,10 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileController do
 
   defp render_conflict(conn, :idempotency_conflict) do
     render_error(conn, :conflict, "idempotency_conflict")
+  end
+
+  defp render_conflict(conn, :stale_place_profile) do
+    render_error(conn, :conflict, "stale_place_profile")
   end
 
   defp render_error(conn, status) do

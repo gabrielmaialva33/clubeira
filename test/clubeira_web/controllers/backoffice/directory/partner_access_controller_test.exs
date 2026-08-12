@@ -239,7 +239,7 @@ defmodule ClubeiraWeb.Backoffice.PartnerAccessControllerTest do
       |> put_req_header("idempotency-key", "partner-profile-update-001")
       |> put(
         "/api/v1/polos/#{fixture.polo_slug}/partner/places/#{fixture.ids.place}/profile",
-        profile_request()
+        profile_request(fixture.ids.polo_place)
       )
       |> json_response(200)
 
@@ -253,7 +253,7 @@ defmodule ClubeiraWeb.Backoffice.PartnerAccessControllerTest do
            |> put(
              "/api/v1/polos/#{fixture.polo_slug}/partner/places/" <>
                "#{fixture.ids.other_place}/profile",
-             profile_request()
+             profile_request(fixture.ids.other_polo_place)
            )
            |> json_response(404) == %{"errors" => %{"detail" => "Not Found"}}
 
@@ -739,7 +739,7 @@ defmodule ClubeiraWeb.Backoffice.PartnerAccessControllerTest do
              end)
   end
 
-  defp profile_request do
+  defp profile_request(polo_place_id) do
     %{
       "contact" => %{
         "email" => "PARCEIRO@CAFE.EXAMPLE",
@@ -749,7 +749,9 @@ defmodule ClubeiraWeb.Backoffice.PartnerAccessControllerTest do
       "weekly_hours" => [
         %{"weekday" => 1, "opens_at" => "08:00", "closes_at" => "18:00"}
       ],
-      "special_hours" => []
+      "special_hours" => [],
+      "expected_polo_place_id" => polo_place_id,
+      "expected_revision" => 0
     }
   end
 

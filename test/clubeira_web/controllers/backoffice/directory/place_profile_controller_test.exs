@@ -29,7 +29,7 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileControllerTest do
       |> put_req_header("idempotency-key", "place-profile-api-001")
       |> put(
         "/api/v1/polos/#{fixture.polo_slug}/backoffice/places/#{fixture.ids.place}/profile",
-        profile_request()
+        profile_request(fixture)
       )
       |> json_response(200)
 
@@ -93,7 +93,8 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileControllerTest do
     cafe = Factory.insert(:place_category, key: "cafe", name: "Café")
     Factory.insert(:place_category, key: "restaurant", name: "Restaurante")
 
-    first = put_profile(conn, fixture, token, "place-profile-revision-001", profile_request())
+    first =
+      put_profile(conn, fixture, token, "place-profile-revision-001", profile_request(fixture))
 
     replacement = %{
       "contact" => %{
@@ -110,7 +111,9 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileControllerTest do
           "kind" => "custom",
           "windows" => [%{"opens_at" => "20:00", "closes_at" => "03:00"}]
         }
-      ]
+      ],
+      "expected_polo_place_id" => fixture.ids.polo_place,
+      "expected_revision" => 1
     }
 
     second =
@@ -157,7 +160,7 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileControllerTest do
     replayed =
       conn
       |> recycle()
-      |> put_profile(fixture, token, "place-profile-revision-001", profile_request())
+      |> put_profile(fixture, token, "place-profile-revision-001", profile_request(fixture))
 
     assert replayed == first
 
@@ -171,6 +174,98 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileControllerTest do
     assert public_profile == get_in(second, ["data", "profile"])
   end
 
+  test "a stale replace is persisted as a replayable conflict without changing the profile", %{
+    conn: conn
+  } do
+    fixture = ReviewsFixtures.pending_review!()
+    admin_scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    token = authenticate!(admin_scope.actor_user_id)
+
+    Factory.insert(:place_category, key: "cafe", name: "Cafe")
+    Factory.insert(:place_category, key: "restaurant", name: "Restaurante")
+
+    first =
+      put_profile(conn, fixture, token, "place-profile-stale-winner", profile_request(fixture))
+
+    stale_request =
+      fixture
+      |> profile_request()
+      |> put_in(["contact", "email"], "aba-antiga@example.test")
+
+    for _attempt <- 1..2 do
+      assert conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{token}")
+             |> put_req_header("idempotency-key", "place-profile-stale-loser")
+             |> put(
+               "/api/v1/polos/#{fixture.polo_slug}/backoffice/places/#{fixture.ids.place}/profile",
+               stale_request
+             )
+             |> json_response(409) == %{
+               "errors" => %{"code" => "stale_place_profile", "detail" => "Conflict"}
+             }
+    end
+
+    public_profile =
+      conn
+      |> recycle()
+      |> get("/api/v1/polos/#{fixture.polo_slug}/places")
+      |> json_response(200)
+      |> get_in(["data", "places", Access.at(0), "profile"])
+
+    assert public_profile == get_in(first, ["data", "profile"])
+
+    assert {:ok, {1, 2, 1}} =
+             Repo.transact_in_polo(admin_scope, fn repo ->
+               successful_events =
+                 repo.aggregate(
+                   from(event in DomainEvent,
+                     where: event.aggregate_type == "polo_place_profile"
+                   ),
+                   :count
+                 )
+
+               idempotency_keys =
+                 repo.aggregate(
+                   from(key in Key, where: key.scope == "directory.publish_place_profile"),
+                   :count
+                 )
+
+               rejected_audits =
+                 repo.aggregate(
+                   from(audit in TenantEvent,
+                     where: audit.action == "place_profile.update_rejected"
+                   ),
+                   :count
+                 )
+
+               {:ok, {successful_events, idempotency_keys, rejected_audits}}
+             end)
+  end
+
+  test "the profile contract requires an exact participation and profile revision", %{conn: conn} do
+    fixture = ReviewsFixtures.pending_review!()
+    admin_scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    token = authenticate!(admin_scope.actor_user_id)
+
+    Factory.insert(:place_category, key: "cafe", name: "Cafe")
+    Factory.insert(:place_category, key: "restaurant", name: "Restaurante")
+
+    for missing_field <- ["expected_polo_place_id", "expected_revision"] do
+      request = Map.delete(profile_request(fixture), missing_field)
+
+      assert conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{token}")
+             |> put_req_header("idempotency-key", "place-profile-missing-#{missing_field}")
+             |> put(
+               "/api/v1/polos/#{fixture.polo_slug}/backoffice/places/#{fixture.ids.place}/profile",
+               request
+             )
+             |> json_response(422) == %{"errors" => %{"detail" => "Unprocessable Content"}}
+    end
+  end
+
   test "publishing records one versioned event, outbox envelope and audit without contact data",
        %{conn: conn} do
     fixture = ReviewsFixtures.pending_review!()
@@ -181,7 +276,13 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileControllerTest do
     Factory.insert(:place_category, key: "restaurant", name: "Restaurante")
 
     response =
-      put_profile(conn, fixture, token, "place-profile-observability-001", profile_request())
+      put_profile(
+        conn,
+        fixture,
+        token,
+        "place-profile-observability-001",
+        profile_request(fixture)
+      )
 
     profile_id =
       Repo.transact_in_polo(admin_scope, fn repo ->
@@ -243,8 +344,11 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileControllerTest do
     Factory.insert(:place_category, key: "cafe", name: "Café")
     Factory.insert(:place_category, key: "restaurant", name: "Restaurante")
 
-    first = put_profile(conn, fixture, token, "place-profile-valid-001", profile_request())
-    invalid = put_in(profile_request(), ["category_keys"], ["category-that-does-not-exist"])
+    first =
+      put_profile(conn, fixture, token, "place-profile-valid-001", profile_request(fixture))
+
+    invalid =
+      put_in(profile_request(fixture), ["category_keys"], ["category-that-does-not-exist"])
 
     assert conn
            |> recycle()
@@ -291,7 +395,7 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileControllerTest do
     Factory.insert(:place_category, key: "restaurant", name: "Restaurante")
 
     overlapping =
-      put_in(profile_request(), ["weekly_hours"], [
+      put_in(profile_request(fixture), ["weekly_hours"], [
         %{"weekday" => 7, "opens_at" => "22:00", "closes_at" => "02:00"},
         %{"weekday" => 1, "opens_at" => "01:00", "closes_at" => "04:00"}
       ])
@@ -323,7 +427,7 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileControllerTest do
     Factory.insert(:place_category, key: "restaurant", name: "Restaurante")
 
     overlapping =
-      put_in(profile_request(), ["special_hours"], [
+      put_in(profile_request(fixture), ["special_hours"], [
         %{
           "date" => "2026-12-31",
           "kind" => "custom",
@@ -358,8 +462,10 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileControllerTest do
     Factory.insert(:place_category, key: "cafe", name: "Café")
     Factory.insert(:place_category, key: "restaurant", name: "Restaurante")
 
-    first = put_profile(conn, fixture, token, "place-profile-conflict-001", profile_request())
-    changed = put_in(profile_request(), ["contact", "email"], "outro@example.test")
+    first =
+      put_profile(conn, fixture, token, "place-profile-conflict-001", profile_request(fixture))
+
+    changed = put_in(profile_request(fixture), ["contact", "email"], "outro@example.test")
 
     assert conn
            |> recycle()
@@ -394,12 +500,12 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileControllerTest do
     Factory.insert(:place_category, key: "restaurant", name: "Restaurante")
 
     invalid_requests = [
-      put_in(profile_request(), ["contact", "email"], "sem-arroba"),
-      put_in(profile_request(), ["contact", "phone"], "+1 212 555 0100"),
-      put_in(profile_request(), ["contact", "phone"], "ligue (88) 99999-0101"),
-      put_in(profile_request(), ["weekly_hours"], []),
-      put_in(profile_request(), ["special_hours"], false),
-      put_in(profile_request(), ["special_hours"], [
+      put_in(profile_request(fixture), ["contact", "email"], "sem-arroba"),
+      put_in(profile_request(fixture), ["contact", "phone"], "+1 212 555 0100"),
+      put_in(profile_request(fixture), ["contact", "phone"], "ligue (88) 99999-0101"),
+      put_in(profile_request(fixture), ["weekly_hours"], []),
+      put_in(profile_request(fixture), ["special_hours"], false),
+      put_in(profile_request(fixture), ["special_hours"], [
         %{
           "date" => "2026-12-25",
           "kind" => "closed",
@@ -450,7 +556,7 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileControllerTest do
              |> put_req_header("idempotency-key", key)
              |> put(
                "/api/v1/polos/#{fixture.polo_slug}/backoffice/places/#{fixture.ids.place}/profile",
-               profile_request()
+               profile_request(fixture)
              )
              |> json_response(403) == %{"errors" => %{"detail" => "Forbidden"}}
     end
@@ -470,12 +576,12 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileControllerTest do
            |> put_req_header("idempotency-key", "place-profile-cross-polo-place")
            |> put(
              "/api/v1/polos/#{fixture.polo_slug}/backoffice/places/#{other_polo.ids.place}/profile",
-             profile_request()
+             profile_request(other_polo)
            )
            |> json_response(404) == %{"errors" => %{"detail" => "Not Found"}}
   end
 
-  defp profile_request do
+  defp profile_request(fixture) do
     %{
       "contact" => %{
         "email" => " RESERVAS@BISTRO.EXAMPLE ",
@@ -488,7 +594,9 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileControllerTest do
       ],
       "special_hours" => [
         %{"date" => "2026-12-25", "kind" => "closed"}
-      ]
+      ],
+      "expected_polo_place_id" => fixture.ids.polo_place,
+      "expected_revision" => 0
     }
   end
 
