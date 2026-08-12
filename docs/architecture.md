@@ -95,6 +95,37 @@ Workers globais não devem reutilizar a role web nem receber bypass irrestrito.
 Quando surgirem, cada categoria terá uma role mínima e uma policy explícita,
 com lote e finalidade auditáveis.
 
+## Borda web do backoffice
+
+O backoffice Phoenix LiveView é uma borda fina sobre os mesmos contexts públicos
+usados pela API. A interface pode ocultar ou mostrar áreas conforme as
+capabilities atuais, mas essa decisão é apenas navegação: cada leitura ou
+comando continua reconstruindo um `Clubeira.Tenancy.Scope`, reautorizando a
+capability no banco e entrando por `Repo.transact_in_polo/3`.
+
+O login do navegador reutiliza a sessão bearer de `Clubeira.Accounts`. O token
+opaco sai da borda apenas dentro do cookie de sessão cifrado, `HttpOnly` e
+`SameSite=Lax`; em produção o cookie também é `Secure`, e páginas privadas não
+podem ser armazenadas por caches. Ao montar uma LiveView, a aplicação valida
+novamente o token persistido como SHA-256 no PostgreSQL e relê polos, roles e
+capabilities por `Polos.get_actor_access/1`. Um polo escolhido na query string
+só é aceito quando aparece nessa projeção autenticada.
+
+O dashboard não mantém uma segunda fonte operacional nem consulta tabelas
+diretamente para contornar os contexts. Lugares, pagamentos e contratos são
+read models reais, carregados sob a role `clubeira_app` e `FORCE RLS`. O
+inventário em `/admin/places` preserva esse contrato: `manage_partners` é
+reautorizada pelo context, filtros vivem na URL, a coleção usa stream e a
+paginação avança pelo cursor keyset emitido por `Directory`. Novas páginas de
+operação devem seguir a mesma fronteira, sem deslocar regras comerciais,
+auditoria, idempotência ou atomicidade para LiveViews.
+
+O detalhe em `/admin/places/:polo_place_id` endereça a participação exata, não
+apenas a identidade global do lugar. Antes de qualquer mutação o socket relê a
+sessão e o usuário globais, reconstrói o scope e deixa o context reautorizar a
+membership. O form envia a identidade e a revisão esperadas do aggregate;
+estado stale é relido do banco e nunca atualizado apenas por assigns da tela.
+
 ## Diretório público
 
 `GET /api/v1/polos/:slug/places` lista os estabelecimentos cuja participação
@@ -196,10 +227,14 @@ estabelecimento de descoberta, venda, provisionamento e resgate porque essas
 bordas já exigem `polo_places.status = 'active'`; contratos, versões, pontos e
 credenciais permanecem historicamente intactos. `reactivate` exige a mesma
 participação ainda vigente e a identidade global do lugar ativa. A operação
-trava o `polo_place`, incrementa sua revisão e persiste auditoria, evento,
-outbox e idempotência na mesma transação RLS. `retire` encerra a vigência no
-relógio transacional e é terminal; pontos e credenciais permanecem intactos,
-mas deixam de autorizar operações porque as bordas exigem participação ativa.
+trava o `polo_place` indicado por `expected_polo_place_id`, compara
+`expected_revision`, incrementa sua revisão e persiste auditoria, evento,
+outbox e idempotência na mesma transação RLS. Isso impede tanto lost update
+quanto ABA quando uma participação histórica é substituída por outra que volta
+à revisão 1. Conflito stale é auditado com revisões esperada e atual, sem emitir
+evento ou outbox. `retire` encerra a vigência no relógio transacional e é
+terminal; pontos e credenciais permanecem intactos, mas deixam de autorizar
+operações porque as bordas exigem participação ativa.
 
 ### Perfil operacional do estabelecimento
 
@@ -207,12 +242,12 @@ mas deixam de autorizar operações porque as bordas exigem participação ativa
 `admin`; sua rota equivalente em `/partner/places/:place_id/profile` exige o
 vínculo operacional completo descrito acima. Depois da autorização, ambas usam
 o mesmo comando para reler polo e participação ativa e substituir contato,
-categorias, semana de funcionamento e exceções na mesma transação. A
-participação é travada antes da reserva idempotente: retries concorrentes
-devolvem a resposta original, enquanto chaves distintas serializam revisões
-completas sem misturar filhos de duas versões. Publicação inicial e atualização
-gravam auditoria, evento de domínio, outbox e resposta `200` idempotente
-atomicamente.
+categorias, semana de funcionamento e exceções na mesma transação. A chave
+idempotente é reservada antes de a participação e o perfil serem travados:
+retries concorrentes devolvem a resposta original, enquanto chaves distintas
+serializam revisões completas sem misturar filhos de duas versões. Publicação
+inicial e atualização gravam auditoria, evento de domínio, outbox e resposta
+`200` idempotente atomicamente.
 
 `place_categories` é uma taxonomia global curada; o perfil não cria categorias
 livres. `polo_place_profiles`, sua relação N:N de categorias e

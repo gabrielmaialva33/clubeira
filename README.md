@@ -1,14 +1,14 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:6D28D9,100:F59E0B&height=200&section=header&text=🎟️%20C%20L%20U%20B%20E%20I%20R%20A&fontSize=52&fontColor=fff&animation=twinkling&fontAlignY=35&desc=Clubes%20de%20vouchers%20por%20assinatura,%20multi-tenant%20de%20verdade&descSize=16&descAlignY=55" width="100%"/>
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:081B33,50:2563EB,100:F97316&height=200&section=header&text=🎟️%20C%20L%20U%20B%20E%20I%20R%20A&fontSize=52&fontColor=fff&animation=twinkling&fontAlignY=35&desc=Clubes%20de%20vouchers%20por%20assinatura,%20multi-tenant%20de%20verdade&descSize=16&descAlignY=55" width="100%"/>
 
 [![Elixir](https://img.shields.io/badge/Elixir_1.20-4B275F?style=for-the-badge&logo=elixir&logoColor=white)](https://elixir-lang.org/)
 [![Phoenix](https://img.shields.io/badge/Phoenix_1.8-FD4F00?style=for-the-badge&logo=phoenixframework&logoColor=white)](https://www.phoenixframework.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL_18-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![OTP](https://img.shields.io/badge/OTP_29-A90533?style=for-the-badge&logo=erlang&logoColor=white)](https://www.erlang.org/)
 [![RLS](https://img.shields.io/badge/RLS-FORCED-16A34A?style=for-the-badge)](#-multi-tenancy)
-[![Tests](https://img.shields.io/badge/tests-475-6D28D9?style=for-the-badge)](./test)
-[![Migrations](https://img.shields.io/badge/migrations-144-F59E0B?style=for-the-badge)](./priv/repo/migrations)
+[![Tests](https://img.shields.io/badge/tests-623-2563EB?style=for-the-badge)](./test)
+[![Migrations](https://img.shields.io/badge/migrations-139-F97316?style=for-the-badge)](./priv/repo/migrations)
 [![License](https://img.shields.io/badge/license-MIT-16A34A?style=for-the-badge)](./LICENSE)
 
 **[🏗️ Arquitetura](docs/architecture.md)** · **[🛠️ Desenvolvimento](docs/development.md)** · **[🤝 Contribuir](CONTRIBUTING.md)** · **[🔐 Segurança](SECURITY.md)**
@@ -31,13 +31,13 @@
 
 ## 🎯 Visão geral
 
-Clubeira é o backend de um SaaS multi-tenant para clubes de vouchers por
-assinatura. Um único produto atende vários polos independentes — cidades,
-regiões ou franquias — e o mesmo usuário mantém contratos, ciclos e benefícios
-separados em cada um.
+Clubeira é o núcleo transacional e o painel administrativo de um SaaS
+multi-tenant para clubes de vouchers por assinatura. Um único produto atende
+vários polos independentes — cidades, regiões ou franquias — e o mesmo usuário
+mantém contratos, ciclos e benefícios separados em cada um.
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#6D28D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#F59E0B', 'lineColor': '#F59E0B', 'secondaryColor': '#1e1b4b'}}}%%
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#2563EB', 'primaryTextColor': '#fff', 'primaryBorderColor': '#F97316', 'lineColor': '#F97316', 'secondaryColor': '#081B33'}}}%%
 flowchart LR
     subgraph Membro["👤 Membro"]
         APP[App / Cliente]
@@ -84,6 +84,7 @@ flowchart LR
 | ✅ **Resgate** | enrollment sem persistir segredo, chave Ed25519 do dispositivo com prova de posse, grant assinado e curto, lifecycle do ponto, consumo atômico com anti-replay, ledger, auditoria, evento e outbox |
 | ⭐ **UGC** | avaliações verificadas, mídia validada pelo storage, resposta versionada do parceiro, denúncia, moderação append-only e feed público consistente |
 | 🧾 **Plataforma** | catálogo versionado de planos e features, assinatura SaaS do polo, nota, itens e pagamento liquidados por webhook autenticado |
+| 🖥️ **Backoffice web** | login com sessão cifrada, navegação por capability, dashboard responsivo e inventário operacional de estabelecimentos com filtros e keyset, sempre pelos contexts reais |
 | 🧪 **Base** | migrations reversíveis, seeds determinísticas, factories, RLS forçado, E2E HTTP por TCP e testes de concorrência contra bancos isolados reais |
 
 O fluxo de venda implementado no domínio é:
@@ -129,6 +130,9 @@ instala as dependências Node, valida o contrato OpenAPI e compila os assets.
 | Endereço | O que é |
 |:--|:--|
 | <http://localhost:4000> | aplicação |
+| <http://localhost:4000/admin> | painel administrativo |
+| <http://localhost:4000/admin/places> | inventário de estabelecimentos do polo |
+| `/admin/places/:polo_place_id` | detalhe e lifecycle da participação selecionada |
 | <http://localhost:4000/health> | liveness do processo |
 | <http://localhost:4000/ready> | readiness da role runtime e das migrations |
 | <http://localhost:4000/api/docs> | documentação navegável Redocly |
@@ -173,7 +177,7 @@ com taxonomia curada, contato, semana de funcionamento e exceções de calendár
 ## 🏗️ Arquitetura
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#6D28D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#F59E0B', 'lineColor': '#F59E0B', 'secondaryColor': '#1e1b4b'}}}%%
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#2563EB', 'primaryTextColor': '#fff', 'primaryBorderColor': '#F97316', 'lineColor': '#F97316', 'secondaryColor': '#081B33'}}}%%
 graph TB
     subgraph WEB["🌐 clubeira_web"]
         R[Router]
@@ -244,7 +248,7 @@ tenant carregam `polo_id`; chaves estrangeiras compostas impedem referências
 entre polos e todas as tabelas com `polo_id` são protegidas por RLS forçado.
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#6D28D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#F59E0B', 'lineColor': '#F59E0B'}}}%%
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#2563EB', 'primaryTextColor': '#fff', 'primaryBorderColor': '#F97316', 'lineColor': '#F97316'}}}%%
 sequenceDiagram
     participant C as Cliente
     participant W as Borda HTTP
@@ -680,7 +684,7 @@ avaliado, inclui também o aggregate de review.
 ### 💸 Pix e a borda do PSP
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#6D28D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#F59E0B', 'lineColor': '#F59E0B'}}}%%
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#2563EB', 'primaryTextColor': '#fff', 'primaryBorderColor': '#F97316', 'lineColor': '#F97316'}}}%%
 sequenceDiagram
     participant M as Membro
     participant O as Operador
@@ -724,7 +728,7 @@ para direitos já consumidos.
 ### ✅ Resgate online
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#6D28D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#F59E0B', 'lineColor': '#F59E0B'}}}%%
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#2563EB', 'primaryTextColor': '#fff', 'primaryBorderColor': '#F97316', 'lineColor': '#F97316'}}}%%
 flowchart LR
     E["1️⃣ enrollment<br/>SHA-256 do segredo"] --> G["2️⃣ grant assinado<br/>120s + nonce"]
     G --> Q["3️⃣ QR / transporte"]
@@ -1020,12 +1024,14 @@ alterar a configuração versionada.
   fecha a vigência da membership do polo e produz `partner_access.revoked`
   atomicamente. Afiliação global e acessos em outros polos permanecem intactos;
 - `POST /api/v1/polos/:polo_slug/backoffice/places/:place_id/lifecycle-actions`
-  exige `admin` e `Idempotency-Key` e aceita `suspend`, `reactivate` ou `retire`;
-  a revisão da participação, auditoria, evento, outbox e resposta idempotente
-  mudam atomicamente; a suspensão retira o lugar das bordas operacionais sem
-  reescrever histórico nem alterar pontos ou credenciais, e a reativação exige
-  vigência corrente e identidade global ativa; `retire` encerra a vigência no
-  relógio transacional e é terminal, sem apagar o histórico;
+  exige `admin`, `Idempotency-Key`, `expected_polo_place_id` e
+  `expected_revision`, e aceita `suspend`, `reactivate` ou `retire`; identidade
+  e revisão obsoletas retornam `409 stale_place_participation` sem atingir uma
+  participação substituta. Estado, auditoria, evento, outbox e resposta
+  idempotente mudam atomicamente; a suspensão retira o lugar das bordas
+  operacionais sem reescrever histórico nem alterar pontos ou credenciais, e a
+  reativação exige vigência corrente e identidade global ativa; `retire` encerra
+  a vigência no relógio transacional e é terminal, sem apagar o histórico;
 - `PUT /api/v1/polos/:polo_slug/backoffice/places/:place_id/profile` permite a
   administração do polo; o alias
   `PUT /api/v1/polos/:polo_slug/partner/places/:place_id/profile` exige o vínculo
@@ -1191,6 +1197,6 @@ Distribuído sob a licença [MIT](LICENSE).
 
 *Criado por Gabriel Maia*
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:F59E0B,100:6D28D9&height=100&section=footer" width="100%"/>
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:F97316,50:2563EB,100:081B33&height=100&section=footer" width="100%"/>
 
 </div>

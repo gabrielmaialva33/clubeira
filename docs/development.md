@@ -73,6 +73,36 @@ Factories vivem em `support/factory.ex` e são compiladas apenas em `dev` e
 `test`. Dados estruturais das seeds sempre recebem IDs e valores estáveis;
 Faker fica restrito a texto de apresentação irrelevante para a regra testada.
 
+## Painel administrativo
+
+O painel começa em <http://localhost:4000/admin>. No cenário local, use
+`admin.demo@clubeira.local` / `clubeira-admin-local` para enxergar todas as
+áreas operacionais ou `moderador.demo@clubeira.local` /
+`clubeira-moderador-local` para validar a navegação restrita à moderação.
+
+O login reutiliza `Clubeira.Accounts`: o bearer opaco fica somente em cookie
+cifrado, `HttpOnly`, `SameSite=Lax` e marcado como `Secure` em produção. Cada
+mount autenticado relê a sessão e o acesso atual do ator; o polo selecionado na
+URL precisa pertencer à projeção autorizada. A navegação usa capabilities como
+hints, enquanto cada context continua reautorizando a operação sob RLS.
+
+O dashboard é uma borda fina sobre os read models existentes de diretório,
+cobrança e assinaturas. Ele não replica regra de negócio nem usa a sessão do
+navegador como prova de autorização. Respostas privadas recebem
+`Cache-Control: private, no-store` e a troca de polo nunca aceita um
+`polo_id` arbitrário enviado pelo cliente.
+
+O inventário em <http://localhost:4000/admin/places> exige
+`manage_partners`, consulta `Directory.list_backoffice_places/2` sob RLS e
+mantém polo, filtros de participação/perfil e cursor keyset na URL. O stream da
+LiveView contém somente a página corrente; nenhuma query operacional fica no
+módulo web.
+
+Cada linha abre `/admin/places/:polo_place_id`, que relê a participação exata e
+permite suspender, reativar ou encerrar conforme o estado. A LiveView revalida
+sessão e usuário antes do submit; o context reautoriza a membership e compara a
+identidade e revisão esperadas antes de gravar.
+
 ## Contrato HTTP e Redocly
 
 O contrato editável parte de `openapi/openapi.yaml`, separa operações por
@@ -182,14 +212,21 @@ POST /api/v1/polos/:slug/backoffice/places/:place_id/lifecycle-actions
 Authorization: Bearer <admin-token>
 Idempotency-Key: <8-a-128-caracteres>
 
-{"action":"suspend","reason":"Interrupção operacional preventiva"}
+{
+  "action":"suspend",
+  "reason":"Interrupção operacional preventiva",
+  "expected_polo_place_id":"<polo_place_id retornado pelo inventário>",
+  "expected_revision":1
+}
 ```
 
 As ações suportadas são `suspend`, `reactivate` e `retire`. Retry exato devolve
 o mesmo `200`; chave igual com payload diferente e transição incompatível
-retornam `409` estável. Reativação exige a participação ainda vigente e o lugar
-global ativo. `retire` encerra a vigência no relógio transacional e torna a
-participação terminal; pontos e credenciais preservam seu próprio lifecycle.
+retornam `409` estável. Identidade ou revisão obsoleta retorna
+`409 stale_place_participation`, sem evento ou outbox. Reativação exige a
+participação ainda vigente e o lugar global ativo. `retire` encerra a vigência
+no relógio transacional e torna a participação terminal; pontos e credenciais
+preservam seu próprio lifecycle.
 
 ## Denúncias de avaliações
 

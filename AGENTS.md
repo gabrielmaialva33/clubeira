@@ -124,9 +124,10 @@ cliente como prova de permissão.
   polo. Não apague afiliação global nem afete memberships independentes do mesmo
   usuário em outros polos.
 - `Clubeira.Directory.transition_place_participation/3` suspende, reativa ou
-  aposenta a participação corrente com revisão, idempotência, auditoria, evento
-  e outbox atômicos; `retire` encerra a vigência e é terminal, sem alterar o
-  lifecycle próprio de pontos ou credenciais.
+  aposenta a participação corrente com identidade do `polo_place` e revisão
+  esperadas, idempotência, auditoria, evento e outbox atômicos; `retire` encerra
+  a vigência e é terminal, sem alterar o lifecycle próprio de pontos ou
+  credenciais.
 - `Clubeira.Redemptions.list_validation_points/2` é o inventário operacional do
   polo: exige `manage_partners`, roda sob RLS e nunca expõe chave ou digest de
   credencial.
