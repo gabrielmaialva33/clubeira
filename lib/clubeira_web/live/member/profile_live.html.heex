@@ -5,11 +5,11 @@
 >
   <div id="member-profile" class="mx-auto max-w-4xl">
     <section>
-      <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
+      <p class="clubeira-page-kicker">
         {gettext("Protected identity")}
-      </p><h1 class="mt-2 text-3xl font-black tracking-[-0.045em] sm:text-4xl">
+      </p><h1 class="clubeira-page-title mt-1.5">
         {gettext("My profile")}
-      </h1><p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+      </h1><p class="clubeira-page-copy mt-1.5">
         {gettext(
           "Sensitive values are encrypted and never returned by the server. Leave CPF or phone blank to keep the current value."
         )}
@@ -20,14 +20,14 @@
       <div
         id="profile-cpf-present"
         class={[
-          "rounded-2xl border p-4",
+          "rounded-xl border p-4",
           credential_present?(@profile, "cpf") && "border-emerald-200 bg-emerald-50",
-          !credential_present?(@profile, "cpf") && "border-slate-200 bg-white"
+          !credential_present?(@profile, "cpf") && "border-clubeira-line bg-white"
         ]}
       >
         <div class="flex items-center gap-3">
           <.icon name="hero-identification" class="size-5 text-blue-600" /><div>
-            <p class="text-xs font-black">CPF</p><p class="mt-0.5 text-[11px] text-slate-500">
+            <p class="text-xs font-bold">CPF</p><p class="mt-0.5 text-[11px] text-slate-500">
               {if credential_present?(@profile, "cpf"),
                 do: gettext("Protected value registered"),
                 else: gettext("Not registered")}
@@ -38,14 +38,14 @@
       <div
         id="profile-phone-present"
         class={[
-          "rounded-2xl border p-4",
+          "rounded-xl border p-4",
           contact_present?(@profile, "phone") && "border-emerald-200 bg-emerald-50",
-          !contact_present?(@profile, "phone") && "border-slate-200 bg-white"
+          !contact_present?(@profile, "phone") && "border-clubeira-line bg-white"
         ]}
       >
         <div class="flex items-center gap-3">
           <.icon name="hero-device-phone-mobile" class="size-5 text-orange-600" /><div>
-            <p class="text-xs font-black">{gettext("Phone")}</p><p class="mt-0.5 text-[11px] text-slate-500">
+            <p class="text-xs font-bold">{gettext("Phone")}</p><p class="mt-0.5 text-[11px] text-slate-500">
               {if contact_present?(@profile, "phone"),
                 do: gettext("Protected value registered"),
                 else: gettext("Not registered")}
@@ -55,7 +55,7 @@
       </div>
     </section>
 
-    <section class="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:p-7">
+    <section class="mt-5 rounded-xl border border-clubeira-line bg-white p-5 sm:p-7">
       <.form
         for={@profile_form}
         id="member-profile-form"
@@ -91,7 +91,7 @@
           <button
             id="member-profile-submit"
             type="submit"
-            class="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-black text-white shadow-[0_10px_24px_rgba(37,99,235,.20)] hover:bg-blue-700"
+            class="clubeira-button-primary"
           >{gettext("Save profile")} <.icon name="hero-check" class="size-4" /></button>
         </div>
       </.form>

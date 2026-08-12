@@ -5,27 +5,27 @@
 >
   <div id="member-privacy" class="mx-auto max-w-5xl">
     <section>
-      <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
+      <p class="clubeira-page-kicker">
         {gettext("Your data, your choices")}
       </p>
-      <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] sm:text-4xl">
+      <h1 class="clubeira-page-title mt-1.5">
         {gettext("Privacy")}
       </h1>
-      <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+      <p class="clubeira-page-copy mt-1.5">
         {gettext("Manage your consent and follow requests about your personal data.")}
       </p>
     </section>
 
     <section
       id="member-privacy-consents-section"
-      class="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:p-7"
+      class="mt-7 rounded-xl border border-clubeira-line bg-white p-5 sm:p-7"
     >
       <div class="flex items-start gap-3">
         <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-700">
           <.icon name="hero-shield-check" class="size-5" />
         </span>
         <div>
-          <h2 class="text-lg font-black tracking-tight">{gettext("Consent")}</h2>
+          <h2 class="text-lg font-bold tracking-tight">{gettext("Consent")}</h2>
           <p class="mt-1 text-sm text-slate-500">
             {gettext("Choose how each optional purpose may use your data.")}
           </p>
@@ -35,7 +35,7 @@
       <div id="member-privacy-consents" phx-update="stream" class="mt-5 grid gap-3">
         <div
           id="member-privacy-consents-empty"
-          class="hidden only:block rounded-xl border border-dashed border-slate-200 p-5 text-sm text-slate-500"
+          class="hidden only:block rounded-xl border border-dashed border-clubeira-line p-5 text-sm text-slate-500"
         >
           {gettext("There are no consent choices available right now.")}
         </div>
@@ -43,10 +43,10 @@
           :for={{dom_id, consent} <- @streams.consents}
           id={dom_id}
           data-state={consent.state}
-          class="rounded-2xl border border-slate-200 p-4 sm:flex sm:items-center sm:justify-between sm:gap-5"
+          class="rounded-xl border border-clubeira-line p-4 sm:flex sm:items-center sm:justify-between sm:gap-5"
         >
           <div>
-            <h3 class="font-black text-slate-900">{consent.processing_purpose.name}</h3>
+            <h3 class="font-bold text-slate-900">{consent.processing_purpose.name}</h3>
             <p class="mt-1 text-xs font-bold uppercase tracking-wide text-slate-500">
               {consent_state_label(consent.state)}
             </p>
@@ -59,7 +59,7 @@
               phx-value-purpose-code={consent.processing_purpose.code}
               phx-value-state="granted"
               disabled={consent.state == "granted"}
-              class="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
+              class="rounded-xl bg-clubeira-orange px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
             >
               {gettext("Allow")}
             </button>
@@ -70,7 +70,7 @@
               phx-value-purpose-code={consent.processing_purpose.code}
               phx-value-state="withdrawn"
               disabled={consent.state == "withdrawn"}
-              class="rounded-xl border border-slate-200 px-4 py-2 text-xs font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+              class="rounded-xl border border-clubeira-line px-4 py-2 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {gettext("Withdraw")}
             </button>
@@ -81,14 +81,14 @@
 
     <section
       id="member-privacy-requests-section"
-      class="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:p-7"
+      class="mt-5 rounded-xl border border-clubeira-line bg-white p-5 sm:p-7"
     >
       <div class="flex items-start gap-3">
         <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-orange-50 text-orange-700">
           <.icon name="hero-document-text" class="size-5" />
         </span>
         <div>
-          <h2 class="text-lg font-black tracking-tight">{gettext("Data requests")}</h2>
+          <h2 class="text-lg font-bold tracking-tight">{gettext("Data requests")}</h2>
           <p class="mt-1 text-sm text-slate-500">
             {gettext("Send a request and follow its processing timeline.")}
           </p>
@@ -100,7 +100,7 @@
         id="member-privacy-request-form"
         phx-change="validate_request"
         phx-submit="submit_request"
-        class="mt-5 flex flex-col gap-3 rounded-2xl bg-slate-50 p-4 sm:flex-row sm:items-end"
+        class="mt-5 flex flex-col gap-3 rounded-xl bg-slate-50 p-4 sm:flex-row sm:items-end"
       >
         <div class="min-w-0 flex-1">
           <.input
@@ -119,7 +119,7 @@
           id="member-privacy-request-submit"
           type="submit"
           phx-disable-with={gettext("Sending…")}
-          class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-orange-600 px-5 text-sm font-black text-white hover:bg-orange-700"
+          class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-orange-600 px-5 text-sm font-bold text-white hover:bg-orange-700"
         >
           {gettext("Send request")}
           <.icon name="hero-arrow-right" class="size-4" />
@@ -129,7 +129,7 @@
       <div id="member-privacy-requests" phx-update="stream" class="mt-5 grid gap-3">
         <div
           id="member-privacy-requests-empty"
-          class="hidden only:block rounded-xl border border-dashed border-slate-200 p-5 text-sm text-slate-500"
+          class="hidden only:block rounded-xl border border-dashed border-clubeira-line p-5 text-sm text-slate-500"
         >
           {gettext("You have not sent any data requests yet.")}
         </div>
@@ -138,18 +138,18 @@
           id={dom_id}
           data-status={request.status}
           data-request-type={request.request_type}
-          class="rounded-2xl border border-slate-200 p-4"
+          class="rounded-xl border border-clubeira-line p-4"
         >
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 class="font-black text-slate-900">
+              <h3 class="font-bold text-slate-900">
                 {request_type_label(request.request_type)}
               </h3>
               <p class="mt-1 text-xs text-slate-500">
                 {gettext("Sent %{at}", at: timestamp(request.inserted_at, @locale))}
               </p>
             </div>
-            <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
+            <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
               {request_status_label(request.status)}
             </span>
           </div>
