@@ -1,0 +1,77 @@
+<div id="public-legal" class="min-h-screen bg-[#f4f7fb] text-slate-950">
+  <header class="border-b border-slate-200 bg-white/90 backdrop-blur">
+    <div class="mx-auto flex h-20 max-w-5xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <.link navigate={~p"/explorar"} class="flex items-center gap-3" aria-label="Clubeira">
+        <span class="grid size-11 place-items-center rounded-2xl bg-[#0b2342] shadow-lg">
+          <img src={~p"/images/logo.svg"} class="h-7 w-9 brightness-0 invert" alt="" />
+        </span>
+        <span class="font-black tracking-[-0.04em]">Clubeira</span>
+      </.link>
+      <.link
+        navigate={~p"/app/login"}
+        class="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white shadow-sm hover:bg-blue-700"
+      >
+        {gettext("Sign in")}
+      </.link>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+    <Layouts.flash_group id="public-legal-flash" flash={@flash} />
+
+    <section class="max-w-3xl">
+      <p class="text-xs font-black uppercase tracking-[0.2em] text-blue-600">
+        {gettext("Transparency")}
+      </p>
+      <h1 class="mt-3 text-4xl font-black tracking-[-0.055em] sm:text-5xl">
+        {gettext("Clubeira terms")}
+      </h1>
+      <p class="mt-4 text-base leading-7 text-slate-600">
+        {gettext("Read the current documents applicable to consumer registration.")}
+      </p>
+    </section>
+
+    <section
+      id="public-legal-documents"
+      phx-update="stream"
+      class="mt-10 grid gap-4 sm:grid-cols-2"
+    >
+      <div
+        id="public-legal-documents-empty"
+        class="hidden only:block rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500 sm:col-span-2"
+      >
+        {gettext("No current legal document is available for this locale.")}
+      </div>
+      <article
+        :for={{id, document} <- @streams.documents}
+        id={id}
+        data-document-kind={document.document_kind}
+        class="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_12px_42px_rgba(15,23,42,.05)]"
+      >
+        <span class="grid size-11 place-items-center rounded-2xl bg-blue-50 text-blue-700">
+          <.icon name="hero-document-text" class="size-5" />
+        </span>
+        <h2 class="mt-5 text-xl font-black tracking-[-0.03em]">{document_label(document)}</h2>
+        <p class="mt-2 text-sm text-slate-500">
+          {gettext("Version %{version} · %{locale}",
+            version: document.version,
+            locale: document.locale
+          )}
+        </p>
+        <a
+          :if={document.public_uri}
+          href={document.public_uri}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="mt-6 inline-flex items-center gap-2 text-sm font-black text-blue-700"
+        >
+          {gettext("Open document")}
+          <.icon name="hero-arrow-top-right-on-square" class="size-4" />
+        </a>
+        <p :if={!document.public_uri} class="mt-6 text-sm font-bold text-orange-700">
+          {gettext("Document link unavailable")}
+        </p>
+      </article>
+    </section>
+  </main>
+</div>

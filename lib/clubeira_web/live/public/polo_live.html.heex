@@ -1,0 +1,212 @@
+<div id="public-polo" class="min-h-screen bg-[#f4f7fb] text-slate-950">
+  <header class="border-b border-slate-200 bg-white/90 backdrop-blur">
+    <div class="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <.link navigate={~p"/explorar"} class="flex items-center gap-3" aria-label="Clubeira">
+        <span class="grid size-11 place-items-center rounded-2xl bg-[#0b2342] shadow-lg">
+          <img src={~p"/images/logo.svg"} class="h-7 w-9 brightness-0 invert" alt="" />
+        </span>
+        <span>
+          <span class="block text-lg font-black tracking-[-0.04em]">Clubeira</span>
+          <span class="block text-[9px] font-bold uppercase tracking-[0.24em] text-orange-600">
+            {@polo.name}
+          </span>
+        </span>
+      </.link>
+      <div class="flex items-center gap-2">
+        <.link
+          navigate={~p"/termos"}
+          class="hidden rounded-xl px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 sm:inline-flex"
+        >
+          {gettext("Terms")}
+        </.link>
+        <.link
+          navigate={~p"/app/login"}
+          class="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white shadow-sm hover:bg-blue-700"
+        >
+          {gettext("Sign in")}
+        </.link>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 py-9 sm:px-6 sm:py-12 lg:px-8">
+    <Layouts.flash_group id="public-polo-flash" flash={@flash} />
+
+    <section class="rounded-[2rem] bg-[#0b2342] px-6 py-9 text-white shadow-2xl sm:px-10 sm:py-12">
+      <p class="text-xs font-black uppercase tracking-[0.2em] text-orange-400">
+        {gettext("Local Clubeira")}
+      </p>
+      <h1 class="mt-3 text-4xl font-black tracking-[-0.055em] sm:text-5xl">{@polo.name}</h1>
+      <p class="mt-4 max-w-2xl text-sm leading-6 text-blue-100 sm:text-base">
+        {gettext("Browse current benefits and the establishments where you can enjoy them.")}
+      </p>
+    </section>
+
+    <nav
+      id="public-polo-filters"
+      class="mt-7 flex gap-2 overflow-x-auto"
+      aria-label={gettext("Catalog sections")}
+    >
+      <.link
+        id="public-polo-filter-all"
+        patch={~p"/explorar/#{@polo.slug}"}
+        aria-current={@section == "all" && "page"}
+        class={[
+          "shrink-0 rounded-xl px-4 py-2.5 text-sm font-black",
+          @section == "all" && "bg-blue-600 text-white",
+          @section != "all" && "bg-white text-slate-600"
+        ]}
+      >
+        {gettext("All")}
+      </.link>
+      <.link
+        id="public-polo-filter-benefits"
+        patch={~p"/explorar/#{@polo.slug}?section=benefits"}
+        aria-current={@section == "benefits" && "page"}
+        class={[
+          "shrink-0 rounded-xl px-4 py-2.5 text-sm font-black",
+          @section == "benefits" && "bg-blue-600 text-white",
+          @section != "benefits" && "bg-white text-slate-600"
+        ]}
+      >
+        {gettext("Benefits")}
+      </.link>
+      <.link
+        id="public-polo-filter-places"
+        patch={~p"/explorar/#{@polo.slug}?section=places"}
+        aria-current={@section == "places" && "page"}
+        class={[
+          "shrink-0 rounded-xl px-4 py-2.5 text-sm font-black",
+          @section == "places" && "bg-blue-600 text-white",
+          @section != "places" && "bg-white text-slate-600"
+        ]}
+      >
+        {gettext("Places")}
+      </.link>
+    </nav>
+
+    <section :if={@section in ["all", "benefits"]} id="public-benefits" class="mt-10">
+      <div>
+        <p class="text-xs font-black uppercase tracking-[0.18em] text-blue-600">
+          {gettext("Current catalog")}
+        </p>
+        <h2 class="mt-2 text-2xl font-black tracking-[-0.04em]">{gettext("Benefits")}</h2>
+      </div>
+      <div
+        id="public-benefits-stream"
+        phx-update="stream"
+        class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+      >
+        <div
+          id="public-benefits-empty"
+          class="hidden only:block rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500 sm:col-span-2 xl:col-span-3"
+        >
+          {gettext("No published benefit is available right now.")}
+        </div>
+        <article
+          :for={{id, offer} <- @streams.offers}
+          id={id}
+          class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_12px_42px_rgba(15,23,42,.05)]"
+        >
+          <div class="h-2 bg-gradient-to-r from-blue-600 to-orange-500" />
+          <div class="p-6">
+            <p class="text-[11px] font-black uppercase tracking-wider text-orange-600">
+              {benefit_value(offer)}
+            </p>
+            <h3 class="mt-3 text-xl font-black tracking-[-0.03em]">{offer.title}</h3>
+            <p class="mt-3 text-sm leading-6 text-slate-600">{offer.description}</p>
+            <details class="mt-5 rounded-2xl bg-slate-50 p-4">
+              <summary class="cursor-pointer text-sm font-black text-blue-700">
+                {gettext("How to use and terms")}
+              </summary>
+              <p class="mt-3 text-xs leading-5 text-slate-600">{offer.redemption_instructions}</p>
+              <p class="mt-2 border-t border-slate-200 pt-2 text-xs leading-5 text-slate-500">
+                {offer.terms}
+              </p>
+            </details>
+            <div class="mt-4 flex flex-wrap gap-1.5">
+              <.link
+                :for={place <- offer.places}
+                navigate={~p"/explorar/#{@polo.slug}/lugares/#{place.slug}"}
+                class="rounded-lg bg-blue-50 px-2.5 py-1.5 text-[11px] font-bold text-blue-700 hover:bg-blue-100"
+              >
+                {place.name}
+              </.link>
+            </div>
+          </div>
+        </article>
+      </div>
+      <.link
+        :if={@benefits_next_page_path}
+        id="public-benefits-next-page"
+        patch={@benefits_next_page_path}
+        class="mt-6 inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 shadow-sm"
+      >
+        {gettext("More benefits")} <.icon name="hero-arrow-right" class="size-4" />
+      </.link>
+    </section>
+
+    <section :if={@section in ["all", "places"]} id="public-places" class="mt-12">
+      <div>
+        <p class="text-xs font-black uppercase tracking-[0.18em] text-blue-600">
+          {gettext("Partner network")}
+        </p>
+        <h2 class="mt-2 text-2xl font-black tracking-[-0.04em]">{gettext("Places")}</h2>
+      </div>
+      <div
+        id="public-places-stream"
+        phx-update="stream"
+        class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+      >
+        <div
+          id="public-places-empty"
+          class="hidden only:block rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500 md:col-span-2 xl:col-span-3"
+        >
+          {gettext("No active partner place is available right now.")}
+        </div>
+        <article
+          :for={{id, place} <- @streams.places}
+          id={id}
+          class="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_12px_42px_rgba(15,23,42,.05)]"
+        >
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-wider text-orange-600">
+                {place.address.city.name}
+              </p>
+              <h3 class="mt-2 text-xl font-black tracking-[-0.03em]">{place.name}</h3>
+            </div>
+            <span class="grid size-11 shrink-0 place-items-center rounded-2xl bg-blue-50 text-blue-700">
+              <.icon name="hero-map-pin" class="size-5" />
+            </span>
+          </div>
+          <p class="mt-4 text-sm leading-6 text-slate-500">
+            {place.address.street}, {place.address.number || gettext("no number")} · {place.address.district}
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span
+              :for={brand <- place.brands}
+              class="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600"
+            >
+              {brand.name}
+            </span>
+          </div>
+          <.link
+            navigate={~p"/explorar/#{@polo.slug}/lugares/#{place.slug}"}
+            class="mt-6 inline-flex items-center gap-2 text-sm font-black text-blue-700"
+          >
+            {gettext("View place")} <.icon name="hero-arrow-right" class="size-4" />
+          </.link>
+        </article>
+      </div>
+      <.link
+        :if={@places_next_page_path}
+        id="public-places-next-page"
+        patch={@places_next_page_path}
+        class="mt-6 inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 shadow-sm"
+      >
+        {gettext("More places")} <.icon name="hero-arrow-right" class="size-4" />
+      </.link>
+    </section>
+  </main>
+</div>
