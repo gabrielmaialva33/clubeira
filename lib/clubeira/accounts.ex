@@ -158,6 +158,25 @@ defmodule Clubeira.Accounts do
 
   def fetch_scope_by_api_token(_token, %RequestContext{}), do: :error
 
+  @doc """
+  Revalidates a trusted account scope against the persisted session and user.
+
+  Long-lived transports must call this before privileged mutations so session
+  revocation, expiration and user disablement take effect without a remount.
+  """
+  @spec refresh_scope(Scope.t()) :: {:ok, Scope.t()} | :error
+  def refresh_scope(%Scope{} = scope) do
+    case fetch_active_session(scope.session_id, scope.user.id) do
+      %UserSession{} = session ->
+        {:ok, Scope.for_session(session.user, session, RequestContext.new!())}
+
+      nil ->
+        :error
+    end
+  end
+
+  def refresh_scope(_scope), do: :error
+
   @spec revoke_session(Scope.t()) :: :ok
   def revoke_session(%Scope{} = scope) do
     context = RequestContext.new!(scope.request_id)
@@ -469,6 +488,22 @@ defmodule Clubeira.Accounts do
         join: user in assoc(session, :user),
         where:
           session.token_hash == ^token_hash and
+            is_nil(session.revoked_at) and
+            session.expires_at > fragment("statement_timestamp()") and
+            user.status == "active" and
+            is_nil(user.disabled_at),
+        preload: [user: user]
+      )
+    )
+  end
+
+  defp fetch_active_session(session_id, user_id) do
+    Repo.one(
+      from(session in UserSession,
+        join: user in assoc(session, :user),
+        where:
+          session.id == ^session_id and
+            session.user_id == ^user_id and
             is_nil(session.revoked_at) and
             session.expires_at > fragment("statement_timestamp()") and
             user.status == "active" and

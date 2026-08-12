@@ -234,6 +234,22 @@ defmodule Clubeira.AccountsTest do
     assert :error = Accounts.fetch_scope_by_api_token(rotating.token)
   end
 
+  test "refreshes a trusted scope only while its session and user remain active", %{user: user} do
+    assert :error = Accounts.refresh_scope(:invalid)
+
+    assert {:ok, _credential} = Accounts.set_password(user, @password)
+    assert {:ok, session} = Accounts.login(user.email, @password)
+    assert {:ok, original_scope} = Accounts.fetch_scope_by_api_token(session.token)
+
+    assert {:ok, refreshed_scope} = Accounts.refresh_scope(original_scope)
+    assert refreshed_scope.session_id == original_scope.session_id
+    assert refreshed_scope.user.id == original_scope.user.id
+    refute refreshed_scope.request_id == original_scope.request_id
+
+    assert :ok = Accounts.revoke_session(original_scope)
+    assert :error = Accounts.refresh_scope(original_scope)
+  end
+
   test "disabling a user invalidates an already issued token", %{user: user} do
     assert {:ok, _credential} = Accounts.set_password(user, @password)
     assert {:ok, session} = Accounts.login(user.email, @password)
