@@ -337,13 +337,41 @@ Reason:
       type: string
 LifecycleAction:
   type: object
+  additionalProperties: false
   required:
     - action
+    - reason
   properties:
     action:
       type: string
     reason:
       type: string
+      minLength: 3
+      maxLength: 500
+PlaceLifecycleAction:
+  type: object
+  additionalProperties: false
+  required:
+    - action
+    - reason
+    - expected_polo_place_id
+    - expected_revision
+  properties:
+    action:
+      type: string
+      enum:
+        - suspend
+        - reactivate
+        - retire
+    reason:
+      type: string
+      minLength: 3
+      maxLength: 500
+    expected_polo_place_id:
+      $ref: '#/UUID'
+    expected_revision:
+      type: integer
+      minimum: 1
 PlaceProfile:
   type: object
   required:
@@ -354,6 +382,10 @@ PlaceProfile:
   properties:
     contact:
       type: object
+      additionalProperties: false
+      required:
+        - email
+        - phone
       properties:
         email:
           type: string
@@ -362,16 +394,21 @@ PlaceProfile:
           type: string
     category_keys:
       type: array
+      minItems: 1
+      maxItems: 8
       uniqueItems: true
       items:
         type: string
     weekly_hours:
       type: array
+      minItems: 1
+      maxItems: 28
       items:
         type: object
         additionalProperties: true
     special_hours:
       type: array
+      maxItems: 64
       items:
         type: object
         additionalProperties: true

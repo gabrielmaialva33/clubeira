@@ -50,6 +50,68 @@ defmodule ClubeiraWeb.OpenAPIContractTest do
     end
   end
 
+  test "place lifecycle publishes its optimistic concurrency contract" do
+    contract = open_api()
+
+    schema =
+      get_in(contract, [
+        "paths",
+        "/api/v1/polos/{polo_slug}/backoffice/places/{place_id}/lifecycle-actions",
+        "post",
+        "requestBody",
+        "content",
+        "application/json",
+        "schema"
+      ])
+
+    assert schema == %{"$ref" => "#/components/schemas/PlaceLifecycleAction"}
+
+    place_lifecycle = get_in(contract, ["components", "schemas", "PlaceLifecycleAction"])
+
+    assert MapSet.new(place_lifecycle["required"]) ==
+             MapSet.new(~w(action expected_polo_place_id expected_revision reason))
+
+    assert place_lifecycle["properties"]["expected_polo_place_id"] == %{
+             "$ref" => "#/components/schemas/UUID"
+           }
+
+    assert place_lifecycle["properties"]["expected_revision"] == %{
+             "minimum" => 1,
+             "type" => "integer"
+           }
+  end
+
+  test "idempotency headers match the command validation contract" do
+    contract = open_api()
+
+    for parameter <- ~w(IdempotencyKey OptionalIdempotencyKey) do
+      assert get_in(contract, ["components", "parameters", parameter, "schema"]) == %{
+               "type" => "string",
+               "minLength" => 8,
+               "maxLength" => 128,
+               "pattern" => "^[A-Za-z0-9._:-]+$"
+             }
+    end
+  end
+
+  test "shared lifecycle and place profile schemas publish required inputs" do
+    schemas = open_api()["components"]["schemas"]
+    lifecycle = schemas["LifecycleAction"]
+
+    assert lifecycle["additionalProperties"] == false
+    assert MapSet.new(lifecycle["required"]) == MapSet.new(~w(action reason))
+
+    assert lifecycle["properties"]["reason"] == %{
+             "type" => "string",
+             "minLength" => 3,
+             "maxLength" => 500
+           }
+
+    contact = schemas["PlaceProfile"]["properties"]["contact"]
+    assert contact["additionalProperties"] == false
+    assert MapSet.new(contact["required"]) == MapSet.new(~w(email phone))
+  end
+
   defp open_api do
     @spec_path
     |> File.read!()

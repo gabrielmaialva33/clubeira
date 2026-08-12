@@ -135,7 +135,7 @@ placeLifecycleActions:
       content:
         application/json:
           schema:
-            $ref: ../../components/common.yaml#/schemas/LifecycleAction
+            $ref: ../../components/common.yaml#/schemas/PlaceLifecycleAction
     responses:
       '200':
         $ref: ../../components/common.yaml#/responses/Ok

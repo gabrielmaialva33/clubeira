@@ -155,6 +155,8 @@ schemas:
     $ref: ./common/schemas.yaml#/Reason
   LifecycleAction:
     $ref: ./common/schemas.yaml#/LifecycleAction
+  PlaceLifecycleAction:
+    $ref: ./common/schemas.yaml#/PlaceLifecycleAction
   PlaceProfile:
     $ref: ./common/schemas.yaml#/PlaceProfile
   BenefitOffer:

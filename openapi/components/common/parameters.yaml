@@ -138,8 +138,9 @@ IdempotencyKey:
   description: Chave opaca que identifica semanticamente a mutação para o ator e escopo.
   schema:
     type: string
-    minLength: 1
-    maxLength: 255
+    minLength: 8
+    maxLength: 128
+    pattern: '^[A-Za-z0-9._:-]+$'
 OptionalIdempotencyKey:
   name: Idempotency-Key
   in: header
@@ -147,8 +148,9 @@ OptionalIdempotencyKey:
   description: Chave opaca opcional; quando presente protege contra replay semântico.
   schema:
     type: string
-    minLength: 1
-    maxLength: 255
+    minLength: 8
+    maxLength: 128
+    pattern: '^[A-Za-z0-9._:-]+$'
 Limit:
   name: limit
   in: query
