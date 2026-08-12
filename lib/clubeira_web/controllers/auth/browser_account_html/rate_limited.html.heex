@@ -1,16 +1,19 @@
-<div id="browser-credential-rate-limited" class="min-h-screen bg-[#f4f7fb] px-5 py-10 sm:px-8">
-  <main class="mx-auto w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_16px_55px_rgba(15,23,42,.08)] sm:p-9">
+<div
+  id="browser-credential-rate-limited"
+  class="clubeira-canvas clubeira-grid-paper grid min-h-screen place-items-center px-5 py-10 sm:px-8"
+>
+  <main class="mx-auto w-full max-w-lg overflow-hidden rounded-xl border border-clubeira-line border-t-4 border-t-clubeira-orange bg-white p-6 sm:p-8">
     <.link href={~p"/explorar"} class="inline-flex items-center gap-3" aria-label="Clubeira">
-      <span class="grid size-11 place-items-center rounded-2xl bg-[#0b2342]">
-        <img src={~p"/images/logo.svg"} class="h-7 w-9 brightness-0 invert" alt="" />
+      <span class="clubeira-brand-mark">
+        <img src={~p"/images/logo.svg"} class="h-5 w-7" alt="" />
       </span>
-      <span class="font-black tracking-[-0.04em]">Clubeira</span>
+      <span class="font-bold tracking-[-0.04em]">Clubeira</span>
     </.link>
 
-    <p class="mt-9 text-xs font-black uppercase tracking-[0.18em] text-orange-600">
+    <p class="mt-7 text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
       {gettext("Account security")}
     </p>
-    <h1 class="mt-2 text-3xl font-black tracking-[-0.045em]">
+    <h1 class="mt-2 text-2xl font-bold tracking-[-0.04em]">
       {gettext("Too many attempts")}
     </h1>
     <p class="mt-4 text-sm leading-6 text-slate-600">
@@ -20,7 +23,7 @@
     <.link
       id="credential-rate-limited-back"
       href={@back_path}
-      class="mt-7 inline-flex h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-black text-white hover:bg-blue-700"
+      class="mt-7 inline-flex h-12 w-full items-center justify-center rounded-xl bg-clubeira-orange px-5 text-sm font-bold text-white hover:bg-orange-600"
     >
       {gettext("Back to sign in")}
     </.link>
