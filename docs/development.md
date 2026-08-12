@@ -116,6 +116,13 @@ saldo agregado pelo read model de assinaturas. Filtros de status e número exato
 do pedido ficam na URL; a próxima página usa o cursor opaco do context e reseta
 o stream para manter somente a página atual no processo LiveView.
 
+Cada linha abre `/admin/subscriptions/:contract_id`, que busca o contrato exato
+no polo sob RLS e permite suspender contratos ativos ou inadimplentes e reativar
+os suspensos. A sessão é relida antes de cada submit e a membership é
+reautorizada pelo context. A chave idempotente nasce no servidor; conflito ou
+mudança concorrente força a releitura do status vencedor antes de oferecer a
+próxima ação.
+
 ## Contrato HTTP e Redocly
 
 O contrato editável parte de `openapi/openapi.yaml`, separa operações por

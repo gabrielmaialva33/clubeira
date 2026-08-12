@@ -137,6 +137,15 @@ reautorizar a leitura no banco. Status e número exato do pedido permanecem na
 URL, e cada avanço substitui o stream pela página indicada pelo cursor keyset;
 o socket não acumula contratos nem replica a regra de saldo do context.
 
+O detalhe em `/admin/subscriptions/:contract_id` relê o contrato exato por
+`Subscriptions.get_backoffice_subscription/2`, dentro do polo selecionado e
+sob RLS. Antes de suspender ou reativar, a LiveView revalida a sessão global e
+o context reautoriza `manage_billing`; o formulário apenas entrega ação, motivo
+e chave idempotente a `transition_contract/3`. Sucesso, conflito e estado
+concorrente sempre provocam nova leitura do aggregate, sem inferir o vencedor a
+partir dos assigns do socket. Auditoria, evento, outbox e período de suspensão
+continuam atômicos no domínio.
+
 ## Diretório público
 
 `GET /api/v1/polos/:slug/places` lista os estabelecimentos cuja participação
