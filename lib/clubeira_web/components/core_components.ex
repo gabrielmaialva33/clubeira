@@ -62,7 +62,7 @@ defmodule ClubeiraWeb.CoreComponents do
       {@rest}
     >
       <div class={[
-        "flex w-80 max-w-[calc(100vw-2rem)] items-start gap-3 rounded-xl border p-4 text-sm shadow-lg sm:w-96",
+        "flex w-80 max-w-[calc(100vw-2rem)] items-start gap-3 rounded-[10px] border p-4 text-sm shadow-[0_10px_30px_rgba(16,33,61,.08)] sm:w-96",
         @kind == :info &&
           "border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-50",
         @kind == :error &&
@@ -99,16 +99,16 @@ defmodule ClubeiraWeb.CoreComponents do
 
   def button(%{rest: rest} = assigns) do
     base =
-      "inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold " <>
+      "inline-flex h-10 items-center justify-center rounded-[10px] px-4 text-sm font-semibold " <>
         "transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none " <>
         "disabled:opacity-50"
 
     variants = %{
       "primary" =>
-        "bg-violet-600 text-white shadow-sm hover:bg-violet-500 focus-visible:outline-violet-600",
+        "bg-clubeira-orange text-white hover:bg-orange-600 focus-visible:outline-clubeira-orange",
       nil =>
-        "border border-slate-300 bg-white text-slate-900 shadow-sm hover:bg-slate-50 " <>
-          "focus-visible:outline-slate-500 dark:border-slate-700 dark:bg-slate-900 " <>
+        "border border-clubeira-line bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 " <>
+          "focus-visible:outline-clubeira-blue dark:border-slate-700 dark:bg-slate-900 " <>
           "dark:text-slate-100 dark:hover:bg-slate-800"
     }
 
@@ -230,7 +230,7 @@ defmodule ClubeiraWeb.CoreComponents do
           disabled={@rest[:disabled]}
           form={@rest[:form]}
         />
-        <span class="flex items-center gap-2 text-sm font-medium text-slate-800 dark:text-slate-200">
+        <span class="flex items-center gap-2.5 text-sm font-medium text-slate-700 dark:text-slate-200">
           <input
             type="checkbox"
             id={@id}
@@ -239,7 +239,7 @@ defmodule ClubeiraWeb.CoreComponents do
             checked={@checked}
             class={
               @class ||
-                "size-4 rounded border-slate-300 text-violet-600 focus:ring-violet-600 dark:border-slate-700 dark:bg-slate-900"
+                "size-4 rounded border-slate-300 text-clubeira-blue focus:ring-clubeira-blue dark:border-slate-700 dark:bg-slate-900"
             }
             {@rest}
           />{@label}
@@ -254,7 +254,10 @@ defmodule ClubeiraWeb.CoreComponents do
     ~H"""
     <div class="mb-4">
       <label for={@id} class="block">
-        <span :if={@label} class="mb-1.5 block text-sm font-medium text-slate-800 dark:text-slate-200">
+        <span
+          :if={@label}
+          class="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200"
+        >
           {@label}
         </span>
         <select
@@ -262,7 +265,7 @@ defmodule ClubeiraWeb.CoreComponents do
           name={@name}
           class={[
             @class ||
-              "block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-950 shadow-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:ring-violet-900",
+              "clubeira-control block w-full dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:ring-blue-900",
             @errors != [] &&
               (@error_class || "border-red-500 focus:border-red-500 focus:ring-red-200")
           ]}
@@ -282,7 +285,10 @@ defmodule ClubeiraWeb.CoreComponents do
     ~H"""
     <div class="mb-4">
       <label for={@id} class="block">
-        <span :if={@label} class="mb-1.5 block text-sm font-medium text-slate-800 dark:text-slate-200">
+        <span
+          :if={@label}
+          class="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200"
+        >
           {@label}
         </span>
         <textarea
@@ -290,7 +296,7 @@ defmodule ClubeiraWeb.CoreComponents do
           name={@name}
           class={[
             @class ||
-              "block min-h-28 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-950 shadow-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:ring-violet-900",
+              "clubeira-control block min-h-28 w-full py-2.5 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:ring-blue-900",
             @errors != [] &&
               (@error_class || "border-red-500 focus:border-red-500 focus:ring-red-200")
           ]}
@@ -307,7 +313,10 @@ defmodule ClubeiraWeb.CoreComponents do
     ~H"""
     <div class="mb-4">
       <label for={@id} class="block">
-        <span :if={@label} class="mb-1.5 block text-sm font-medium text-slate-800 dark:text-slate-200">
+        <span
+          :if={@label}
+          class="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200"
+        >
           {@label}
         </span>
         <input
@@ -317,7 +326,7 @@ defmodule ClubeiraWeb.CoreComponents do
           value={Form.normalize_value(@type, @value)}
           class={[
             @class ||
-              "block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-950 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:ring-violet-900",
+              "clubeira-control block w-full dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:ring-blue-900",
             @errors != [] &&
               (@error_class || "border-red-500 focus:border-red-500 focus:ring-red-200")
           ]}
@@ -332,8 +341,8 @@ defmodule ClubeiraWeb.CoreComponents do
   # Helper used by inputs to generate form errors
   defp error(assigns) do
     ~H"""
-    <p class="mt-1.5 flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
-      <.icon name="hero-exclamation-circle" class="size-5" />
+    <p class="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+      <.icon name="hero-exclamation-circle" class="size-4" />
       {render_slot(@inner_block)}
     </p>
     """
@@ -348,12 +357,12 @@ defmodule ClubeiraWeb.CoreComponents do
 
   def header(assigns) do
     ~H"""
-    <header class={[@actions != [] && "flex items-center justify-between gap-6", "pb-4"]}>
+    <header class={[@actions != [] && "flex items-center justify-between gap-6", "pb-5"]}>
       <div>
-        <h1 class="text-lg font-semibold leading-8">
+        <h1 class="text-xl font-bold tracking-[-0.025em] text-clubeira-ink">
           {render_slot(@inner_block)}
         </h1>
-        <p :if={@subtitle != []} class="text-sm text-slate-600 dark:text-slate-400">
+        <p :if={@subtitle != []} class="mt-1 text-sm text-clubeira-muted dark:text-slate-400">
           {render_slot(@subtitle)}
         </p>
       </div>
@@ -394,9 +403,9 @@ defmodule ClubeiraWeb.CoreComponents do
       end
 
     ~H"""
-    <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
-      <table class="min-w-full divide-y divide-slate-200 text-left text-sm dark:divide-slate-800">
-        <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-900 dark:text-slate-400">
+    <div class="overflow-x-auto rounded-xl border border-clubeira-line bg-white dark:border-slate-800">
+      <table class="min-w-full divide-y divide-clubeira-line text-left text-sm dark:divide-slate-800">
+        <thead class="bg-slate-50/70 text-xs text-slate-500 dark:bg-slate-900 dark:text-slate-400">
           <tr>
             <th :for={col <- @col} class="px-4 py-3 font-semibold">{col[:label]}</th>
             <th :if={@action != []} class="px-4 py-3">
@@ -406,13 +415,13 @@ defmodule ClubeiraWeb.CoreComponents do
         </thead>
         <tbody
           id={@id}
-          class="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-950"
+          class="divide-y divide-clubeira-line bg-white dark:divide-slate-800 dark:bg-slate-950"
           phx-update={is_struct(@rows, Phoenix.LiveView.LiveStream) && "stream"}
         >
           <tr
             :for={row <- @rows}
             id={@row_id && @row_id.(row)}
-            class="hover:bg-slate-50 dark:hover:bg-slate-900/70"
+            class="transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-900/70"
           >
             <td
               :for={col <- @col}
@@ -451,7 +460,7 @@ defmodule ClubeiraWeb.CoreComponents do
 
   def list(assigns) do
     ~H"""
-    <ul class="divide-y divide-slate-200 rounded-xl border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
+    <ul class="divide-y divide-clubeira-line rounded-xl border border-clubeira-line bg-white dark:divide-slate-800 dark:border-slate-800">
       <li :for={item <- @item} class="px-4 py-3">
         <div>
           <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">{item.title}</div>

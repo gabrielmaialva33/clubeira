@@ -89,6 +89,7 @@ defmodule ClubeiraWeb do
 
       # Common modules used in templates
       alias ClubeiraWeb.Layouts
+      alias ClubeiraWeb.PublicComponents
       alias Phoenix.LiveView.JS
 
       # Routes generation with the ~p sigil

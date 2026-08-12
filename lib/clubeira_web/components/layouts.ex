@@ -43,21 +43,18 @@ defmodule ClubeiraWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <header class="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
+    <header class="border-b border-clubeira-line bg-white/95 backdrop-blur">
       <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <a id="clubeira-home-link" href={~p"/"} class="flex items-center gap-3" aria-label="Clubeira">
-          <span class="grid size-9 place-items-center rounded-xl bg-violet-600 text-sm font-black text-white shadow-sm">
-            C
+          <span class="clubeira-brand-mark">
+            <img src={~p"/images/logo.svg"} class="h-5 w-7" alt="" />
           </span>
-          <span class="font-semibold tracking-tight text-slate-950 dark:text-white">Clubeira</span>
+          <span class="font-bold tracking-[-0.03em] text-clubeira-ink">Clubeira</span>
         </a>
-        <span class="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
-          foundation v0.1
-        </span>
       </div>
     </header>
 
-    <main class="px-4 py-16 sm:px-6 lg:px-8">
+    <main class="px-4 py-10 sm:px-6 lg:px-8">
       <div class="mx-auto max-w-6xl">
         {render_slot(@inner_block)}
       </div>

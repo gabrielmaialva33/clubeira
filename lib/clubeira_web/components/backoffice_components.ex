@@ -61,7 +61,7 @@ defmodule ClubeiraWeb.BackofficeComponents do
       )
 
     ~H"""
-    <div id="backoffice-shell" class="min-h-screen bg-[#f4f7fb] text-slate-950">
+    <div id="backoffice-shell" class="clubeira-canvas min-h-screen text-clubeira-ink">
       <div
         id="backoffice-sidebar-overlay"
         class="fixed inset-0 z-30 hidden bg-slate-950/45 backdrop-blur-sm lg:hidden"
@@ -70,18 +70,16 @@ defmodule ClubeiraWeb.BackofficeComponents do
 
       <aside
         id="backoffice-sidebar"
-        class="fixed inset-y-0 left-0 z-40 flex w-[278px] -translate-x-full flex-col overflow-hidden bg-[#081b33] text-white shadow-2xl transition-transform duration-300 lg:translate-x-0 lg:shadow-none"
+        class="fixed inset-y-0 left-0 z-40 flex w-[252px] -translate-x-full flex-col overflow-hidden border-r border-clubeira-line bg-white text-clubeira-ink shadow-xl transition-transform duration-300 lg:translate-x-0 lg:shadow-none"
       >
-        <div class="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_top_right,rgba(59,130,246,.35),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(249,115,22,.25),transparent_30%)]" />
-
-        <div class="relative flex h-[76px] items-center justify-between border-b border-white/[0.07] px-6">
+        <div class="flex h-[68px] items-center justify-between border-b border-clubeira-line px-5">
           <.link navigate={~p"/admin"} class="flex items-center gap-3" aria-label="Clubeira">
-            <span class="grid size-10 place-items-center rounded-xl bg-white shadow-lg">
-              <img src={~p"/images/logo.svg"} class="h-6 w-8" alt="" />
+            <span class="clubeira-brand-mark">
+              <img src={~p"/images/logo.svg"} class="h-5 w-7" alt="" />
             </span>
             <div>
-              <p class="text-lg font-black tracking-[-0.04em]">Clubeira</p>
-              <p class="text-[9px] font-bold uppercase tracking-[0.26em] text-blue-300">
+              <p class="text-[17px] font-black tracking-[-0.04em]">Clubeira</p>
+              <p class="text-[9px] font-bold uppercase tracking-[0.22em] text-clubeira-orange">
                 {gettext("Backoffice")}
               </p>
             </div>
@@ -90,18 +88,18 @@ defmodule ClubeiraWeb.BackofficeComponents do
             id="close-mobile-navigation"
             type="button"
             phx-click={toggle_mobile_sidebar()}
-            class="grid size-9 place-items-center rounded-lg text-slate-400 transition hover:bg-white/10 hover:text-white lg:hidden"
+            class="grid size-9 place-items-center rounded-lg text-clubeira-muted transition hover:bg-clubeira-canvas hover:text-clubeira-ink lg:hidden"
             aria-label={gettext("Close navigation")}
           >
             <.icon name="hero-x-mark" class="size-5" />
           </button>
         </div>
 
-        <nav id="backoffice-navigation" class="relative flex-1 overflow-y-auto px-4 py-6">
-          <p class="px-3 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
+        <nav id="backoffice-navigation" class="flex-1 overflow-y-auto px-3 py-5">
+          <p class="px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-clubeira-muted">
             {gettext("Workspace")}
           </p>
-          <div class="mt-3 space-y-1.5">
+          <div class="mt-2 space-y-0.5">
             <.nav_item
               id="backoffice-nav-overview"
               navigate={@dashboard_path}
@@ -184,22 +182,22 @@ defmodule ClubeiraWeb.BackofficeComponents do
           </div>
         </nav>
 
-        <div class="relative border-t border-white/[0.07] p-4">
-          <div class="rounded-2xl border border-white/[0.08] bg-white/[0.055] p-3.5">
+        <div class="border-t border-clubeira-line p-3">
+          <div class="rounded-xl bg-clubeira-canvas p-3">
             <div class="flex items-center gap-3">
-              <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-500 text-xs font-black text-white shadow-[0_8px_20px_rgba(37,99,235,.28)]">
+              <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-clubeira-blue text-[11px] font-black text-white">
                 {@initials}
               </span>
               <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-semibold">{gettext("Administrator")}</p>
-                <p id="backoffice-user-email" class="truncate text-[11px] text-slate-400">
+                <p class="truncate text-xs font-bold text-clubeira-ink">{gettext("Administrator")}</p>
+                <p id="backoffice-user-email" class="truncate text-[10px] text-clubeira-muted">
                   {@account_scope.user.email}
                 </p>
               </div>
               <.link
                 href={~p"/admin/logout"}
                 method="delete"
-                class="grid size-8 place-items-center rounded-lg text-slate-400 transition hover:bg-white/10 hover:text-orange-300"
+                class="grid size-8 place-items-center rounded-lg text-clubeira-muted transition hover:bg-clubeira-orange-soft hover:text-clubeira-orange"
                 aria-label={gettext("Sign out")}
               >
                 <.icon name="hero-arrow-right-start-on-rectangle" class="size-4" />
@@ -209,24 +207,24 @@ defmodule ClubeiraWeb.BackofficeComponents do
         </div>
       </aside>
 
-      <div class="min-h-screen lg:pl-[278px]">
-        <header class="sticky top-0 z-20 h-[76px] border-b border-slate-200/80 bg-white/85 backdrop-blur-xl">
-          <div class="flex h-full items-center justify-between gap-4 px-5 sm:px-7 lg:px-9">
+      <div class="min-h-screen lg:pl-[252px]">
+        <header class="sticky top-0 z-20 h-[68px] border-b border-clubeira-line bg-white/95 backdrop-blur">
+          <div class="flex h-full items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
             <div class="flex min-w-0 items-center gap-3">
               <button
                 id="open-mobile-navigation"
                 type="button"
                 phx-click={toggle_mobile_sidebar()}
-                class="grid size-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm lg:hidden"
+                class="grid size-10 shrink-0 place-items-center rounded-lg border border-clubeira-line bg-white text-clubeira-muted lg:hidden"
                 aria-label={gettext("Open navigation")}
               >
                 <.icon name="hero-bars-3-bottom-left" class="size-5" />
               </button>
               <div class="hidden min-w-0 sm:block">
-                <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-clubeira-muted">
                   {gettext("Current operation")}
                 </p>
-                <p class="truncate text-sm font-bold text-slate-900">{@current_polo.name}</p>
+                <p class="truncate text-sm font-bold text-clubeira-ink">{@current_polo.name}</p>
               </div>
             </div>
 
@@ -241,7 +239,7 @@ defmodule ClubeiraWeb.BackofficeComponents do
                 <select
                   id={@polo_form[:polo].id}
                   name={@polo_form[:polo].name}
-                  class="h-10 max-w-44 appearance-none rounded-xl border border-slate-200 bg-white py-0 pl-3.5 pr-9 text-xs font-bold text-slate-700 shadow-sm outline-none transition hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 sm:max-w-56 sm:text-sm"
+                  class="clubeira-control max-w-44 appearance-none py-0 pl-3.5 pr-9 text-xs font-bold sm:max-w-56 sm:text-sm"
                 >
                   <option
                     :for={polo <- @access.polos}
@@ -260,8 +258,8 @@ defmodule ClubeiraWeb.BackofficeComponents do
           </div>
         </header>
 
-        <main class="px-5 py-7 sm:px-7 lg:px-9 lg:py-9">
-          {render_slot(@inner_block)}
+        <main class="mx-auto max-w-[1680px] px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
+          <div class="min-w-0">{render_slot(@inner_block)}</div>
         </main>
       </div>
 
@@ -285,15 +283,15 @@ defmodule ClubeiraWeb.BackofficeComponents do
       navigate={@navigate}
       aria-current={@active && "page"}
       class={[
-        "group flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition",
-        @active && "bg-blue-500 text-white shadow-[0_10px_24px_rgba(37,99,235,.24)]",
-        !@active && "text-slate-400 hover:bg-white/[0.07] hover:text-white"
+        "clubeira-nav-link group",
+        @active && "clubeira-nav-link-active",
+        !@active && "text-clubeira-muted hover:bg-clubeira-canvas hover:text-clubeira-ink"
       ]}
     >
       <span class={[
         "grid size-7 place-items-center rounded-lg transition",
-        @active && "bg-white/12 text-white",
-        !@active && "text-slate-500 group-hover:text-orange-300"
+        @active && "bg-white text-clubeira-blue",
+        !@active && "text-clubeira-muted group-hover:text-clubeira-orange"
       ]}>
         <.icon name={@icon} class="size-[18px]" />
       </span>
