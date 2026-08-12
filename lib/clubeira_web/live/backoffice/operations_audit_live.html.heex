@@ -1,0 +1,91 @@
+<BackofficeComponents.shell
+  account_scope={@current_account_scope}
+  access={@backoffice_access}
+  current_polo={@current_polo}
+  polo_form={@polo_form}
+  flash={@flash}
+  active_section={:operations}
+>
+  <div id="operations-audit-page" class="mx-auto max-w-[1400px]">
+    <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
+          {gettext("Operational evidence")}
+        </p>
+        <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">
+          {gettext("Audit trail")}
+        </h1>
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+          {gettext("Append-only operational facts without private metadata or client context.")}
+        </p>
+      </div>
+      <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
+        <span class="font-black text-slate-950">{@page.limit}</span>
+        <span class="ml-1 text-slate-500">{gettext("items per page")}</span>
+      </div>
+    </header>
+
+    <nav id="operations-tabs" class="mt-6 flex gap-2" aria-label={gettext("Operations views")}>
+      <.link
+        navigate={
+          ~p"/admin/operations/outbox?#{[polo: @current_polo.slug, status: "dead_letter"]}"
+        }
+        class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:border-blue-200 hover:text-blue-700"
+      >
+        {gettext("Outbox")}
+      </.link>
+      <.link
+        navigate={~p"/admin/operations/audit?#{[polo: @current_polo.slug]}"}
+        aria-current="page"
+        class="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white"
+      >
+        {gettext("Audit trail")}
+      </.link>
+    </nav>
+
+    <section class="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]">
+      <div id="audit-events" phx-update="stream" class="divide-y divide-slate-100">
+        <div
+          id="audit-events-empty"
+          class="hidden only:flex items-center gap-3 px-6 py-12 text-sm text-slate-500"
+        >
+          <.icon name="hero-document-magnifying-glass" class="size-5 text-slate-300" />
+          {gettext("There are no audit events matching this view.")}
+        </div>
+
+        <article
+          :for={{id, event} <- @streams.events}
+          id={id}
+          class="grid gap-5 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(240px,0.6fr)] lg:items-center"
+        >
+          <div class="min-w-0">
+            <p class="text-sm font-black capitalize text-slate-950">{humanized(event.action)}</p>
+            <p class="mt-1 text-xs font-semibold capitalize text-slate-500">
+              {humanized(event.resource_type)}
+            </p>
+            <p :if={event.resource_id} class="mt-2 font-mono text-[10px] text-slate-400">
+              {event.resource_id}
+            </p>
+          </div>
+
+          <dl class="grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-1">
+            <div class="rounded-xl bg-slate-50 px-3 py-2.5">
+              <dt class="font-bold uppercase tracking-wide text-slate-400">
+                {gettext("Occurred")}
+              </dt>
+              <dd class="mt-1 font-bold text-slate-700">
+                {timestamp(event.occurred_at, @locale)}
+              </dd>
+            </div>
+            <div class="rounded-xl bg-slate-50 px-3 py-2.5">
+              <dt class="font-bold uppercase tracking-wide text-slate-400">{gettext("Actor")}</dt>
+              <dd class="mt-1 truncate font-mono text-[10px] text-slate-700">
+                {event.actor_user_id || event.actor_kind}
+              </dd>
+            </div>
+          </dl>
+        </article>
+      </div>
+    </section>
+  </div>
+</BackofficeComponents.shell>

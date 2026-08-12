@@ -42,7 +42,13 @@ defmodule ClubeiraWeb.Backoffice.PaymentLiveTest do
     assert has_element?(detail, "#payment-detail-amount", "BRL 29,90")
     assert has_element?(detail, "#payment-detail-order", order.order_number)
     assert has_element?(detail, "#payment-detail-order-status[data-status='paid']")
-    assert has_element?(detail, "#back-to-finance", "Voltar ao financeiro")
+
+    assert has_element?(
+             detail,
+             "#back-to-finance[href='/admin/payments?polo=#{fixture.polo_route.slug}']",
+             "Voltar ao financeiro"
+           )
+
     refute has_element?(detail, "[data-provider-reference]")
 
     {:ok, default_polo_detail, _html} = live(conn, "/admin/payments/#{payment.id}")
@@ -77,7 +83,7 @@ defmodule ClubeiraWeb.Backoffice.PaymentLiveTest do
     other_admin_scope = grant_admin!(other_polo)
     {_order, other_payment} = captured_payment!(other_polo, other_admin_scope)
     session = authenticate!(admin_scope.actor_user_id)
-    expected_path = "/admin?polo=#{fixture.polo_route.slug}#payments-section"
+    expected_path = "/admin/payments?polo=#{fixture.polo_route.slug}"
     conn = init_test_session(conn, %{"backoffice_session_token" => session.token})
 
     assert {:error, {:redirect, %{to: ^expected_path}}} =
@@ -629,7 +635,7 @@ defmodule ClubeiraWeb.Backoffice.PaymentLiveTest do
     {_order, payment} = captured_payment!(fixture, admin_scope)
     session = authenticate!(admin_scope.actor_user_id)
     conn = init_test_session(conn, %{"backoffice_session_token" => session.token})
-    expected_path = "/admin?polo=#{fixture.polo_route.slug}#payments-section"
+    expected_path = "/admin/payments?polo=#{fixture.polo_route.slug}"
 
     assert {:error, {:redirect, %{to: ^expected_path}}} =
              live(conn, "/admin/payments/#{payment.id}?polo=not-authorized")

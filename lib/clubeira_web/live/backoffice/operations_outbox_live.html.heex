@@ -1,0 +1,120 @@
+<BackofficeComponents.shell
+  account_scope={@current_account_scope}
+  access={@backoffice_access}
+  current_polo={@current_polo}
+  polo_form={@polo_form}
+  flash={@flash}
+  active_section={:operations}
+>
+  <div id="operations-outbox-page" class="mx-auto max-w-[1400px]">
+    <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
+          {gettext("Operational recovery")}
+        </p>
+        <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">
+          {gettext("Transactional outbox")}
+        </h1>
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+          {gettext("Delivery state without event payloads, worker identity or private errors.")}
+        </p>
+      </div>
+      <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
+        <span class="font-black text-slate-950">{@page.limit}</span>
+        <span class="ml-1 text-slate-500">{gettext("items per page")}</span>
+      </div>
+    </header>
+
+    <nav id="operations-tabs" class="mt-6 flex gap-2" aria-label={gettext("Operations views")}>
+      <.link
+        navigate={
+          ~p"/admin/operations/outbox?#{[polo: @current_polo.slug, status: "dead_letter"]}"
+        }
+        aria-current="page"
+        class="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white"
+      >
+        {gettext("Outbox")}
+      </.link>
+      <.link
+        navigate={~p"/admin/operations/audit?#{[polo: @current_polo.slug]}"}
+        class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:border-blue-200 hover:text-blue-700"
+      >
+        {gettext("Audit trail")}
+      </.link>
+    </nav>
+
+    <section class="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]">
+      <div id="outbox-messages" phx-update="stream" class="divide-y divide-slate-100">
+        <div
+          id="outbox-messages-empty"
+          class="hidden only:flex items-center gap-3 px-6 py-12 text-sm text-slate-500"
+        >
+          <.icon name="hero-check-badge" class="size-5 text-emerald-500" />
+          {gettext("There are no outbox messages matching this view.")}
+        </div>
+
+        <article
+          :for={{id, message} <- @streams.messages}
+          id={id}
+          class="grid gap-5 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.55fr)_auto] lg:items-center"
+        >
+          <div class="min-w-0">
+            <p class="truncate text-sm font-black text-slate-950">{message.topic}</p>
+            <p class="mt-1 truncate text-xs font-semibold text-slate-500">
+              {message.event.type} · {message.event.aggregate_type}
+            </p>
+            <p class="mt-2 font-mono text-[10px] text-slate-400">
+              {message.event.aggregate_id}
+            </p>
+          </div>
+
+          <dl class="grid grid-cols-2 gap-2 text-xs">
+            <div class="rounded-xl bg-slate-50 px-3 py-2.5">
+              <dt class="font-bold uppercase tracking-wide text-slate-400">
+                {gettext("Attempts")}
+              </dt>
+              <dd class="mt-1 text-sm font-black text-slate-800">{message.attempt_count}</dd>
+            </div>
+            <div class="rounded-xl bg-slate-50 px-3 py-2.5">
+              <dt class="font-bold uppercase tracking-wide text-slate-400">
+                {gettext("Recorded")}
+              </dt>
+              <dd class="mt-1 text-[10px] font-bold text-slate-700">
+                {timestamp(message.recorded_at, @locale)}
+              </dd>
+            </div>
+          </dl>
+
+          <div class="flex flex-col items-start gap-3 lg:items-end">
+            <span class={[
+              "w-fit rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide ring-1 ring-inset",
+              status_class(message.status)
+            ]}>
+              {status_label(message.status)}
+            </span>
+
+            <%= if retry_form = Map.get(@retry_forms, message.id) do %>
+              <.form
+                for={retry_form}
+                id={"outbox-retry-form-#{message.id}"}
+                phx-submit="retry_outbox_message"
+              >
+                <input type="hidden" name="message_id" value={message.id} />
+                <.input field={retry_form[:idempotency_key]} type="hidden" />
+                <button
+                  id={"outbox-retry-submit-#{message.id}"}
+                  type="submit"
+                  phx-disable-with={gettext("Requeueing...")}
+                  class="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-xs font-black text-white shadow-[0_8px_22px_rgba(249,115,22,.2)] transition hover:bg-orange-600 disabled:cursor-wait disabled:opacity-70"
+                >
+                  <.icon name="hero-arrow-path" class="size-4" />
+                  {gettext("Requeue")}
+                </button>
+              </.form>
+            <% end %>
+          </div>
+        </article>
+      </div>
+    </section>
+  </div>
+</BackofficeComponents.shell>

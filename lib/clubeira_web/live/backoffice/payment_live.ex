@@ -267,7 +267,7 @@ defmodule ClubeiraWeb.Backoffice.PaymentLive do
     "payment-refund-#{Ecto.UUID.generate(version: 7, precision: :monotonic)}"
   end
 
-  defp finance_path(polo_slug), do: ~p"/admin?#{[polo: polo_slug]}" <> "#payments-section"
+  defp finance_path(polo_slug), do: ~p"/admin/payments?#{[polo: polo_slug]}"
 
   defp redirect_invalid_polo(socket, polo) do
     {:noreply,

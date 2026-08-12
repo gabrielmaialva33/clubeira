@@ -1,0 +1,253 @@
+<BackofficeComponents.shell
+  account_scope={@current_account_scope}
+  access={@backoffice_access}
+  current_polo={@current_polo}
+  polo_form={@polo_form}
+  flash={@flash}
+  active_section={:partners}
+>
+  <div id="agreements-page" class="mx-auto max-w-[1500px]">
+    <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
+          {gettext("Partner network")}
+        </p>
+        <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">
+          {gettext("Partner agreements")}
+        </h1>
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+          {gettext(
+            "Publish immutable commercial terms over authorized organizations, places and benefits."
+          )}
+        </p>
+      </div>
+      <.link
+        id="partner-accesses-link"
+        navigate={~p"/admin/partners?#{[polo: @current_polo.slug]}"}
+        class="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-700"
+      >
+        <.icon name="hero-users" class="size-4" />
+        {gettext("Partner access")}
+      </.link>
+    </header>
+
+    <section class="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:p-6">
+      <h2 class="text-lg font-black text-slate-950">{gettext("Publish agreement")}</h2>
+      <p class="mt-1 text-sm leading-6 text-slate-500">
+        {gettext(
+          "The agreement, terms and all authorized links are committed in one transaction."
+        )}
+      </p>
+
+      <div
+        :if={
+          @options.organizations == [] or @options.places == [] or
+            @options.benefit_offer_versions == []
+        }
+        id="agreement-publication-unavailable"
+        class="mt-5 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800"
+      >
+        {gettext(
+          "At least one active organization, operated place and published benefit are required."
+        )}
+      </div>
+
+      <.form
+        :if={
+          @options.organizations != [] and @options.places != [] and
+            @options.benefit_offer_versions != []
+        }
+        for={@publish_form}
+        id="agreement-publish-form"
+        phx-submit="publish_agreement"
+        class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+      >
+        <.input field={@publish_form[:idempotency_key]} type="hidden" />
+        <.input
+          field={@publish_form[:agreement_number]}
+          type="text"
+          label={gettext("Agreement number")}
+        />
+        <.input field={@publish_form[:name]} type="text" label={gettext("Name")} />
+        <.input
+          field={@publish_form[:settlement_model]}
+          type="select"
+          label={gettext("Settlement model")}
+          options={[
+            {gettext("No settlement"), "none"},
+            {gettext("Fixed"), "fixed"},
+            {gettext("Revenue share"), "revenue_share"}
+          ]}
+        />
+        <.input
+          field={@publish_form[:valid_from]}
+          type="datetime-local"
+          label={gettext("Valid from")}
+        />
+        <.input
+          field={@publish_form[:valid_until]}
+          type="datetime-local"
+          label={gettext("Valid until")}
+        />
+        <.input
+          field={@publish_form[:signed_at]}
+          type="datetime-local"
+          label={gettext("Signed at")}
+        />
+        <.input
+          field={@publish_form[:redemption_sla_seconds]}
+          type="number"
+          label={gettext("Redemption SLA in seconds")}
+          min="1"
+          max="86400"
+        />
+        <.input
+          field={@publish_form[:organization_ids]}
+          id="agreement-organization-ids"
+          type="select"
+          label={gettext("Organizations")}
+          multiple
+          size="5"
+          options={Enum.map(@options.organizations, &{&1.name, &1.id})}
+        />
+        <.input
+          field={@publish_form[:polo_place_ids]}
+          id="agreement-polo-place-ids"
+          type="select"
+          label={gettext("Places")}
+          multiple
+          size="5"
+          options={Enum.map(@options.places, &{&1.name, &1.id})}
+        />
+        <.input
+          field={@publish_form[:brand_ids]}
+          id="agreement-brand-ids"
+          type="select"
+          label={gettext("Brands")}
+          multiple
+          size="5"
+          options={Enum.map(@options.brands, &{&1.name, &1.id})}
+        />
+        <.input
+          field={@publish_form[:edition_ids]}
+          id="agreement-edition-ids"
+          type="select"
+          label={gettext("Editions")}
+          multiple
+          size="5"
+          options={Enum.map(@options.editions, &{&1.name, &1.id})}
+        />
+        <.input
+          field={@publish_form[:benefit_offer_version_ids]}
+          id="agreement-benefit-version-ids"
+          type="select"
+          label={gettext("Benefits")}
+          multiple
+          size="5"
+          options={
+            Enum.map(
+              @options.benefit_offer_versions,
+              &{"#{&1.benefit_offer_name} · #{&1.title}", &1.id}
+            )
+          }
+        />
+        <div class="flex items-end sm:col-span-2 sm:justify-end lg:col-span-3">
+          <button
+            id="publish-agreement"
+            type="submit"
+            class="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-6 text-sm font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,.2)] transition hover:bg-blue-700"
+          >
+            {gettext("Publish agreement")}
+          </button>
+        </div>
+      </.form>
+    </section>
+
+    <.form
+      for={@filter_form}
+      id="agreement-filters"
+      phx-submit="filter"
+      class="mt-7 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end"
+    >
+      <.input
+        field={@filter_form[:status]}
+        type="select"
+        label={gettext("Status")}
+        options={[
+          {gettext("All statuses"), ""},
+          {gettext("Active"), "active"},
+          {gettext("Suspended"), "suspended"},
+          {gettext("Terminated"), "terminated"},
+          {gettext("Expired"), "expired"}
+        ]}
+      />
+      <button
+        id="apply-agreement-filters"
+        type="submit"
+        class="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-bold text-white"
+      >
+        {gettext("Apply filters")}
+      </button>
+      <.link
+        patch={~p"/admin/partners/agreements?#{[polo: @current_polo.slug]}"}
+        class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600"
+      >
+        {gettext("Clear filters")}
+      </.link>
+    </.form>
+
+    <section class="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]">
+      <div id="agreements-inventory" phx-update="stream" class="divide-y divide-slate-100">
+        <div
+          id="agreements-empty"
+          class="hidden only:flex items-center gap-3 px-6 py-12 text-sm text-slate-500"
+        >
+          <.icon name="hero-document-check" class="size-5 text-slate-300" />
+          {gettext("No agreements match this inventory.")}
+        </div>
+
+        <article
+          :for={{id, agreement} <- @streams.agreements}
+          id={id}
+          data-agreement-number={agreement["agreement_number"]}
+          class="grid gap-4 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_auto] lg:items-center"
+        >
+          <div class="min-w-0">
+            <h2 class="truncate text-sm font-black text-slate-950">{agreement["name"]}</h2>
+            <p class="mt-1 truncate text-xs text-slate-400">{agreement["agreement_number"]}</p>
+          </div>
+          <div>
+            <p class="text-xs font-bold text-slate-700">
+              {length(agreement["polo_place_ids"])} {gettext("place(s)")}
+            </p>
+            <p class="mt-1 text-xs text-slate-400">
+              {length(agreement["benefit_offer_version_ids"])} {gettext("benefit(s)")}
+            </p>
+          </div>
+          <div>
+            <p class="text-xs font-bold text-slate-700">
+              {settlement_label(agreement["terms"]["settlement_model"])}
+            </p>
+            <p class="mt-1 text-xs text-slate-400">
+              {agreement["terms"]["redemption_sla_seconds"]}s SLA
+            </p>
+          </div>
+          <span class="w-fit rounded-full bg-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-700 ring-1 ring-inset ring-slate-500/10">
+            {status_label(agreement["status"])}
+          </span>
+        </article>
+      </div>
+    </section>
+
+    <nav :if={@next_page_path} id="agreements-pagination" class="mt-5 flex justify-end">
+      <.link
+        id="agreements-next-page"
+        patch={@next_page_path}
+        class="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white"
+      >
+        {gettext("Next page")}
+        <.icon name="hero-arrow-right" class="size-4" />
+      </.link>
+    </nav>
+  </div>
+</BackofficeComponents.shell>

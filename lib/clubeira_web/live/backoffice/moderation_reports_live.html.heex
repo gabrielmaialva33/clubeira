@@ -1,0 +1,128 @@
+<BackofficeComponents.shell
+  account_scope={@current_account_scope}
+  access={@backoffice_access}
+  current_polo={@current_polo}
+  polo_form={@polo_form}
+  flash={@flash}
+  active_section={:moderation}
+>
+  <div id="moderation-reports-page" class="mx-auto max-w-[1400px]">
+    <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
+          {gettext("Trust and safety")}
+        </p>
+        <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">
+          {gettext("Review reports")}
+        </h1>
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+          {gettext("Open reports waiting for a dismiss, hide or remove decision.")}
+        </p>
+      </div>
+      <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
+        <span class="font-black text-slate-950">{@page.limit}</span>
+        <span class="ml-1 text-slate-500">{gettext("items per page")}</span>
+      </div>
+    </header>
+
+    <nav id="moderation-tabs" class="mt-6 flex gap-2" aria-label={gettext("Moderation queues")}>
+      <.link
+        navigate={~p"/admin/moderation/reviews?#{[polo: @current_polo.slug]}"}
+        class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:border-blue-200 hover:text-blue-700"
+      >
+        {gettext("Pending reviews")}
+      </.link>
+      <.link
+        navigate={~p"/admin/moderation/reports?#{[polo: @current_polo.slug]}"}
+        aria-current="page"
+        class="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white"
+      >
+        {gettext("Reports")}
+      </.link>
+    </nav>
+
+    <section class="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]">
+      <div id="moderation-reports" phx-update="stream" class="divide-y divide-slate-100">
+        <div
+          id="moderation-reports-empty"
+          class="hidden only:flex items-center gap-3 px-6 py-12 text-sm text-slate-500"
+        >
+          <.icon name="hero-check-badge" class="size-5 text-emerald-500" />
+          {gettext("There are no open reports waiting for moderation.")}
+        </div>
+
+        <article
+          :for={{id, report} <- @streams.reports}
+          id={id}
+          class="grid gap-6 px-5 py-6 sm:px-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.62fr)] xl:items-start"
+        >
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-red-700 ring-1 ring-inset ring-red-600/10">
+                {gettext("Open")}
+              </span>
+              <span class="text-xs font-bold capitalize text-slate-400">
+                {humanized(report.reason_code)}
+              </span>
+            </div>
+            <h2 class="mt-3 text-lg font-black text-slate-950">
+              {report.review.title || gettext("Untitled review")}
+            </h2>
+            <p class="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600">
+              {report.review.body}
+            </p>
+            <div class="mt-4 rounded-xl bg-red-50/60 px-4 py-3 text-sm leading-6 text-red-900">
+              <span class="font-black">{gettext("Report details")}</span>
+              <p class="mt-1 whitespace-pre-line">
+                {report.details || gettext("No details provided.")}
+              </p>
+            </div>
+            <p class="mt-3 text-xs text-slate-400">
+              {timestamp(report.reported_at, @locale)}
+            </p>
+          </div>
+
+          <% resolution_form = Map.fetch!(@resolution_forms, report.id) %>
+          <.form
+            for={resolution_form}
+            id={"report-resolution-form-#{report.id}"}
+            phx-submit="resolve_report"
+            class="rounded-2xl bg-slate-50 p-4 ring-1 ring-inset ring-slate-200"
+          >
+            <input type="hidden" name="report_id" value={report.id} />
+            <.input
+              field={resolution_form[:action]}
+              type="select"
+              label={gettext("Decision")}
+              options={[
+                {gettext("Select a decision"), ""},
+                {gettext("Dismiss report"), "dismiss"},
+                {gettext("Hide review"), "hide"},
+                {gettext("Remove review"), "remove"}
+              ]}
+              required
+            />
+            <.input
+              field={resolution_form[:reason]}
+              type="textarea"
+              label={gettext("Decision reason")}
+              minlength="3"
+              maxlength="500"
+              required
+            />
+            <.input field={resolution_form[:idempotency_key]} type="hidden" />
+
+            <button
+              id={"report-resolution-submit-#{report.id}"}
+              type="submit"
+              phx-disable-with={gettext("Saving decision...")}
+              class="inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-[0_10px_28px_rgba(37,99,235,.2)] transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-70"
+            >
+              {gettext("Save decision")}
+            </button>
+          </.form>
+        </article>
+      </div>
+    </section>
+  </div>
+</BackofficeComponents.shell>

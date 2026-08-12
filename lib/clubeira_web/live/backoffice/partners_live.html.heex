@@ -1,0 +1,283 @@
+<BackofficeComponents.shell
+  account_scope={@current_account_scope}
+  access={@backoffice_access}
+  current_polo={@current_polo}
+  polo_form={@polo_form}
+  flash={@flash}
+  active_section={:partners}
+>
+  <div id="partners-page" class="mx-auto max-w-[1500px]">
+    <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
+          {gettext("Partner network")}
+        </p>
+        <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">
+          {gettext("Partners and access")}
+        </h1>
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+          {gettext(
+            "Onboard establishments and control verified operator access without exposing private identifiers."
+          )}
+        </p>
+      </div>
+      <.link
+        id="partner-agreements-link"
+        navigate={~p"/admin/partners/agreements?#{[polo: @current_polo.slug]}"}
+        class="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-700"
+      >
+        {gettext("Partner agreements")}
+        <.icon name="hero-arrow-right" class="size-4" />
+      </.link>
+    </header>
+
+    <div class="mt-7 grid gap-6 xl:grid-cols-2">
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:p-6">
+        <h2 class="text-lg font-black text-slate-950">{gettext("Onboard partner")}</h2>
+        <p class="mt-1 text-sm leading-6 text-slate-500">
+          {gettext(
+            "Creates the organization, protected CNPJ, place and polo participation atomically."
+          )}
+        </p>
+
+        <.form
+          for={@onboarding_form}
+          id="partner-onboarding-form"
+          phx-submit="onboard_partner"
+          class="mt-5 grid gap-4 sm:grid-cols-2"
+        >
+          <.input field={@onboarding_form[:idempotency_key]} type="hidden" />
+          <div class="sm:col-span-2">
+            <.input
+              field={@onboarding_form[:legal_name]}
+              type="text"
+              label={gettext("Legal name")}
+            />
+          </div>
+          <.input
+            field={@onboarding_form[:trade_name]}
+            type="text"
+            label={gettext("Trade name")}
+          />
+          <.input field={@onboarding_form[:cnpj]} type="text" label={gettext("CNPJ")} />
+          <.input
+            field={@onboarding_form[:place_name]}
+            type="text"
+            label={gettext("Place name")}
+          />
+          <.input
+            field={@onboarding_form[:place_slug]}
+            type="text"
+            label={gettext("Place slug")}
+          />
+          <.input
+            field={@onboarding_form[:postal_code]}
+            type="text"
+            label={gettext("Postal code")}
+          />
+          <.input field={@onboarding_form[:street]} type="text" label={gettext("Street")} />
+          <.input field={@onboarding_form[:number]} type="text" label={gettext("Number")} />
+          <.input
+            field={@onboarding_form[:complement]}
+            type="text"
+            label={gettext("Complement")}
+          />
+          <div class="sm:col-span-2">
+            <.input
+              field={@onboarding_form[:district]}
+              type="text"
+              label={gettext("District")}
+            />
+          </div>
+          <div class="flex justify-end sm:col-span-2">
+            <button
+              id="onboard-partner"
+              type="submit"
+              class="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-6 text-sm font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,.2)] transition hover:bg-blue-700"
+            >
+              {gettext("Create partner")}
+            </button>
+          </div>
+        </.form>
+      </section>
+
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:p-6">
+        <h2 class="text-lg font-black text-slate-950">{gettext("Grant operator access")}</h2>
+        <p class="mt-1 text-sm leading-6 text-slate-500">
+          {gettext(
+            "The account must already be active, verified and affiliated with the place operator."
+          )}
+        </p>
+
+        <div
+          :if={@available_places == []}
+          id="partner-access-without-places"
+          class="mt-5 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800"
+        >
+          {gettext("Create an active partner place before granting access.")}
+        </div>
+
+        <.form
+          :if={@available_places != []}
+          for={@grant_form}
+          id="partner-access-grant-form"
+          phx-submit="grant_partner_access"
+          class="mt-5 grid gap-4"
+        >
+          <.input field={@grant_form[:idempotency_key]} type="hidden" />
+          <div>
+            <label
+              for="partner-access-place-id"
+              class="mb-1.5 block text-sm font-medium text-slate-800"
+            >
+              {gettext("Operated place")}
+            </label>
+            <select
+              id="partner-access-place-id"
+              name="place_id"
+              required
+              class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-950 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+            >
+              <option :for={place <- @available_places} value={place.place.id}>
+                {place.place.name}
+              </option>
+            </select>
+          </div>
+          <.input
+            field={@grant_form[:email]}
+            type="email"
+            label={gettext("Verified account email")}
+          />
+          <div class="flex justify-end">
+            <button
+              id="grant-partner-access"
+              type="submit"
+              class="inline-flex h-11 items-center justify-center rounded-xl bg-slate-950 px-6 text-sm font-bold text-white transition hover:bg-slate-800"
+            >
+              {gettext("Grant access")}
+            </button>
+          </div>
+        </.form>
+      </section>
+    </div>
+
+    <.form
+      for={@filter_form}
+      id="partner-access-filters"
+      phx-submit="filter"
+      class="mt-7 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)_auto_auto] sm:items-end"
+    >
+      <.input
+        field={@filter_form[:status]}
+        type="select"
+        label={gettext("Status")}
+        options={[
+          {gettext("All statuses"), ""},
+          {gettext("Invited"), "invited"},
+          {gettext("Active"), "active"},
+          {gettext("Suspended"), "suspended"},
+          {gettext("Revoked"), "revoked"}
+        ]}
+      />
+      <.input
+        field={@filter_form[:email]}
+        type="email"
+        label={gettext("Exact account email")}
+      />
+      <button
+        id="apply-partner-access-filters"
+        type="submit"
+        class="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-bold text-white"
+      >
+        {gettext("Apply filters")}
+      </button>
+      <.link
+        patch={~p"/admin/partners?#{[polo: @current_polo.slug]}"}
+        class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600"
+      >
+        {gettext("Clear filters")}
+      </.link>
+    </.form>
+
+    <section class="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]">
+      <div id="partner-accesses-inventory" phx-update="stream" class="divide-y divide-slate-100">
+        <div
+          id="partner-accesses-empty"
+          class="hidden only:flex items-center gap-3 px-6 py-12 text-sm text-slate-500"
+        >
+          <.icon name="hero-user-group" class="size-5 text-slate-300" />
+          {gettext("No partner accesses match this inventory.")}
+        </div>
+
+        <article
+          :for={{id, access} <- @streams.partner_accesses}
+          id={id}
+          data-status={access.status}
+          class="grid gap-5 px-5 py-5 sm:px-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_minmax(340px,0.9fr)] xl:items-start"
+        >
+          <div class="min-w-0">
+            <h2 class="truncate text-sm font-black text-slate-950">{access.user.email}</h2>
+            <p class="mt-1 text-xs text-slate-400">
+              {gettext("Access ID")}: {access.id}
+            </p>
+            <span class="mt-3 inline-flex rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-700">
+              {status_label(access.status)}
+            </span>
+          </div>
+
+          <div>
+            <p class="text-xs font-bold uppercase tracking-wide text-slate-400">
+              {gettext("Affiliated places")}
+            </p>
+            <p class="mt-2 text-sm font-semibold text-slate-700">
+              {Enum.map_join(access.places, ", ", & &1.name)}
+            </p>
+          </div>
+
+          <div :if={access.status == "active"}>
+            <% revocation_form = Map.fetch!(@revocation_forms, access.id) %>
+            <.form
+              for={revocation_form}
+              id={"partner-access-revoke-form-#{access.id}"}
+              phx-submit="revoke_partner_access"
+              class="grid gap-3 rounded-xl bg-slate-50 p-4 ring-1 ring-inset ring-slate-200"
+            >
+              <input type="hidden" name="access_id" value={access.id} />
+              <.input
+                field={revocation_form[:idempotency_key]}
+                id={"partner-access-revoke-idempotency-key-#{access.id}"}
+                type="hidden"
+              />
+              <.input
+                field={revocation_form[:reason]}
+                id={"partner-access-revoke-reason-#{access.id}"}
+                type="textarea"
+                label={gettext("Revocation reason")}
+                minlength="3"
+                maxlength="500"
+              />
+              <button
+                id={"partner-access-revoke-submit-#{access.id}"}
+                type="submit"
+                class="inline-flex h-10 items-center justify-center rounded-xl bg-red-600 px-4 text-sm font-bold text-white transition hover:bg-red-700"
+              >
+                {gettext("Revoke access")}
+              </button>
+            </.form>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <nav :if={@next_page_path} id="partner-accesses-pagination" class="mt-5 flex justify-end">
+      <.link
+        id="partner-accesses-next-page"
+        patch={@next_page_path}
+        class="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white"
+      >
+        {gettext("Next page")}
+        <.icon name="hero-arrow-right" class="size-4" />
+      </.link>
+    </nav>
+  </div>
+</BackofficeComponents.shell>

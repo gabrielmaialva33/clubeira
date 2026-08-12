@@ -1,0 +1,145 @@
+<BackofficeComponents.shell
+  account_scope={@current_account_scope}
+  access={@backoffice_access}
+  current_polo={@current_polo}
+  polo_form={@polo_form}
+  flash={@flash}
+  active_section={:platform_billing}
+>
+  <div id="platform-billing-page" class="mx-auto max-w-[1500px]">
+    <header>
+      <p class="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
+        {gettext("Platform subscription")}
+      </p>
+      <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">
+        {gettext("Clubeira billing")}
+      </h1>
+      <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+        {gettext("Manage the SaaS plan and review immutable billing evidence for this polo.")}
+      </p>
+    </header>
+
+    <div class="mt-7 grid gap-6 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:p-6">
+        <h2 class="text-lg font-black text-slate-950">{gettext("Current subscription")}</h2>
+
+        <div
+          :if={!@billing.subscription}
+          id="platform-billing-no-subscription"
+          class="mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500"
+        >
+          {gettext("This polo has not started a Clubeira SaaS subscription yet.")}
+        </div>
+
+        <div :if={@billing.subscription} id="platform-billing-subscription" class="mt-5">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-xl font-black text-slate-950">
+                {@billing.subscription.plan.version_name}
+              </p>
+              <p class="mt-1 text-xs text-slate-400">{@billing.subscription.plan.code}</p>
+            </div>
+            <span class="rounded-full bg-blue-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-blue-700">
+              {status_label(@billing.subscription.status)}
+            </span>
+          </div>
+          <dl class="mt-5 grid gap-4 sm:grid-cols-2">
+            <div>
+              <dt class="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                {gettext("Price")}
+              </dt>
+              <dd class="mt-1 text-sm font-bold text-slate-800">
+                {@billing.subscription.plan.price.currency} {@billing.subscription.plan.price.amount}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                {gettext("Interval")}
+              </dt>
+              <dd class="mt-1 text-sm font-bold text-slate-800">
+                {@billing.subscription.plan.price.billing_interval_count} {@billing.subscription.plan.price.billing_interval_unit}
+              </dd>
+            </div>
+          </dl>
+        </div>
+
+        <div
+          :if={!@billing.subscription and @subscription_options == []}
+          id="platform-billing-no-options"
+          class="mt-5 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800"
+        >
+          {gettext("No SaaS plan is currently available for subscription.")}
+        </div>
+
+        <.form
+          :if={!@billing.subscription and @subscription_options != []}
+          for={@start_form}
+          id="platform-subscription-start-form"
+          phx-submit="start_platform_subscription"
+          class="mt-5"
+        >
+          <.input field={@start_form[:idempotency_key]} type="hidden" />
+          <.input
+            field={@start_form[:platform_price_id]}
+            id="platform-subscription-price-id"
+            type="select"
+            label={gettext("SaaS plan")}
+            options={
+              Enum.map(
+                @subscription_options,
+                &{
+                  "#{&1.version.name} · #{&1.price.currency} #{&1.price.amount}/#{&1.price.billing_interval_unit}",
+                  &1.price.id
+                }
+              )
+            }
+          />
+          <button
+            id="start-platform-subscription"
+            type="submit"
+            class="inline-flex h-11 w-full items-center justify-center rounded-xl bg-blue-600 px-6 text-sm font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,.2)] transition hover:bg-blue-700"
+          >
+            {gettext("Start SaaS subscription")}
+          </button>
+        </.form>
+      </section>
+
+      <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]">
+        <div class="border-b border-slate-100 px-5 py-5 sm:px-6">
+          <h2 class="text-lg font-black text-slate-950">{gettext("Invoices")}</h2>
+          <p class="mt-1 text-sm text-slate-500">
+            {gettext("Issued charges and their normalized payment status.")}
+          </p>
+        </div>
+        <div id="platform-invoices" class="divide-y divide-slate-100">
+          <div
+            :if={@billing.invoices == []}
+            id="platform-invoices-empty"
+            class="flex items-center gap-3 px-6 py-12 text-sm text-slate-500"
+          >
+            <.icon name="hero-document-text" class="size-5 text-slate-300" />
+            {gettext("No SaaS invoices have been issued for this polo.")}
+          </div>
+          <article
+            :for={invoice <- @billing.invoices}
+            id={"platform-invoice-#{invoice.id}"}
+            class="grid gap-4 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center"
+          >
+            <div>
+              <p class="text-sm font-black text-slate-950">{invoice.invoice_number}</p>
+              <p class="mt-1 text-xs text-slate-400">
+                {length(invoice.items)} {gettext("item(s)")}
+              </p>
+            </div>
+            <p class="text-sm font-bold text-slate-800">
+              {invoice.currency} {invoice.total_amount}
+            </p>
+            <span class="rounded-full bg-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-700">
+              {status_label(invoice.status)}
+            </span>
+          </article>
+        </div>
+      </section>
+    </div>
+  </div>
+</BackofficeComponents.shell>

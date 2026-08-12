@@ -9,7 +9,7 @@
   <div id="payment-detail" class="mx-auto max-w-[1180px]">
     <.link
       id="back-to-finance"
-      navigate={~p"/admin?#{[polo: @current_polo.slug]}" <> "#payments-section"}
+      navigate={~p"/admin/payments?#{[polo: @current_polo.slug]}"}
       class="inline-flex items-center gap-2 text-sm font-bold text-slate-500 transition hover:text-blue-700"
     >
       <.icon name="hero-arrow-left" class="size-4" />

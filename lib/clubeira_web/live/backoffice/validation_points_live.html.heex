@@ -1,0 +1,309 @@
+<BackofficeComponents.shell
+  account_scope={@current_account_scope}
+  access={@backoffice_access}
+  current_polo={@current_polo}
+  polo_form={@polo_form}
+  flash={@flash}
+  active_section={:validation}
+>
+  <div id="validation-points-page" class="mx-auto max-w-[1500px]">
+    <header>
+      <p class="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
+        {gettext("Redemption infrastructure")}
+      </p>
+      <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">
+        {gettext("Validation points")}
+      </h1>
+      <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+        {gettext("Provision API credentials and control every partner validation endpoint.")}
+      </p>
+    </header>
+
+    <aside
+      :if={@revealed_secret}
+      id="validation-secret-reveal"
+      class="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-950 shadow-[0_10px_35px_rgba(16,185,129,.12)]"
+      role="status"
+    >
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div class="min-w-0">
+          <p class="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
+            {gettext("Copy now — shown once")}
+          </p>
+          <p class="mt-2 text-sm leading-6">
+            {gettext(
+              "This raw credential is never persisted. Store it in the validation client now."
+            )}
+          </p>
+          <code
+            id="validation-secret-value"
+            data-secret-format="base64url-32"
+            data-secret-length={String.length(@revealed_secret.secret)}
+            class="mt-3 block overflow-x-auto rounded-xl bg-slate-950 px-4 py-3 font-mono text-sm text-emerald-300"
+          >{@revealed_secret.secret}</code>
+        </div>
+        <button
+          id="copy-validation-secret"
+          type="button"
+          phx-hook=".CopyValidationSecret"
+          data-secret={@revealed_secret.secret}
+          class="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-black text-white"
+        >
+          <.icon name="hero-clipboard" class="size-4" />
+          {gettext("Copy credential")}
+        </button>
+      </div>
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".CopyValidationSecret">
+        export default {
+          mounted() {
+            this.el.addEventListener("click", () => navigator.clipboard.writeText(this.el.dataset.secret))
+          }
+        }
+      </script>
+    </aside>
+
+    <section class="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:p-6">
+      <div class="grid gap-5 lg:grid-cols-[minmax(0,0.65fr)_minmax(0,1.35fr)]">
+        <div>
+          <h2 class="text-lg font-black text-slate-950">{gettext("Provision point")}</h2>
+          <p class="mt-1 text-sm leading-6 text-slate-500">
+            {gettext("A cryptographically random credential is generated and revealed once.")}
+          </p>
+
+          <.form
+            for={@place_form}
+            id="validation-place-form"
+            phx-change="select_validation_place"
+            class="mt-5"
+          >
+            <.input
+              field={@place_form[:id]}
+              type="select"
+              label={gettext("Active place")}
+              options={Enum.map(@available_places, &{&1.place.name, &1.place.id})}
+            />
+          </.form>
+
+          <p
+            :if={!@selected_place}
+            id="validation-provisioning-without-place"
+            class="mt-4 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800"
+          >
+            {gettext("An active place is required before provisioning.")}
+          </p>
+        </div>
+
+        <.form
+          :if={@selected_place}
+          for={@provision_form}
+          id="validation-point-provision-form"
+          phx-submit="provision_validation_point"
+          class="grid gap-4 sm:grid-cols-2 sm:items-end"
+        >
+          <.input field={@provision_form[:idempotency_key]} type="hidden" />
+          <.input field={@provision_form[:name]} type="text" label={gettext("Point name")} />
+          <.input
+            field={@provision_form[:expires_at]}
+            type="datetime-local"
+            label={gettext("Credential expires at")}
+          />
+          <div class="sm:col-span-2 sm:text-right">
+            <button
+              id="provision-validation-point"
+              type="submit"
+              class="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-6 text-sm font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,.2)]"
+            >
+              {gettext("Generate and provision")}
+            </button>
+          </div>
+        </.form>
+      </div>
+    </section>
+
+    <.form
+      for={@filter_form}
+      id="validation-point-filters"
+      phx-submit="filter"
+      class="mt-7 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)_auto_auto] sm:items-end"
+    >
+      <.input
+        field={@filter_form[:status]}
+        type="select"
+        label={gettext("Status")}
+        options={[
+          {gettext("All statuses"), ""},
+          {gettext("Active"), "active"},
+          {gettext("Suspended"), "suspended"},
+          {gettext("Retired"), "retired"}
+        ]}
+      />
+      <.input
+        field={@filter_form[:place_id]}
+        type="select"
+        label={gettext("Place")}
+        options={[
+          {gettext("All places"), ""} | Enum.map(@available_places, &{&1.place.name, &1.place.id})
+        ]}
+      />
+      <button
+        id="apply-validation-point-filters"
+        type="submit"
+        class="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-bold text-white"
+      >
+        {gettext("Apply filters")}
+      </button>
+      <.link
+        patch={~p"/admin/validation-points?#{[polo: @current_polo.slug]}"}
+        class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600"
+      >
+        {gettext("Clear filters")}
+      </.link>
+    </.form>
+
+    <section class="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]">
+      <div id="validation-points-inventory" phx-update="stream" class="divide-y divide-slate-100">
+        <div
+          id="validation-points-empty"
+          class="hidden only:flex items-center gap-3 px-6 py-12 text-sm text-slate-500"
+        >
+          <.icon name="hero-qr-code" class="size-5 text-slate-300" />
+          {gettext("No validation points match this inventory.")}
+        </div>
+
+        <article
+          :for={{id, point} <- @streams.validation_points}
+          id={id}
+          class="grid gap-5 px-5 py-6 sm:px-6 2xl:grid-cols-[minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(360px,1fr)] 2xl:items-start"
+        >
+          <div class="min-w-0">
+            <h2 class="truncate text-sm font-black text-slate-950">{point.name}</h2>
+            <p class="mt-1 truncate text-xs text-slate-400">
+              {point.place.name} · {point.kind}
+            </p>
+            <span
+              data-status={point.status}
+              class="mt-3 inline-flex rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-slate-700"
+            >
+              {status_label(point.status)}
+            </span>
+          </div>
+
+          <div class="text-sm text-slate-600">
+            <%= if point.credential do %>
+              <p class="font-bold text-slate-800">
+                {gettext("Credential v%{version}", version: point.credential.version)}
+              </p>
+              <p class="mt-1 text-xs text-slate-400">{point.credential.status}</p>
+            <% else %>
+              <p class="text-xs text-slate-400">{gettext("No credential registered")}</p>
+            <% end %>
+          </div>
+
+          <div class="grid gap-3">
+            <%= if point.status != "retired" do %>
+              <% lifecycle_form = Map.fetch!(@lifecycle_forms, point.id) %>
+              <.form
+                for={lifecycle_form}
+                id={"validation-point-lifecycle-form-#{point.id}"}
+                phx-submit="transition_validation_point"
+                class="grid gap-3 rounded-xl bg-slate-50 p-4 ring-1 ring-inset ring-slate-200 sm:grid-cols-2"
+              >
+                <input type="hidden" name="point_id" value={point.id} />
+                <.input
+                  field={lifecycle_form[:idempotency_key]}
+                  id={"validation-point-lifecycle-key-#{point.id}"}
+                  type="hidden"
+                />
+                <.input
+                  field={lifecycle_form[:action]}
+                  id={"validation-point-lifecycle-action-#{point.id}"}
+                  type="select"
+                  label={gettext("Point action")}
+                  prompt={gettext("Select an action")}
+                  options={lifecycle_options(point.status)}
+                />
+                <.input
+                  field={lifecycle_form[:reason]}
+                  id={"validation-point-lifecycle-reason-#{point.id}"}
+                  type="text"
+                  label={gettext("Reason")}
+                />
+                <button
+                  id={"validation-point-lifecycle-submit-#{point.id}"}
+                  type="submit"
+                  class="h-10 rounded-xl bg-slate-950 px-4 text-sm font-bold text-white sm:col-span-2"
+                >
+                  {gettext("Apply point action")}
+                </button>
+              </.form>
+            <% end %>
+
+            <%= if point.credential && point.credential.status == "active" && point.status != "retired" do %>
+              <% rotation_form = Map.fetch!(@rotation_forms, point.credential.id) %>
+              <.form
+                for={rotation_form}
+                id={"validation-credential-rotation-form-#{point.credential.id}"}
+                phx-submit="rotate_validation_credential"
+                class="grid gap-3 rounded-xl border border-blue-100 bg-blue-50/60 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
+              >
+                <input type="hidden" name="credential_id" value={point.credential.id} />
+                <.input
+                  field={rotation_form[:idempotency_key]}
+                  id={"validation-credential-rotation-key-#{point.credential.id}"}
+                  type="hidden"
+                />
+                <.input
+                  field={rotation_form[:expires_at]}
+                  id={"validation-credential-rotation-expiration-#{point.credential.id}"}
+                  type="datetime-local"
+                  label={gettext("Replacement expires at")}
+                />
+                <button
+                  id={"validation-credential-rotation-submit-#{point.credential.id}"}
+                  type="submit"
+                  class="h-10 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white"
+                >
+                  {gettext("Rotate")}
+                </button>
+              </.form>
+
+              <% revocation_form = Map.fetch!(@revocation_forms, point.credential.id) %>
+              <.form
+                for={revocation_form}
+                id={"validation-credential-revocation-form-#{point.credential.id}"}
+                phx-submit="revoke_validation_credential"
+                data-confirm={gettext("Revoke this credential? This cannot be undone.")}
+                class="text-right"
+              >
+                <input type="hidden" name="credential_id" value={point.credential.id} />
+                <.input
+                  field={revocation_form[:idempotency_key]}
+                  id={"validation-credential-revocation-key-#{point.credential.id}"}
+                  type="hidden"
+                />
+                <button
+                  id={"validation-credential-revocation-submit-#{point.credential.id}"}
+                  type="submit"
+                  class="text-xs font-bold text-red-600 hover:text-red-700"
+                >
+                  {gettext("Revoke credential")}
+                </button>
+              </.form>
+            <% end %>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <nav :if={@next_page_path} id="validation-points-pagination" class="mt-5 flex justify-end">
+      <.link
+        id="validation-points-next-page"
+        patch={@next_page_path}
+        class="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white"
+      >
+        {gettext("Next page")}
+        <.icon name="hero-arrow-right" class="size-4" />
+      </.link>
+    </nav>
+  </div>
+</BackofficeComponents.shell>
