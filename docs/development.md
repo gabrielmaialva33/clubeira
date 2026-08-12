@@ -110,6 +110,12 @@ banco e envia contato, seleção de categorias, semana e datas especiais como um
 no servidor ao registro renderizado; outra aba vencedora força a releitura da
 revisão atual em vez de sobrescrever seus dados.
 
+O inventário em <http://localhost:4000/admin/subscriptions> exige
+`manage_billing` e mostra o contrato, pedido, versão da oferta, ciclo corrente e
+saldo agregado pelo read model de assinaturas. Filtros de status e número exato
+do pedido ficam na URL; a próxima página usa o cursor opaco do context e reseta
+o stream para manter somente a página atual no processo LiveView.
+
 ## Contrato HTTP e Redocly
 
 O contrato editável parte de `openapi/openapi.yaml`, separa operações por

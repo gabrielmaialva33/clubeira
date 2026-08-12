@@ -131,6 +131,12 @@ antes de montar o form replace-total. Categorias aposentadas já selecionadas
 continuam visíveis, enquanto o catálogo de novas escolhas expõe somente as
 ativas.
 
+O inventário em `/admin/subscriptions` segue a mesma fronteira: exige a hint de
+`manage_billing` para navegação e deixa `Subscriptions.list_backoffice_subscriptions/2`
+reautorizar a leitura no banco. Status e número exato do pedido permanecem na
+URL, e cada avanço substitui o stream pela página indicada pelo cursor keyset;
+o socket não acumula contratos nem replica a regra de saldo do context.
+
 ## Diretório público
 
 `GET /api/v1/polos/:slug/places` lista os estabelecimentos cuja participação
