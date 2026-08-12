@@ -22,6 +22,7 @@ defmodule Clubeira.Directory.PlaceProfilePublisher do
   alias Clubeira.Tenancy.Scope
 
   @idempotency_scope "directory.publish_place_profile"
+  @replay_reasons %{"stale_place_profile" => :stale_place_profile}
 
   @type result :: %{String.t() => term()}
 
@@ -96,7 +97,55 @@ defmodule Clubeira.Directory.PlaceProfilePublisher do
   end
 
   defp publish_new!(repo, scope, place_id, participation, categories, request, key_id, now) do
-    profile = upsert_profile!(repo, scope, participation, request, now)
+    profile = lock_profile(repo, scope, participation)
+
+    if expected_profile?(participation, profile, request) do
+      complete_publication!(
+        repo,
+        scope,
+        place_id,
+        participation,
+        profile,
+        categories,
+        request,
+        key_id,
+        now
+      )
+    else
+      reject_stale!(repo, scope, participation, profile, request, key_id, now)
+    end
+  end
+
+  defp lock_profile(repo, scope, participation) do
+    PoloPlaceProfile
+    |> where(
+      [profile],
+      profile.polo_id == ^scope.polo_id and profile.polo_place_id == ^participation.id
+    )
+    |> lock("FOR UPDATE")
+    |> repo.one()
+  end
+
+  defp expected_profile?(participation, profile, request) do
+    participation.id == request.expected_polo_place_id and
+      profile_revision(profile) == request.expected_revision
+  end
+
+  defp profile_revision(nil), do: 0
+  defp profile_revision(%PoloPlaceProfile{revision: revision}), do: revision
+
+  defp complete_publication!(
+         repo,
+         scope,
+         place_id,
+         participation,
+         existing,
+         categories,
+         request,
+         key_id,
+         now
+       ) do
+    profile = upsert_profile!(repo, scope, participation, existing, request, now)
     replace_categories!(repo, scope, profile, categories, now)
     periods = replace_opening_periods!(repo, scope, profile, request, now)
 
@@ -121,39 +170,58 @@ defmodule Clubeira.Directory.PlaceProfilePublisher do
     {:accepted, result}
   end
 
-  defp upsert_profile!(repo, scope, participation, request, now) do
-    existing =
-      PoloPlaceProfile
-      |> where(
-        [profile],
-        profile.polo_id == ^scope.polo_id and profile.polo_place_id == ^participation.id
-      )
-      |> lock("FOR UPDATE")
-      |> repo.one()
+  defp upsert_profile!(repo, scope, participation, nil, request, now) do
+    %PoloPlaceProfile{
+      polo_id: scope.polo_id,
+      polo_place_id: participation.id,
+      public_email: request.public_email,
+      public_phone: request.public_phone,
+      revision: 1,
+      inserted_at: now,
+      updated_at: now
+    }
+    |> repo.insert!()
+  end
 
-    case existing do
-      nil ->
-        %PoloPlaceProfile{
-          polo_id: scope.polo_id,
-          polo_place_id: participation.id,
-          public_email: request.public_email,
-          public_phone: request.public_phone,
-          revision: 1,
-          inserted_at: now,
-          updated_at: now
-        }
-        |> repo.insert!()
+  defp upsert_profile!(repo, _scope, _participation, profile, request, now) do
+    profile
+    |> Ecto.Changeset.change(%{
+      public_email: request.public_email,
+      public_phone: request.public_phone,
+      revision: profile.revision + 1,
+      updated_at: now
+    })
+    |> repo.update!()
+  end
 
-      %PoloPlaceProfile{} = profile ->
-        profile
-        |> Ecto.Changeset.change(%{
-          public_email: request.public_email,
-          public_phone: request.public_phone,
-          revision: profile.revision + 1,
-          updated_at: now
-        })
-        |> repo.update!()
-    end
+  defp reject_stale!(repo, scope, participation, profile, request, key_id, now) do
+    profile_id = if profile, do: profile.id
+
+    Idempotency.fail!(
+      repo,
+      key_id,
+      :stale_place_profile,
+      "polo_place_profile",
+      profile_id,
+      now,
+      response_status: 409
+    )
+
+    Audit.record_tenant!(repo, scope, %{
+      action: "place_profile.update_rejected",
+      resource_type: "polo_place_profile",
+      resource_id: profile_id,
+      metadata: %{
+        "polo_place_id" => participation.id,
+        "current_revision" => profile_revision(profile),
+        "expected_polo_place_id" => request.expected_polo_place_id,
+        "expected_revision" => request.expected_revision,
+        "reason" => "stale_place_profile"
+      },
+      occurred_at: now
+    })
+
+    {:denied, :stale_place_profile}
   end
 
   defp replace_categories!(repo, scope, profile, categories, now) do
@@ -333,14 +401,20 @@ defmodule Clubeira.Directory.PlaceProfilePublisher do
        when is_map(response_body),
        do: {:accepted, response_body}
 
+  defp replay(%Key{status: "failed", response_body: %{"reason" => reason}}) do
+    {:denied, Map.fetch!(@replay_reasons, reason)}
+  end
+
   defp replay(key), do: raise("invalid persisted place profile response: #{inspect(key)}")
 
   defp request_hash(scope, place_id, request) do
     Idempotency.fingerprint({
-      1,
+      2,
       scope.polo_id,
       scope.actor_user_id,
       place_id,
+      request.expected_polo_place_id,
+      request.expected_revision,
       request.public_email,
       request.public_phone,
       request.category_keys,
@@ -367,6 +441,7 @@ defmodule Clubeira.Directory.PlaceProfilePublisher do
   defp uuid7, do: Ecto.UUID.generate(version: 7, precision: :monotonic)
 
   defp unwrap_transaction({:ok, {:accepted, result}}), do: {:ok, result}
+  defp unwrap_transaction({:ok, {:denied, reason}}), do: {:error, reason}
   defp unwrap_transaction({:ok, {:error, reason}}), do: {:error, reason}
   defp unwrap_transaction({:error, reason}), do: {:error, reason}
 end

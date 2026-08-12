@@ -14,6 +14,8 @@ defmodule Clubeira.Directory.PlaceProfileUpdateRequest do
     category_keys
     weekly_hours
     special_hours
+    expected_polo_place_id
+    expected_revision
     idempotency_key
   )a
   @category_key_pattern ~r/^[a-z0-9]+(?:-[a-z0-9]+)*$/
@@ -24,6 +26,8 @@ defmodule Clubeira.Directory.PlaceProfileUpdateRequest do
     "contact" => :contact,
     "date" => :date,
     "email" => :email,
+    "expected_polo_place_id" => :expected_polo_place_id,
+    "expected_revision" => :expected_revision,
     "idempotency_key" => :idempotency_key,
     "kind" => :kind,
     "opens_at" => :opens_at,
@@ -40,6 +44,8 @@ defmodule Clubeira.Directory.PlaceProfileUpdateRequest do
     field :category_keys, {:array, :string}
     field :weekly_hours, {:array, :map}
     field :special_hours, {:array, :map}
+    field :expected_polo_place_id, :binary_id
+    field :expected_revision, :integer
     field :idempotency_key, :string
   end
 
@@ -62,6 +68,8 @@ defmodule Clubeira.Directory.PlaceProfileUpdateRequest do
           category_keys: [String.t()],
           weekly_hours: [opening_window()],
           special_hours: [special_hours()],
+          expected_polo_place_id: Ecto.UUID.t(),
+          expected_revision: non_neg_integer(),
           idempotency_key: String.t()
         }
 
@@ -81,6 +89,7 @@ defmodule Clubeira.Directory.PlaceProfileUpdateRequest do
       |> validate_length(:category_keys, min: 1, max: 8)
       |> validate_length(:weekly_hours, min: 1, max: 28)
       |> validate_length(:special_hours, max: 64)
+      |> validate_number(:expected_revision, greater_than_or_equal_to: 0)
       |> validate_length(:idempotency_key, min: 8, max: 128)
       |> validate_format(:idempotency_key, ~r/^[A-Za-z0-9._:-]+$/)
 
@@ -98,6 +107,8 @@ defmodule Clubeira.Directory.PlaceProfileUpdateRequest do
       category_keys: value(attributes, "category_keys"),
       weekly_hours: value(attributes, "weekly_hours"),
       special_hours: value_or_default(attributes, "special_hours", []),
+      expected_polo_place_id: value(attributes, "expected_polo_place_id"),
+      expected_revision: value(attributes, "expected_revision"),
       idempotency_key: value(attributes, "idempotency_key")
     }
   end

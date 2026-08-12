@@ -174,6 +174,8 @@ defmodule Clubeira.Directory.PlaceProfileDatabaseContractTest do
                    windows: [%{opens_at: "20:00", closes_at: "23:00"}]
                  }
                ],
+               expected_polo_place_id: fixture.ids.polo_place,
+               expected_revision: 0,
                idempotency_key: "profile-database-contract-#{uuid7()}"
              })
 

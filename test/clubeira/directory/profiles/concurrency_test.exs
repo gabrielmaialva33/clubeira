@@ -14,7 +14,7 @@ defmodule Clubeira.Directory.PlaceProfileConcurrencyTest do
     category = Factory.insert(:place_category)
 
     request =
-      profile_request(category.key, "profile-concurrent-retry", %{
+      profile_request(fixture, category.key, "profile-concurrent-retry", %{
         email: "retry@parceiro.example",
         phone: "+5588999990101",
         weekday: 2
@@ -40,66 +40,76 @@ defmodule Clubeira.Directory.PlaceProfileConcurrencyTest do
            }
   end
 
-  test "concurrent profile replacements serialize complete revisions without lost updates", %{
-    repo: repo
-  } do
+  test "concurrent profile creates accept one winner and persist one replayable stale rejection",
+       %{
+         repo: repo
+       } do
     fixture = RedemptionsFixtures.create!()
     scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
     morning = Factory.insert(:place_category)
     evening = Factory.insert(:place_category)
 
     first_request =
-      profile_request(morning.key, "profile-concurrent-first", %{
+      profile_request(fixture, morning.key, "profile-concurrent-first", %{
         email: "manha@parceiro.example",
         phone: "+5588999990102",
         weekday: 3
       })
 
     second_request =
-      profile_request(evening.key, "profile-concurrent-second", %{
+      profile_request(fixture, evening.key, "profile-concurrent-second", %{
         email: "noite@parceiro.example",
         phone: "+5588999990103",
         weekday: 4
       })
 
-    assert [{:ok, _first}, {:ok, _second}] =
-             results =
-             run_concurrently(repo, [
-               fn ->
-                 Directory.publish_place_profile(scope, fixture.ids.place, first_request)
-               end,
-               fn ->
-                 Directory.publish_place_profile(scope, fixture.ids.place, second_request)
-               end
-             ])
+    results =
+      run_concurrently(repo, [
+        fn ->
+          Directory.publish_place_profile(scope, fixture.ids.place, first_request)
+        end,
+        fn ->
+          Directory.publish_place_profile(scope, fixture.ids.place, second_request)
+        end
+      ])
 
-    assert results
-           |> Enum.map(fn {:ok, result} -> get_in(result, ["profile", "revision"]) end)
-           |> Enum.sort() == [1, 2]
+    assert Enum.count(results, &match?({:ok, %{"profile" => %{"revision" => 1}}}, &1)) == 1
+    assert Enum.count(results, &match?({:error, :stale_place_profile}, &1)) == 1
 
     {:ok, directory} = Directory.fetch_public(fixture.polo_slug)
     public_place = Enum.find(directory.places, &(&1.place_id == fixture.ids.place))
 
-    revision_two =
+    winning_profile =
       Enum.find_value(results, fn
-        {:ok, %{"profile" => %{"revision" => 2} = profile}} -> profile
+        {:ok, %{"profile" => profile}} -> profile
         _other -> nil
       end)
 
-    assert public_place.profile == revision_two
+    assert public_place.profile == winning_profile
+
+    losing_request =
+      [first_request, second_request]
+      |> Enum.zip(results)
+      |> Enum.find_value(fn
+        {request, {:error, :stale_place_profile}} -> request
+        _other -> nil
+      end)
+
+    assert {:error, :stale_place_profile} =
+             Directory.publish_place_profile(scope, fixture.ids.place, losing_request)
 
     assert profile_counts(fixture) == %{
              audits: 2,
              categories: 1,
-             domain_events: 2,
+             domain_events: 1,
              idempotency_keys: 2,
-             outbox_messages: 2,
+             outbox_messages: 1,
              periods: 1,
              profiles: 1
            }
   end
 
-  defp profile_request(category_key, idempotency_key, attributes) do
+  defp profile_request(fixture, category_key, idempotency_key, attributes) do
     %{
       contact: %{email: attributes.email, phone: attributes.phone},
       category_keys: [category_key],
@@ -107,6 +117,8 @@ defmodule Clubeira.Directory.PlaceProfileConcurrencyTest do
         %{weekday: attributes.weekday, opens_at: "09:00", closes_at: "18:00"}
       ],
       special_hours: [],
+      expected_polo_place_id: fixture.ids.polo_place,
+      expected_revision: 0,
       idempotency_key: idempotency_key
     }
   end
