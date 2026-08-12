@@ -1,0 +1,98 @@
+<PartnerComponents.shell
+  account_scope={@current_account_scope}
+  access={@partner_access}
+  current_polo={@current_polo}
+  polo_form={@polo_form}
+  flash={@flash}
+  active_section={:places}
+>
+  <div id="partner-places-page" class="mx-auto max-w-[1320px]">
+    <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
+          {gettext("Partner operation")}
+        </p>
+        <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">
+          {gettext("My places")}
+        </h1>
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+          {gettext("Keep each public profile and opening schedule ready for members.")}
+        </p>
+      </div>
+      <.link
+        id="partner-places-reviews-link"
+        navigate={"/partner/reviews?#{URI.encode_query(%{"polo" => @current_polo.slug})}"}
+        class="inline-flex h-11 items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-4 text-sm font-black text-orange-700 transition hover:bg-orange-100"
+      >
+        <.icon name="hero-chat-bubble-left-right" class="size-5" />
+        {gettext("Review inbox")}
+      </.link>
+    </header>
+
+    <section class="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]">
+      <div id="partner-places" phx-update="stream" class="divide-y divide-slate-100">
+        <div
+          id="partner-places-empty"
+          class="hidden only:flex items-center gap-3 px-6 py-12 text-sm text-slate-500"
+        >
+          <.icon name="hero-building-storefront" class="size-5 text-slate-300" />
+          {gettext("No current place assignment was found.")}
+        </div>
+
+        <article
+          :for={{id, participation} <- @streams.places}
+          id={id}
+          class="grid gap-4 px-5 py-5 transition hover:bg-slate-50/80 sm:px-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] lg:items-center"
+        >
+          <div class="flex min-w-0 items-center gap-4">
+            <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-sm font-black text-blue-700">
+              {participation.place.name |> String.first() |> String.upcase()}
+            </span>
+            <div class="min-w-0">
+              <.link
+                id={"partner-place-link-#{participation.id}"}
+                navigate={"/partner/places/#{@current_polo.slug}/#{participation.id}"}
+                class="group block"
+              >
+                <h2 class="truncate text-sm font-black text-slate-950 transition group-hover:text-blue-700">
+                  {participation.place.name}
+                </h2>
+                <p class="mt-1 truncate text-xs text-slate-400">{participation.place.slug}</p>
+              </.link>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-xs font-bold text-slate-700">{profile_label(participation.profile)}</p>
+            <p :if={participation.profile} class="mt-1 truncate text-xs text-slate-400">
+              {participation.profile.public_email}
+            </p>
+            <p :if={!participation.profile} class="mt-1 text-xs text-slate-400">
+              {gettext("Public contact has not been configured yet.")}
+            </p>
+          </div>
+
+          <span class="w-fit rounded-full bg-emerald-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
+            {gettext("Assigned")}
+          </span>
+        </article>
+      </div>
+    </section>
+
+    <nav
+      :if={@next_page_path}
+      id="partner-places-pagination"
+      class="mt-5 flex items-center justify-end"
+      aria-label={gettext("Place pagination")}
+    >
+      <.link
+        id="partner-places-next-page"
+        patch={@next_page_path}
+        class="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,.2)] transition hover:bg-blue-700"
+      >
+        {gettext("Next page")}
+        <.icon name="hero-arrow-right" class="size-4" />
+      </.link>
+    </nav>
+  </div>
+</PartnerComponents.shell>

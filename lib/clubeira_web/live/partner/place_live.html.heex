@@ -1,0 +1,320 @@
+<PartnerComponents.shell
+  account_scope={@current_account_scope}
+  access={@partner_access}
+  current_polo={@current_polo}
+  polo_form={@polo_form}
+  flash={@flash}
+  active_section={:places}
+>
+  <div id="partner-place-detail" class="mx-auto max-w-[1180px]">
+    <.link
+      id="partner-back-to-places"
+      navigate={"/partner?#{URI.encode_query(%{"polo" => @current_polo.slug})}"}
+      class="inline-flex items-center gap-2 text-sm font-bold text-slate-500 transition hover:text-blue-700"
+    >
+      <.icon name="hero-arrow-left" class="size-4" />
+      {gettext("Back to my places")}
+    </.link>
+
+    <header class="mt-6 flex flex-col gap-5 rounded-[26px] bg-[#0b2342] px-6 py-7 text-white shadow-[0_20px_60px_rgba(8,27,51,.14)] sm:px-8 lg:flex-row lg:items-end lg:justify-between">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-200">
+          {gettext("Public presence")}
+        </p>
+        <h1
+          id="partner-place-name"
+          class="mt-2 text-3xl font-black tracking-[-0.045em] sm:text-4xl"
+        >
+          {@place.place.name}
+        </h1>
+        <p class="mt-2 text-sm text-slate-300">{@place.place.slug}</p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="rounded-full bg-emerald-400/15 px-3 py-1.5 text-xs font-bold text-emerald-200 ring-1 ring-inset ring-emerald-300/20">
+          {gettext("Assigned")}
+        </span>
+        <span class="rounded-full bg-orange-500/15 px-3 py-1.5 text-xs font-bold text-orange-200 ring-1 ring-inset ring-orange-300/20">
+          {gettext("Profile revision")}
+          <span id="partner-place-profile-revision">{profile_revision(@place.profile)}</span>
+        </span>
+      </div>
+    </header>
+
+    <section class="mt-7 rounded-[26px] border border-slate-200 bg-white p-6 shadow-[0_12px_40px_rgba(15,23,42,.045)] sm:p-8">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">
+            {gettext("Member directory")}
+          </p>
+          <h2 class="mt-2 text-2xl font-black tracking-[-0.035em] text-slate-950">
+            {gettext("Edit public profile")}
+          </h2>
+          <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+            {gettext(
+              "Contact, categories and opening hours are published together as one audited revision."
+            )}
+          </p>
+        </div>
+        <span class="inline-flex w-fit items-center rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700 ring-1 ring-inset ring-blue-100">
+          {gettext("Atomic update")}
+        </span>
+      </div>
+
+      <.form
+        for={@profile_form}
+        id="partner-place-profile-form"
+        phx-change="validate_profile"
+        phx-submit="save_profile"
+        class="mt-8 space-y-8"
+      >
+        <div class="grid gap-5 lg:grid-cols-2">
+          <.input
+            field={@profile_form[:public_email]}
+            type="email"
+            label={gettext("Public email")}
+            autocomplete="email"
+            maxlength="254"
+            required
+          />
+          <.input
+            field={@profile_form[:public_phone]}
+            type="tel"
+            label={gettext("Public phone")}
+            autocomplete="tel"
+            placeholder="(88) 99999-0101"
+            required
+          />
+        </div>
+
+        <div id="partner-profile-category-field">
+          <.input
+            field={@profile_form[:category_keys]}
+            type="select"
+            label={gettext("Categories")}
+            options={@profile_category_options}
+            multiple
+            size="5"
+            required
+          />
+          <p class="-mt-2 text-xs leading-5 text-slate-500">
+            {gettext("Use Ctrl or Command to select more than one category.")}
+          </p>
+        </div>
+
+        <div id="partner-profile-weekly-hours-section">
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <h3 class="text-base font-black text-slate-950">{gettext("Weekly hours")}</h3>
+              <p class="mt-1 text-xs text-slate-500">
+                {gettext("Overnight windows close on the following day automatically.")}
+              </p>
+            </div>
+            <button
+              id="partner-add-weekly-hour"
+              type="button"
+              name="profile[weekly_hours_sort][]"
+              value="new"
+              phx-click={JS.dispatch("change")}
+              class="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 transition hover:bg-blue-100"
+            >
+              <.icon name="hero-plus" class="size-4" />
+              {gettext("Add window")}
+            </button>
+          </div>
+
+          <div id="partner-profile-weekly-hours" class="mt-4 space-y-3">
+            <.inputs_for :let={weekly_form} field={@profile_form[:weekly_hours]}>
+              <div
+                id={"partner-profile-weekly-hour-#{weekly_form.index}"}
+                class="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 md:grid-cols-[1.2fr_1fr_1fr_auto] md:items-end"
+              >
+                <input
+                  type="hidden"
+                  name="profile[weekly_hours_sort][]"
+                  value={weekly_form.index}
+                />
+                <.input
+                  field={weekly_form[:weekday]}
+                  type="select"
+                  label={gettext("Weekday")}
+                  options={weekday_options()}
+                  required
+                />
+                <.input
+                  field={weekly_form[:opens_at]}
+                  type="time"
+                  label={gettext("Opens at")}
+                  required
+                />
+                <.input
+                  field={weekly_form[:closes_at]}
+                  type="time"
+                  label={gettext("Closes at")}
+                  required
+                />
+                <button
+                  id={"partner-remove-weekly-hour-#{weekly_form.index}"}
+                  type="button"
+                  name="profile[weekly_hours_drop][]"
+                  value={weekly_form.index}
+                  phx-click={JS.dispatch("change")}
+                  class="mb-4 grid size-10 place-items-center rounded-xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
+                  aria-label={gettext("Remove weekly window")}
+                >
+                  <.icon name="hero-trash" class="size-4" />
+                </button>
+              </div>
+            </.inputs_for>
+          </div>
+          <input type="hidden" name="profile[weekly_hours_drop][]" />
+          <p
+            :for={error <- @profile_form[:weekly_hours].errors}
+            class="mt-2 text-sm font-semibold text-red-600"
+          >
+            {translate_error(error)}
+          </p>
+        </div>
+
+        <div id="partner-profile-special-hours-section">
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <h3 class="text-base font-black text-slate-950">{gettext("Special dates")}</h3>
+              <p class="mt-1 text-xs text-slate-500">
+                {gettext("Override a date as closed or with custom windows.")}
+              </p>
+            </div>
+            <button
+              id="partner-add-special-hour"
+              type="button"
+              name="profile[special_hours_sort][]"
+              value="new"
+              phx-click={JS.dispatch("change")}
+              class="inline-flex items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-black text-orange-700 transition hover:bg-orange-100"
+            >
+              <.icon name="hero-plus" class="size-4" />
+              {gettext("Add date")}
+            </button>
+          </div>
+
+          <div id="partner-profile-special-hours" class="mt-4 space-y-4">
+            <.inputs_for :let={special_form} field={@profile_form[:special_hours]}>
+              <div
+                id={"partner-profile-special-hour-#{special_form.index}"}
+                class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4"
+              >
+                <input
+                  type="hidden"
+                  name="profile[special_hours_sort][]"
+                  value={special_form.index}
+                />
+                <div class="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+                  <.input
+                    field={special_form[:local_date]}
+                    type="date"
+                    label={gettext("Date")}
+                    required
+                  />
+                  <.input
+                    field={special_form[:kind]}
+                    type="select"
+                    label={gettext("Schedule")}
+                    options={[{gettext("Closed"), "closed"}, {gettext("Custom hours"), "custom"}]}
+                    required
+                  />
+                  <button
+                    id={"partner-remove-special-hour-#{special_form.index}"}
+                    type="button"
+                    name="profile[special_hours_drop][]"
+                    value={special_form.index}
+                    phx-click={JS.dispatch("change")}
+                    class="mb-4 grid size-10 place-items-center rounded-xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
+                    aria-label={gettext("Remove special date")}
+                  >
+                    <.icon name="hero-trash" class="size-4" />
+                  </button>
+                </div>
+
+                <div
+                  :if={special_form[:kind].value == "custom"}
+                  id={"partner-profile-special-windows-#{special_form.index}"}
+                  class="mt-2 rounded-xl border border-dashed border-slate-300 bg-white p-3"
+                >
+                  <.inputs_for :let={window_form} field={special_form[:windows]}>
+                    <div
+                      id={"partner-profile-special-window-#{special_form.index}-#{window_form.index}"}
+                      class="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+                    >
+                      <input
+                        type="hidden"
+                        name={"#{special_form.name}[windows_sort][]"}
+                        value={window_form.index}
+                      />
+                      <.input
+                        field={window_form[:opens_at]}
+                        type="time"
+                        label={gettext("Opens at")}
+                        required
+                      />
+                      <.input
+                        field={window_form[:closes_at]}
+                        type="time"
+                        label={gettext("Closes at")}
+                        required
+                      />
+                      <button
+                        id={"partner-remove-special-window-#{special_form.index}-#{window_form.index}"}
+                        type="button"
+                        name={"#{special_form.name}[windows_drop][]"}
+                        value={window_form.index}
+                        phx-click={JS.dispatch("change")}
+                        class="mb-4 grid size-10 place-items-center rounded-xl border border-red-200 text-red-600 transition hover:bg-red-50"
+                        aria-label={gettext("Remove special window")}
+                      >
+                        <.icon name="hero-trash" class="size-4" />
+                      </button>
+                    </div>
+                  </.inputs_for>
+                  <input type="hidden" name={"#{special_form.name}[windows_drop][]"} />
+                  <button
+                    id={"partner-add-special-window-#{special_form.index}"}
+                    type="button"
+                    name={"#{special_form.name}[windows_sort][]"}
+                    value="new"
+                    phx-click={JS.dispatch("change")}
+                    class="mt-1 inline-flex items-center gap-2 text-xs font-black text-blue-700"
+                  >
+                    <.icon name="hero-plus" class="size-4" />
+                    {gettext("Add custom window")}
+                  </button>
+                </div>
+              </div>
+            </.inputs_for>
+          </div>
+          <input type="hidden" name="profile[special_hours_drop][]" />
+          <p
+            :for={error <- @profile_form[:special_hours].errors}
+            class="mt-2 text-sm font-semibold text-red-600"
+          >
+            {translate_error(error)}
+          </p>
+        </div>
+
+        <.input field={@profile_form[:expected_polo_place_id]} type="hidden" />
+        <.input field={@profile_form[:expected_revision]} type="hidden" />
+        <.input field={@profile_form[:idempotency_key]} type="hidden" />
+
+        <div class="flex justify-end border-t border-slate-200 pt-6">
+          <button
+            id="partner-place-profile-submit"
+            type="submit"
+            phx-disable-with={gettext("Saving profile...")}
+            class="inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-6 py-3 text-sm font-black text-white shadow-[0_12px_30px_rgba(37,99,235,.22)] transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-70 sm:w-auto"
+          >
+            {gettext("Save public profile")}
+          </button>
+        </div>
+      </.form>
+    </section>
+  </div>
+</PartnerComponents.shell>
