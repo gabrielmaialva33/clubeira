@@ -1,51 +1,48 @@
-<div id="public-polos" class="min-h-screen bg-[#f4f7fb] text-slate-950">
-  <header class="border-b border-slate-200 bg-white/90 backdrop-blur">
-    <div class="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-      <.link navigate={~p"/explorar"} class="flex items-center gap-3" aria-label="Clubeira">
-        <span class="grid size-11 place-items-center rounded-2xl bg-[#0b2342] shadow-lg">
-          <img src={~p"/images/logo.svg"} class="h-7 w-9 brightness-0 invert" alt="" />
-        </span>
-        <span>
-          <span class="block text-lg font-black tracking-[-0.04em]">Clubeira</span>
-          <span class="block text-[9px] font-bold uppercase tracking-[0.24em] text-orange-600">
-            {gettext("Benefits near you")}
-          </span>
-        </span>
-      </.link>
-      <.link
-        navigate={~p"/app/login"}
-        class="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white shadow-sm hover:bg-blue-700"
-      >
-        {gettext("Sign in")}
-      </.link>
-    </div>
-  </header>
+<div id="public-polos" class="flex min-h-screen flex-col bg-clubeira-canvas text-clubeira-ink">
+  <PublicComponents.header
+    navigate={~p"/explorar"}
+    title="Clubeira"
+    subtitle={gettext("Benefits near you")}
+  />
 
-  <main class="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+  <main class="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
     <Layouts.flash_group id="public-polos-flash" flash={@flash} />
 
-    <section class="max-w-3xl">
-      <p class="text-xs font-black uppercase tracking-[0.2em] text-blue-600">
-        {gettext("Choose your region")}
-      </p>
-      <h1 class="mt-3 text-4xl font-black tracking-[-0.055em] sm:text-5xl">
-        {gettext("Discover your Clubeira")}
-      </h1>
-      <p class="mt-4 text-base leading-7 text-slate-600">
-        {gettext("Find active local clubs and explore benefits from their partner network.")}
-      </p>
+    <section class="clubeira-ticket-rail clubeira-grid-paper overflow-hidden rounded-xl border border-clubeira-line bg-white">
+      <div class="grid md:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.65fr)]">
+        <div class="px-6 py-8 sm:px-9 sm:py-10">
+          <p class="clubeira-page-kicker">{gettext("Choose your region")}</p>
+          <h1 class="mt-3 max-w-2xl text-3xl font-bold tracking-[-0.05em] text-clubeira-ink sm:text-4xl">
+            {gettext("Discover your Clubeira")}
+          </h1>
+          <p class="mt-4 max-w-2xl text-sm leading-6 text-clubeira-muted sm:text-base">
+            {gettext("Find active local clubs and explore benefits from their partner network.")}
+          </p>
+        </div>
+        <div class="hidden items-center justify-center border-l border-clubeira-line bg-clubeira-blue-soft/65 p-8 md:flex">
+          <div class="text-center">
+            <span class="mx-auto grid size-16 place-items-center rounded-xl bg-white text-clubeira-blue ring-1 ring-clubeira-line">
+              <.icon name="hero-map-pin" class="size-8" />
+            </span>
+            <p class="mt-4 text-sm font-bold text-clubeira-ink">{gettext("Benefits near you")}</p>
+            <p class="mt-1 text-xs text-clubeira-muted">
+              {gettext("Local benefits and trusted partners")}
+            </p>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section
       :if={@load_error?}
       id="public-polos-load-error"
-      class="mt-10 flex items-center justify-between gap-5 rounded-3xl border border-orange-200 bg-orange-50 p-6 text-orange-950"
+      class="mt-6 flex items-center justify-between gap-5 rounded-xl border border-orange-200 bg-clubeira-orange-soft p-5 text-orange-950"
     >
       <p class="text-sm font-bold">{gettext("Public discovery is temporarily unavailable.")}</p>
       <.link
         id="public-polos-retry"
         navigate={~p"/explorar"}
-        class="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#0b2342] px-4 py-2.5 text-sm font-black text-white hover:bg-blue-950"
+        class="clubeira-button-primary shrink-0"
       >
         <.icon name="hero-arrow-path" class="size-4" /> {gettext("Explore Clubeira")}
       </.link>
@@ -55,34 +52,38 @@
       :if={!@load_error?}
       id="public-polos-stream"
       phx-update="stream"
-      class="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+      class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
     >
       <div
         id="public-polos-empty"
-        class="hidden only:block rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500 sm:col-span-2 xl:col-span-3"
+        class="hidden only:block rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500 sm:col-span-2 xl:col-span-3"
       >
         {gettext("No active polo is available right now.")}
       </div>
       <article
         :for={{id, polo} <- @streams.polos}
         id={id}
-        class="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_12px_42px_rgba(15,23,42,.05)]"
+        class="clubeira-ticket-rail group rounded-xl border border-clubeira-line bg-white p-5 transition hover:border-blue-200"
       >
-        <div class="h-2 bg-gradient-to-r from-blue-600 via-blue-500 to-orange-500" />
-        <div class="p-6">
-          <p class="text-xs font-bold uppercase tracking-wider text-orange-600">
-            {polo.city.name} · {polo.city.subdivision_code}
-          </p>
-          <h2 class="mt-3 text-xl font-black tracking-[-0.03em]">{polo.name}</h2>
-          <p class="mt-2 text-sm text-slate-500">
-            {gettext("Local benefits and trusted partners")}
-          </p>
-          <.link
-            navigate={~p"/explorar/#{polo.slug}"}
-            class="mt-6 inline-flex items-center gap-2 text-sm font-black text-blue-700 group-hover:text-blue-800"
-          >
-            {gettext("Explore this polo")} <.icon name="hero-arrow-right" class="size-4" />
-          </.link>
+        <div class="flex items-start gap-4">
+          <span class="clubeira-icon-tile shrink-0"><.icon name="hero-map" class="size-5" /></span>
+          <div class="min-w-0 flex-1">
+            <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-clubeira-orange">
+              {polo.city.name} · {polo.city.subdivision_code}
+            </p>
+            <h2 class="mt-2 truncate text-lg font-bold tracking-[-0.03em] text-clubeira-ink">
+              {polo.name}
+            </h2>
+            <p class="mt-1 text-xs leading-5 text-clubeira-muted">
+              {gettext("Local benefits and trusted partners")}
+            </p>
+            <.link
+              navigate={~p"/explorar/#{polo.slug}"}
+              class="mt-5 inline-flex items-center gap-2 text-sm font-bold text-clubeira-blue group-hover:text-blue-800"
+            >
+              {gettext("Explore this polo")} <.icon name="hero-arrow-right" class="size-4" />
+            </.link>
+          </div>
         </div>
       </article>
     </section>
@@ -91,9 +92,10 @@
       :if={@next_page_path}
       id="public-polos-next-page"
       patch={@next_page_path}
-      class="mt-8 inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 shadow-sm"
+      class="clubeira-button-secondary mt-6"
     >
       {gettext("More polos")} <.icon name="hero-arrow-right" class="size-4" />
     </.link>
   </main>
+  <PublicComponents.footer />
 </div>
