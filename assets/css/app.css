@@ -20,19 +20,126 @@
 
 @theme {
   --font-sans: "Inter", "SF Pro Text", "SF Pro Display", ui-sans-serif, system-ui, sans-serif;
-  --color-clubeira-navy: #081b33;
-  --color-clubeira-blue: #2563eb;
-  --color-clubeira-orange: #f97316;
+  --color-clubeira-ink: #10213d;
+  --color-clubeira-navy: #10213d;
+  --color-clubeira-blue: #2864f0;
+  --color-clubeira-blue-soft: #edf3ff;
+  --color-clubeira-orange: #f25a24;
+  --color-clubeira-orange-soft: #fff0ea;
+  --color-clubeira-canvas: #f7f8fa;
+  --color-clubeira-line: #e5e8ef;
+  --color-clubeira-muted: #667085;
 }
 
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  overflow-y: scroll;
+}
 
-body { letter-spacing: -0.01em; }
+body {
+  background: #f7f8fa;
+  color: #10213d;
+  letter-spacing: -0.012em;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
+@layer components {
+  .clubeira-canvas {
+    @apply min-h-screen bg-clubeira-canvas text-clubeira-ink;
+  }
+
+  .clubeira-panel {
+    @apply rounded-xl border border-clubeira-line bg-white;
+    box-shadow: 0 1px 2px rgb(16 33 61 / 0.025);
+  }
+
+  .clubeira-panel-muted {
+    @apply rounded-xl border border-clubeira-line bg-slate-50/70;
+  }
+
+  .clubeira-page-kicker {
+    @apply text-[11px] font-bold uppercase tracking-[0.16em] text-clubeira-orange;
+  }
+
+  .clubeira-page-title {
+    @apply mt-1.5 text-2xl font-bold tracking-[-0.035em] text-clubeira-ink sm:text-[2rem];
+  }
+
+  .clubeira-page-copy {
+    @apply mt-2 max-w-2xl text-sm leading-6 text-clubeira-muted;
+  }
+
+  .clubeira-brand-mark {
+    @apply grid size-9 shrink-0 place-items-center rounded-[10px] border border-orange-100 bg-clubeira-orange-soft;
+  }
+
+  .clubeira-nav-link {
+    @apply relative flex min-h-10 items-center gap-3 rounded-[10px] px-3 text-[13px] font-semibold text-slate-500 transition-colors;
+  }
+
+  .clubeira-nav-link:hover {
+    @apply bg-slate-50 text-clubeira-ink;
+  }
+
+  .clubeira-nav-link-active {
+    @apply bg-clubeira-blue-soft text-clubeira-blue;
+  }
+
+  .clubeira-nav-link-active::before {
+    content: "";
+    @apply absolute -left-2 top-2 h-6 w-[3px] rounded-full bg-clubeira-orange;
+  }
+
+  .clubeira-control {
+    @apply h-10 rounded-[10px] border border-clubeira-line bg-white px-3 text-sm text-clubeira-ink outline-none transition-colors placeholder:text-slate-400;
+  }
+
+  .clubeira-control:hover {
+    @apply border-slate-300;
+  }
+
+  .clubeira-control:focus {
+    @apply border-clubeira-blue ring-3 ring-blue-100;
+  }
+
+  .clubeira-button-primary {
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-[10px] bg-clubeira-orange px-4 text-sm font-bold text-white transition-colors hover:bg-orange-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clubeira-orange disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .clubeira-button-secondary {
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-[10px] border border-clubeira-line bg-white px-4 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clubeira-blue disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .clubeira-icon-tile {
+    @apply grid size-9 shrink-0 place-items-center rounded-[10px] bg-clubeira-blue-soft text-clubeira-blue;
+  }
+
+  .clubeira-ticket-rail {
+    @apply relative overflow-hidden border-l-[3px] border-l-clubeira-orange;
+  }
+
+  .clubeira-grid-paper {
+    background-image:
+      linear-gradient(rgb(16 33 61 / 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(16 33 61 / 0.035) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+}
 
 ::selection {
-  background: rgb(37 99 235 / 0.18);
-  color: #081b33;
+  background: rgb(40 100 240 / 0.18);
+  color: #10213d;
 }
