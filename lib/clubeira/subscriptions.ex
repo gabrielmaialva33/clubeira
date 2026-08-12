@@ -14,7 +14,9 @@ defmodule Clubeira.Subscriptions do
   alias Clubeira.Subscriptions.ContractLifecycle
   alias Clubeira.Subscriptions.ContractLifecycleRequest
   alias Clubeira.Subscriptions.ProductOfferingLifecycle
+  alias Clubeira.Subscriptions.ProductOfferingLifecycleRequest
   alias Clubeira.Subscriptions.ProductOfferingPublisher
+  alias Clubeira.Subscriptions.ProductOfferingPublishRequest
   alias Clubeira.Subscriptions.ProductOfferingReader
   alias Clubeira.Subscriptions.WalletReader
   alias Clubeira.Tenancy.Scope, as: TenantScope
@@ -31,6 +33,12 @@ defmodule Clubeira.Subscriptions do
     to: ProductOfferingPublisher,
     as: :publish
 
+  @doc false
+  @spec change_product_offering_publish_request(term()) :: Ecto.Changeset.t()
+  def change_product_offering_publish_request(attributes \\ %{}) do
+    ProductOfferingPublishRequest.change(attributes)
+  end
+
   @doc """
   Lists commercial offering identities and their latest immutable configuration.
   """
@@ -46,6 +54,12 @@ defmodule Clubeira.Subscriptions do
   defdelegate transition_product_offering(scope, offering_id, attributes),
     to: ProductOfferingLifecycle,
     as: :transition
+
+  @doc false
+  @spec change_product_offering_lifecycle_request(term()) :: Ecto.Changeset.t()
+  def change_product_offering_lifecycle_request(attributes \\ %{}) do
+    ProductOfferingLifecycleRequest.change(attributes)
+  end
 
   @doc """
   Suspends or reactivates one access contract with temporal evidence.

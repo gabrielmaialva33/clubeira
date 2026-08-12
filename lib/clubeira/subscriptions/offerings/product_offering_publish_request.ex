@@ -3,7 +3,7 @@ defmodule Clubeira.Subscriptions.ProductOfferingPublishRequest do
 
   use Ecto.Schema
 
-  import Ecto.Changeset
+  import Ecto.Changeset, except: [change: 1, change: 2]
 
   alias Clubeira.Subscriptions.ProductOfferingBenefitRequest
 
@@ -70,40 +70,18 @@ defmodule Clubeira.Subscriptions.ProductOfferingPublishRequest do
           benefits: [ProductOfferingBenefitRequest.t()]
         }
 
-  @spec new(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
-  def new(attributes) when is_map(attributes) do
-    changeset =
-      %__MODULE__{}
-      |> cast(flatten(attributes), @fields)
-      |> cast_embed(:benefits,
-        required: true,
-        with: &ProductOfferingBenefitRequest.changeset/2
-      )
-      |> update_change(:code, &String.trim/1)
-      |> update_change(:name, &String.trim/1)
-      |> update_change(:description, &String.trim/1)
-      |> update_change(:currency, &(&1 |> String.trim() |> String.upcase()))
-      |> validate_required(@required_fields)
-      |> validate_length(:code, min: 2, max: 80)
-      |> validate_format(:code, @code_pattern)
-      |> validate_length(:name, min: 2, max: 200)
-      |> validate_length(:description, min: 3, max: 5_000)
-      |> validate_inclusion(:renewal_policy, ~w(none manual automatic))
-      |> validate_inclusion(:cycle_policy, ~w(calendar anniversary))
-      |> validate_inclusion(:cycle_interval_unit, ~w(day month year))
-      |> validate_number(:cycle_interval_count, greater_than: 0, less_than: 32_768)
-      |> validate_length(:currency, is: 3)
-      |> validate_format(:currency, ~r/^[A-Z]{3}$/)
-      |> validate_number(:amount,
-        greater_than: 0,
-        less_than: Decimal.new("1000000000000")
-      )
-      |> validate_decimal_scale(:amount, 2)
-      |> validate_length(:idempotency_key, min: 8, max: 128)
-      |> validate_format(:idempotency_key, ~r/^[A-Za-z0-9._:-]+$/)
-      |> validate_effective_period()
-      |> validate_benefits()
-      |> normalize_decimal_scale(:amount, 2)
+  @spec change(term()) :: Ecto.Changeset.t()
+  def change(attributes \\ %{})
+
+  def change(attributes) when is_map(attributes) and not is_struct(attributes) do
+    changeset(attributes)
+  end
+
+  def change(_attributes), do: invalid_changeset()
+
+  @spec new(term()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
+  def new(attributes) when is_map(attributes) and not is_struct(attributes) do
+    changeset = attributes |> flatten() |> changeset()
 
     case apply_action(changeset, :publish_product_offering) do
       {:ok, request} ->
@@ -115,7 +93,50 @@ defmodule Clubeira.Subscriptions.ProductOfferingPublishRequest do
     end
   end
 
-  def new(_attributes), do: new(%{})
+  def new(_attributes) do
+    invalid_changeset()
+    |> apply_action(:publish_product_offering)
+  end
+
+  defp changeset(attributes) do
+    %__MODULE__{}
+    |> cast(attributes, @fields)
+    |> cast_embed(:benefits,
+      required: true,
+      with: &ProductOfferingBenefitRequest.changeset/2
+    )
+    |> update_change(:code, &String.trim/1)
+    |> update_change(:name, &String.trim/1)
+    |> update_change(:description, &String.trim/1)
+    |> update_change(:currency, &(&1 |> String.trim() |> String.upcase()))
+    |> validate_required(@required_fields)
+    |> validate_length(:code, min: 2, max: 80)
+    |> validate_format(:code, @code_pattern)
+    |> validate_length(:name, min: 2, max: 200)
+    |> validate_length(:description, min: 3, max: 5_000)
+    |> validate_inclusion(:renewal_policy, ~w(none manual automatic))
+    |> validate_inclusion(:cycle_policy, ~w(calendar anniversary))
+    |> validate_inclusion(:cycle_interval_unit, ~w(day month year))
+    |> validate_number(:cycle_interval_count, greater_than: 0, less_than: 32_768)
+    |> validate_length(:currency, is: 3)
+    |> validate_format(:currency, ~r/^[A-Z]{3}$/)
+    |> validate_number(:amount,
+      greater_than: 0,
+      less_than: Decimal.new("1000000000000")
+    )
+    |> validate_decimal_scale(:amount, 2)
+    |> validate_length(:idempotency_key, min: 8, max: 128)
+    |> validate_format(:idempotency_key, ~r/^[A-Za-z0-9._:-]+$/)
+    |> validate_effective_period()
+    |> validate_benefits()
+    |> normalize_decimal_scale(:amount, 2)
+  end
+
+  defp invalid_changeset do
+    %__MODULE__{}
+    |> Ecto.Changeset.change()
+    |> add_error(:base, "must be a map")
+  end
 
   defp flatten(attributes) do
     offering = child_map(attributes, "offering")
