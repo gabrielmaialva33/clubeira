@@ -103,6 +103,13 @@ permite suspender, reativar ou encerrar conforme o estado. A LiveView revalida
 sessão e usuário antes do submit; o context reautoriza a membership e compara a
 identidade e revisão esperadas antes de gravar.
 
+O mesmo detalhe edita o perfil público completo enquanto a participação está
+ativa. O formulário é derivado de changeset, relê categorias e horários do
+banco e envia contato, seleção de categorias, semana e datas especiais como uma
+única substituição. `expected_polo_place_id` e `expected_revision` são ligados
+no servidor ao registro renderizado; outra aba vencedora força a releitura da
+revisão atual em vez de sobrescrever seus dados.
+
 ## Contrato HTTP e Redocly
 
 O contrato editável parte de `openapi/openapi.yaml`, separa operações por
@@ -189,7 +196,9 @@ Idempotency-Key: <8-a-128-caracteres>
 ```
 
 O `PUT` usa o mesmo contrato de perfil completo do backoffice. Um lugar não
-atribuído retorna `404`, inclusive quando o UUID é válido. A revogação exige
+atribuído retorna `404`, inclusive quando o UUID é válido. O corpo inclui
+`expected_polo_place_id` e `expected_revision` (`0` na criação); uma versão
+obsoleta retorna `409` com `stale_place_profile`. A revogação exige
 motivo, encerra somente a vigência tenant-aware e preserva afiliação global e
 acessos independentes em outros polos:
 

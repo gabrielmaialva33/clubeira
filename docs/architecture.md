@@ -125,6 +125,11 @@ apenas a identidade global do lugar. Antes de qualquer mutação o socket relê 
 sessão e o usuário globais, reconstrói o scope e deixa o context reautorizar a
 membership. O form envia a identidade e a revisão esperadas do aggregate;
 estado stale é relido do banco e nunca atualizado apenas por assigns da tela.
+O editor de perfil usa um read model administrativo completo: contato,
+categorias selecionadas e todas as janelas semanais e excepcionais são relidos
+antes de montar o form replace-total. Categorias aposentadas já selecionadas
+continuam visíveis, enquanto o catálogo de novas escolhas expõe somente as
+ativas.
 
 ## Diretório público
 
@@ -244,10 +249,13 @@ vínculo operacional completo descrito acima. Depois da autorização, ambas usa
 o mesmo comando para reler polo e participação ativa e substituir contato,
 categorias, semana de funcionamento e exceções na mesma transação. A chave
 idempotente é reservada antes de a participação e o perfil serem travados:
-retries concorrentes devolvem a resposta original, enquanto chaves distintas
-serializam revisões completas sem misturar filhos de duas versões. Publicação
-inicial e atualização gravam auditoria, evento de domínio, outbox e resposta
-`200` idempotente atomicamente.
+retries concorrentes devolvem a resposta original. Cada comando também informa
+`expected_polo_place_id` e `expected_revision` (`0` quando ainda não há perfil);
+uma revisão ou participação obsoleta finaliza a chave com
+`stale_place_profile`, grava uma única rejeição auditável e não emite evento ou
+outbox. Assim, chaves distintas não produzem lost update entre abas. Publicação
+inicial e atualização aceitas gravam auditoria, evento de domínio, outbox e
+resposta `200` idempotente atomicamente.
 
 `place_categories` é uma taxonomia global curada; o perfil não cria categorias
 livres. `polo_place_profiles`, sua relação N:N de categorias e

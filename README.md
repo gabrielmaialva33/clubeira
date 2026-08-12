@@ -504,7 +504,7 @@ curl -sS -X PUT \
   -H "authorization: Bearer $ADMIN_TOKEN" \
   -H 'idempotency-key: perfil-bistro-sobral-001' \
   -H 'content-type: application/json' \
-  -d '{"contact":{"email":"reservas@bistro.example","phone":"(88) 99999-0101"},"category_keys":["restaurant","regional-cuisine"],"weekly_hours":[{"weekday":1,"opens_at":"11:30","closes_at":"15:00"},{"weekday":1,"opens_at":"18:00","closes_at":"23:00"}],"special_hours":[{"date":"2026-12-25","kind":"closed"}]}'
+  -d '{"contact":{"email":"reservas@bistro.example","phone":"(88) 99999-0101"},"category_keys":["restaurant","regional-cuisine"],"weekly_hours":[{"weekday":1,"opens_at":"11:30","closes_at":"15:00"},{"weekday":1,"opens_at":"18:00","closes_at":"23:00"}],"special_hours":[{"date":"2026-12-25","kind":"closed"}],"expected_polo_place_id":"<polo_place_uuid>","expected_revision":0}'
 
 curl -sS -X POST \
   http://localhost:4000/api/v1/polos/sobral/backoffice/places/<place_uuid>/benefit-offers \
@@ -666,7 +666,8 @@ usa a mesma paginação para listar somente participações, lugares, marcas e
 operadores ativos, incluindo endereço, coordenadas e o perfil publicado quando
 cadastrados. O perfil é uma substituição completa: dias seguem ISO `1` (segunda)
 a `7` (domingo), telefone é normalizado para E.164 e exceções usam `closed` ou
-`custom`. Após um
+`custom`; a primeira publicação usa revisão esperada `0` e as seguintes usam a
+revisão retornada pela API. Após um
 resgate confirmado, o membro pode enviar uma avaliação de `1` a `5` estrelas
 com texto não vazio. A API prova no banco que o resgate pertence ao ator, polo
 e lugar da rota, cria a avaliação como `pending` e exige `Idempotency-Key`;
@@ -1036,10 +1037,12 @@ alterar a configuração versionada.
   administração do polo; o alias
   `PUT /api/v1/polos/:polo_slug/partner/places/:place_id/profile` exige o vínculo
   ativo exatamente com aquele estabelecimento. Ambos usam a mesma operação
-  idempotente, substituem o perfil da participação ativa e incrementam sua
-  revisão; FKs compostas, RLS e constraints de exclusão impedem mistura de
-  polos e sobreposição de horários, enquanto contato permanece fora de audit,
-  evento e outbox;
+  idempotente, exigem a identidade exata da participação e a revisão esperada
+  (`0` na primeira publicação), substituem o perfil completo e incrementam sua
+  revisão. Uma aba obsoleta recebe `409 stale_place_profile`, com rejeição
+  idempotente e auditada, sem evento/outbox ou alteração parcial. FKs compostas,
+  RLS e constraints de exclusão impedem mistura de polos e sobreposição de
+  horários, enquanto contato permanece fora de audit, evento e outbox;
 - `POST /api/v1/polos/:polo_slug/backoffice/places/:place_id/benefit-offers`
   exige `admin` e `Idempotency-Key`, relê lugar e participação ativos e cria a
   identidade da oferta, sua versão imutável `1` publicada e o vínculo com o

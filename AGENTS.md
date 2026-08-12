@@ -117,6 +117,10 @@ cliente como prova de permissão.
   agregar a versão mais recente e seus lugares e trata `place_id` só como filtro.
 - `Clubeira.Directory.list_backoffice_places/2` redescobre participações ainda
   sem perfil público: exige `manage_partners`, pagina sob RLS e nunca expõe CNPJ.
+- `Clubeira.Directory.publish_place_profile/3` substitui contato, categorias e
+  horários como uma única revisão. O comando exige identidade exata da
+  participação e revisão esperada (`0` na criação); stale é idempotente e
+  auditado, sem evento, outbox ou escrita parcial.
 - Acesso humano do parceiro exige simultaneamente uma membership tenant
   `partner_manager` e afiliações globais vigentes de organização, lugar e
   operador. Nenhuma dessas dimensões isolada concede acesso.
