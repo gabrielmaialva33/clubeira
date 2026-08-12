@@ -127,6 +127,50 @@ defmodule ClubeiraWeb.Backoffice.PlaceLifecycleControllerTest do
     assert polo_place_id == fixture.ids.polo_place
   end
 
+  test "the HTTP boundary rejects a stale expected revision without overwriting state", %{
+    conn: conn
+  } do
+    fixture = RedemptionsFixtures.create!()
+    admin_scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    admin_token = authenticate!(admin_scope.actor_user_id)
+
+    assert conn
+           |> put_req_header("authorization", "Bearer #{admin_token}")
+           |> put_req_header("idempotency-key", "place-participation-http-first-operator")
+           |> post(lifecycle_path(fixture), %{
+             "action" => "suspend",
+             "reason" => "Primeiro operador confirmou a pausa",
+             "expected_polo_place_id" => fixture.ids.polo_place,
+             "expected_revision" => 1
+           })
+           |> json_response(200)
+           |> get_in(["data", "revision"]) == 2
+
+    assert conn
+           |> recycle()
+           |> put_req_header("authorization", "Bearer #{admin_token}")
+           |> put_req_header("idempotency-key", "place-participation-http-stale-operator")
+           |> post(lifecycle_path(fixture), %{
+             "action" => "retire",
+             "reason" => "Segundo operador permaneceu na tela antiga",
+             "expected_polo_place_id" => fixture.ids.polo_place,
+             "expected_revision" => 1
+           })
+           |> json_response(409) == %{
+             "errors" => %{"code" => "stale_place_participation", "detail" => "Conflict"}
+           }
+
+    assert %{"data" => [%{"status" => "suspended", "revision" => 2}]} =
+             conn
+             |> recycle()
+             |> put_req_header("authorization", "Bearer #{admin_token}")
+             |> get(
+               "/api/v1/polos/#{fixture.polo_slug}/backoffice/places" <>
+                 "?place_id=#{fixture.ids.place}"
+             )
+             |> json_response(200)
+  end
+
   test "an admin retires a participation and removes it permanently from discovery", %{conn: conn} do
     fixture = RedemptionsFixtures.create!()
     admin_scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
@@ -136,7 +180,7 @@ defmodule ClubeiraWeb.Backoffice.PlaceLifecycleControllerTest do
 
     assert fixture.ids.place in public_place_ids(conn, fixture)
 
-    first = transition(conn, fixture, admin_token, key, "retire", reason)
+    first = transition(conn, fixture, admin_token, key, "retire", reason, 1)
 
     assert %{
              "data" => %{
@@ -147,7 +191,7 @@ defmodule ClubeiraWeb.Backoffice.PlaceLifecycleControllerTest do
              }
            } = first
 
-    assert transition(conn, fixture, admin_token, key, "retire", reason) == first
+    assert transition(conn, fixture, admin_token, key, "retire", reason, 1) == first
 
     refute fixture.ids.place in public_place_ids(conn, fixture)
 
@@ -273,8 +317,8 @@ defmodule ClubeiraWeb.Backoffice.PlaceLifecycleControllerTest do
     key = "place-participation-observable-suspension"
     reason = "Incidente operacional confidencial no parceiro"
 
-    first = transition(conn, fixture, admin_token, key, "suspend", reason)
-    replayed = transition(conn, fixture, admin_token, key, "suspend", reason)
+    first = transition(conn, fixture, admin_token, key, "suspend", reason, 1)
+    replayed = transition(conn, fixture, admin_token, key, "suspend", reason, 1)
 
     assert replayed == first
 
@@ -284,7 +328,9 @@ defmodule ClubeiraWeb.Backoffice.PlaceLifecycleControllerTest do
            |> put_req_header("idempotency-key", key)
            |> post(lifecycle_path(fixture), %{
              "action" => "suspend",
-             "reason" => "Conteúdo diferente para a mesma chave"
+             "reason" => "Conteúdo diferente para a mesma chave",
+             "expected_polo_place_id" => fixture.ids.polo_place,
+             "expected_revision" => 1
            })
            |> json_response(409) == %{
              "errors" => %{"code" => "idempotency_conflict", "detail" => "Conflict"}
@@ -434,7 +480,9 @@ defmodule ClubeiraWeb.Backoffice.PlaceLifecycleControllerTest do
            |> put_req_header("idempotency-key", "place-participation-expired-reactivation")
            |> post(lifecycle_path(fixture), %{
              "action" => "reactivate",
-             "reason" => "Tentativa após o fim da vigência"
+             "reason" => "Tentativa após o fim da vigência",
+             "expected_polo_place_id" => fixture.ids.polo_place,
+             "expected_revision" => 2
            })
            |> json_response(404) == %{"errors" => %{"detail" => "Not Found"}}
 
@@ -469,7 +517,9 @@ defmodule ClubeiraWeb.Backoffice.PlaceLifecycleControllerTest do
            |> put_req_header("idempotency-key", "place-participation-moderator-suspension")
            |> post(lifecycle_path(authorized), %{
              "action" => "suspend",
-             "reason" => "Tentativa sem capacidade administrativa"
+             "reason" => "Tentativa sem capacidade administrativa",
+             "expected_polo_place_id" => authorized.ids.polo_place,
+             "expected_revision" => 1
            })
            |> json_response(403) == %{"errors" => %{"detail" => "Forbidden"}}
 
@@ -483,7 +533,9 @@ defmodule ClubeiraWeb.Backoffice.PlaceLifecycleControllerTest do
            |> put_req_header("idempotency-key", "place-participation-cross-polo-suspension")
            |> post(cross_polo_path, %{
              "action" => "suspend",
-             "reason" => "Tentativa sobre participação de outro polo"
+             "reason" => "Tentativa sobre participação de outro polo",
+             "expected_polo_place_id" => authorized.ids.polo_place,
+             "expected_revision" => 1
            })
            |> json_response(404) == %{"errors" => %{"detail" => "Not Found"}}
 
@@ -517,7 +569,9 @@ defmodule ClubeiraWeb.Backoffice.PlaceLifecycleControllerTest do
            |> put_req_header("authorization", "Bearer #{admin_token}")
            |> post(lifecycle_path(fixture), %{
              "action" => "suspend",
-             "reason" => "Header ausente"
+             "reason" => "Header ausente",
+             "expected_polo_place_id" => fixture.ids.polo_place,
+             "expected_revision" => 1
            })
            |> json_response(400) == %{
              "errors" => %{
@@ -527,10 +581,75 @@ defmodule ClubeiraWeb.Backoffice.PlaceLifecycleControllerTest do
            }
 
     for {key, body} <- [
-          {"short", %{"action" => "suspend", "reason" => "Chave curta"}},
+          {"short",
+           %{
+             "action" => "suspend",
+             "reason" => "Chave curta",
+             "expected_polo_place_id" => fixture.ids.polo_place,
+             "expected_revision" => 1
+           }},
           {"place-participation-invalid-action",
-           %{"action" => "delete", "reason" => "Ação destrutiva inexistente"}},
-          {"place-participation-invalid-reason", %{"action" => "suspend", "reason" => "x"}}
+           %{
+             "action" => "delete",
+             "reason" => "Ação destrutiva inexistente",
+             "expected_polo_place_id" => fixture.ids.polo_place,
+             "expected_revision" => 1
+           }},
+          {"place-participation-invalid-reason",
+           %{
+             "action" => "suspend",
+             "reason" => "x",
+             "expected_polo_place_id" => fixture.ids.polo_place,
+             "expected_revision" => 1
+           }},
+          {"place-participation-missing-aggregate",
+           %{
+             "action" => "suspend",
+             "reason" => "Identidade da participação ausente",
+             "expected_revision" => 1
+           }},
+          {"place-participation-invalid-aggregate",
+           %{
+             "action" => "suspend",
+             "reason" => "Identidade da participação inválida",
+             "expected_polo_place_id" => "not-a-uuid",
+             "expected_revision" => 1
+           }},
+          {"place-participation-missing-revision",
+           %{
+             "action" => "suspend",
+             "reason" => "Revisão esperada ausente",
+             "expected_polo_place_id" => fixture.ids.polo_place
+           }},
+          {"place-participation-zero-revision",
+           %{
+             "action" => "suspend",
+             "reason" => "Revisão zero não existe",
+             "expected_polo_place_id" => fixture.ids.polo_place,
+             "expected_revision" => 0
+           }},
+          {"place-participation-negative-revision",
+           %{
+             "action" => "suspend",
+             "reason" => "Revisão negativa não existe",
+             "expected_polo_place_id" => fixture.ids.polo_place,
+             "expected_revision" => -1
+           }},
+          {"place-participation-text-revision",
+           %{
+             "action" => "suspend",
+             "reason" => "Revisão textual não existe",
+             "expected_polo_place_id" => fixture.ids.polo_place,
+             "expected_revision" => "first"
+           }},
+          {"place-participation-unknown-field",
+           %{
+             "action" => "suspend",
+             "reason" => "Campo fora do contrato publicado",
+             "expected_polo_place_id" => fixture.ids.polo_place,
+             "expected_revision" => 1,
+             "unexpected" => true
+           }}
         ] do
       assert conn
              |> recycle()
@@ -551,7 +670,9 @@ defmodule ClubeiraWeb.Backoffice.PlaceLifecycleControllerTest do
            |> put_req_header("idempotency-key", "place-participation-invalid-id")
            |> post(invalid_id_path, %{
              "action" => "suspend",
-             "reason" => "Identidade inválida"
+             "reason" => "Identidade inválida",
+             "expected_polo_place_id" => fixture.ids.polo_place,
+             "expected_revision" => 1
            })
            |> json_response(404) == %{"errors" => %{"detail" => "Not Found"}}
 
@@ -650,22 +771,59 @@ defmodule ClubeiraWeb.Backoffice.PlaceLifecycleControllerTest do
     Enum.map(response["data"]["places"], & &1["place_id"])
   end
 
-  defp transition(conn, fixture, admin_token, idempotency_key, action, reason) do
+  defp transition(
+         conn,
+         fixture,
+         admin_token,
+         idempotency_key,
+         action,
+         reason,
+         expected_revision \\ nil
+       ) do
     conn
     |> recycle()
     |> put_req_header("authorization", "Bearer #{admin_token}")
     |> put_req_header("idempotency-key", idempotency_key)
-    |> post(lifecycle_path(fixture), %{"action" => action, "reason" => reason})
+    |> post(lifecycle_path(fixture), %{
+      "action" => action,
+      "reason" => reason,
+      "expected_polo_place_id" => fixture.ids.polo_place,
+      "expected_revision" => expected_revision || current_revision(fixture)
+    })
     |> json_response(200)
   end
 
-  defp transition_conflict(conn, fixture, admin_token, idempotency_key, action, reason) do
+  defp transition_conflict(
+         conn,
+         fixture,
+         admin_token,
+         idempotency_key,
+         action,
+         reason,
+         expected_revision \\ nil
+       ) do
     conn
     |> recycle()
     |> put_req_header("authorization", "Bearer #{admin_token}")
     |> put_req_header("idempotency-key", idempotency_key)
-    |> post(lifecycle_path(fixture), %{"action" => action, "reason" => reason})
+    |> post(lifecycle_path(fixture), %{
+      "action" => action,
+      "reason" => reason,
+      "expected_polo_place_id" => fixture.ids.polo_place,
+      "expected_revision" => expected_revision || current_revision(fixture)
+    })
     |> json_response(409)
+  end
+
+  defp current_revision(fixture) do
+    %{rows: [[revision]]} =
+      RedemptionsFixtures.scoped_query!(
+        fixture,
+        "SELECT revision FROM polo_places WHERE id = $1",
+        [fixture.ids.polo_place]
+      )
+
+    revision
   end
 
   defp authenticate!(user_id) do

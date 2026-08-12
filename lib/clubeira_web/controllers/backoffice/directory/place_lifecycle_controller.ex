@@ -7,8 +7,11 @@ defmodule ClubeiraWeb.Backoffice.PlaceLifecycleController do
   alias ClubeiraWeb.ErrorJSON
   alias Plug.Conn.Status
 
+  @lifecycle_fields ~w(action reason expected_polo_place_id expected_revision)
+
   def create(conn, %{"polo_slug" => polo_slug, "place_id" => place_id} = params) do
-    with {:ok, idempotency_key} <- fetch_idempotency_key(conn),
+    with :ok <- validate_lifecycle_body(conn.body_params),
+         {:ok, idempotency_key} <- fetch_idempotency_key(conn),
          {:ok, route} <- Polos.resolve_route(polo_slug),
          {:ok, result} <-
            Directory.transition_place_participation(
@@ -35,8 +38,14 @@ defmodule ClubeiraWeb.Backoffice.PlaceLifecycleController do
       {:error, :place_unavailable} ->
         render_error(conn, :conflict, "place_unavailable")
 
+      {:error, :stale_place_participation} ->
+        render_error(conn, :conflict, "stale_place_participation")
+
       {:error, :invalid_idempotency_key} ->
         render_error(conn, :bad_request, "invalid_idempotency_key")
+
+      {:error, :invalid_lifecycle_payload} ->
+        render_error(conn, :unprocessable_entity)
 
       {:error, %Ecto.Changeset{}} ->
         render_error(conn, :unprocessable_entity)
@@ -54,9 +63,20 @@ defmodule ClubeiraWeb.Backoffice.PlaceLifecycleController do
 
   defp lifecycle_attributes(params, idempotency_key) do
     params
-    |> Map.take(~w(action reason))
+    |> Map.take(@lifecycle_fields)
     |> Map.put("idempotency_key", idempotency_key)
   end
+
+  defp validate_lifecycle_body(body_params)
+       when is_map(body_params) and not is_struct(body_params) do
+    if Map.keys(body_params) -- @lifecycle_fields == [] do
+      :ok
+    else
+      {:error, :invalid_lifecycle_payload}
+    end
+  end
+
+  defp validate_lifecycle_body(_body_params), do: {:error, :invalid_lifecycle_payload}
 
   defp fetch_idempotency_key(conn) do
     case get_req_header(conn, "idempotency-key") do
