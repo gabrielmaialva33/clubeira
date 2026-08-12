@@ -11,6 +11,7 @@ defmodule Clubeira.Catalog do
 
   alias Clubeira.Catalog.BenefitOffer
   alias Clubeira.Catalog.BenefitOfferPublisher
+  alias Clubeira.Catalog.BenefitOfferPublishRequest
   alias Clubeira.Catalog.BenefitOfferReader
   alias Clubeira.Catalog.BenefitOfferVersion
   alias Clubeira.Catalog.BenefitOfferVersionPlace
@@ -47,6 +48,12 @@ defmodule Clubeira.Catalog do
   defdelegate publish_benefit_offer(scope, place_id, attributes),
     to: BenefitOfferPublisher,
     as: :publish
+
+  @doc false
+  @spec change_benefit_offer_publish_request(term()) :: Ecto.Changeset.t()
+  def change_benefit_offer_publish_request(attributes \\ %{}) do
+    BenefitOfferPublishRequest.change(attributes)
+  end
 
   @doc """
   Lists benefit identities and their latest immutable version for polo operations.

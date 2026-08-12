@@ -28,6 +28,12 @@ defmodule Clubeira.People do
           contact_points: [map()]
         }
 
+  @doc false
+  @spec change_self_profile(term()) :: Ecto.Changeset.t()
+  def change_self_profile(attributes \\ %{}) do
+    SelfProfileRequest.change(attributes)
+  end
+
   @spec put_self_profile(ActorScope.t(), map()) ::
           {:ok, profile()} | {:error, atom() | Ecto.Changeset.t()}
   def put_self_profile(%ActorScope{} = scope, attributes) when is_map(attributes) do
@@ -56,8 +62,8 @@ defmodule Clubeira.People do
 
     with {:ok, person, created?, person_changed?} <-
            upsert_person(repo, scope.actor_user_id, request, now),
-         {:ok, identifier_changed?} <- sync_identifier(repo, person, request.cpf, now),
-         {:ok, contact_changed?} <- sync_contact(repo, person, request.phone, now) do
+         {:ok, identifier_changed?} <- sync_identifier(repo, person, request, now),
+         {:ok, contact_changed?} <- sync_contact(repo, person, request, now) do
       changed? = created? or person_changed? or identifier_changed? or contact_changed?
       record_profile_change(repo, scope, person, created?, person_changed?, changed?, now)
       {:ok, build_profile(repo, person.id)}
@@ -134,11 +140,13 @@ defmodule Clubeira.People do
     end
   end
 
-  defp sync_identifier(repo, person, nil, now) do
+  defp sync_identifier(_repo, _person, %{cpf_supplied?: false}, _now), do: {:ok, false}
+
+  defp sync_identifier(repo, person, %{cpf: nil}, now) do
     revoke_active(repo, PersonIdentifier, person.id, "cpf", now)
   end
 
-  defp sync_identifier(repo, person, cpf, now) do
+  defp sync_identifier(repo, person, %{cpf: cpf}, now) do
     sealed = IdentifierVault.seal("cpf", cpf)
 
     case active_credential(repo, PersonIdentifier, person.id, "cpf") do
@@ -158,11 +166,13 @@ defmodule Clubeira.People do
     end
   end
 
-  defp sync_contact(repo, person, nil, now) do
+  defp sync_contact(_repo, _person, %{phone_supplied?: false}, _now), do: {:ok, false}
+
+  defp sync_contact(repo, person, %{phone: nil}, now) do
     revoke_active(repo, PersonContactPoint, person.id, "phone", now)
   end
 
-  defp sync_contact(repo, person, phone, now) do
+  defp sync_contact(repo, person, %{phone: phone}, now) do
     sealed = IdentifierVault.seal("phone", phone)
 
     case active_credential(repo, PersonContactPoint, person.id, "phone") do

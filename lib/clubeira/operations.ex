@@ -6,6 +6,7 @@ defmodule Clubeira.Operations do
   alias Clubeira.Operations.BackofficeAuditReader
   alias Clubeira.Operations.BackofficeOutboxReader
   alias Clubeira.Operations.OutboxRetry
+  alias Clubeira.Operations.OutboxRetryRequest
   alias Clubeira.Tenancy.Scope
 
   @spec list_backoffice_outbox_messages(Scope.t(), map()) ::
@@ -25,4 +26,10 @@ defmodule Clubeira.Operations do
   defdelegate retry_outbox_message(scope, message_id, attributes),
     to: OutboxRetry,
     as: :retry
+
+  @doc false
+  @spec change_outbox_retry_request(term()) :: Ecto.Changeset.t()
+  def change_outbox_retry_request(attributes \\ %{}) do
+    OutboxRetryRequest.change(attributes)
+  end
 end

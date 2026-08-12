@@ -93,6 +93,7 @@ defmodule Clubeira.Billing.OrderReader do
       offering_price_id: item.offering_price_id,
       name: version.name,
       description: version.description,
+      renewal_policy: version.renewal_policy,
       quantity: item.quantity,
       unit_amount: item.unit_amount,
       total_amount: item.total_amount

@@ -7,10 +7,11 @@ defmodule Clubeira.Redemptions.ValidationCredentialRotationRequest do
 
   use Ecto.Schema
 
-  import Ecto.Changeset
+  import Ecto.Changeset, except: [change: 1, change: 2]
 
   @primary_key false
   @encoded_sha256_bytes 43
+  @fields [:secret_sha256, :expires_at, :idempotency_key]
 
   embedded_schema do
     field :secret_sha256, :string, redact: true
@@ -24,10 +25,23 @@ defmodule Clubeira.Redemptions.ValidationCredentialRotationRequest do
           idempotency_key: String.t()
         }
 
-  @spec new(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
-  def new(attributes) when is_map(attributes) do
+  @spec change(term()) :: Ecto.Changeset.t()
+  def change(attributes \\ %{})
+
+  def change(attributes) when is_map(attributes) and not is_struct(attributes) do
+    cast(%__MODULE__{}, attributes, @fields)
+  end
+
+  def change(_attributes) do
     %__MODULE__{}
-    |> cast(attributes, [:secret_sha256, :expires_at, :idempotency_key])
+    |> Ecto.Changeset.change()
+    |> add_error(:base, "must be a map")
+  end
+
+  @spec new(term()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
+  def new(attributes) when is_map(attributes) and not is_struct(attributes) do
+    attributes
+    |> change()
     |> validate_required([:secret_sha256, :expires_at, :idempotency_key])
     |> validate_length(:secret_sha256,
       min: @encoded_sha256_bytes,
@@ -40,9 +54,8 @@ defmodule Clubeira.Redemptions.ValidationCredentialRotationRequest do
   end
 
   def new(_attributes) do
-    %__MODULE__{}
+    :invalid
     |> change()
-    |> add_error(:base, "must be a map")
     |> apply_action(:rotate_validation_credential)
   end
 

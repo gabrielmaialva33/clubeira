@@ -13,11 +13,14 @@ defmodule Clubeira.Billing do
   alias Clubeira.Billing.BackofficePaymentReader
   alias Clubeira.Billing.BillingAgreement
   alias Clubeira.Billing.BillingAgreementStarter
+  alias Clubeira.Billing.BillingAgreementStartRequest
+  alias Clubeira.Billing.CheckoutRequest
   alias Clubeira.Billing.OrderPlacer
   alias Clubeira.Billing.OrderReader
   alias Clubeira.Billing.PaymentIntent
   alias Clubeira.Billing.PaymentSettler
   alias Clubeira.Billing.PaymentStarter
+  alias Clubeira.Billing.PaymentStartRequest
   alias Clubeira.Billing.PaymentWebhookHandler
   alias Clubeira.Billing.RecurringInvoiceSettler
   alias Clubeira.Billing.Refund
@@ -31,6 +34,12 @@ defmodule Clubeira.Billing do
   @spec place_order(Scope.t(), map()) ::
           {:ok, Order.t()} | {:error, atom() | Ecto.Changeset.t()}
   defdelegate place_order(scope, attributes), to: OrderPlacer, as: :place
+
+  @doc false
+  @spec change_checkout_request(term()) :: Ecto.Changeset.t()
+  def change_checkout_request(attributes \\ %{}) do
+    CheckoutRequest.change(attributes)
+  end
 
   @spec list_orders(Scope.t(), map()) ::
           {:ok, %{orders: [map()], page: map()}} | {:error, term()}
@@ -53,6 +62,12 @@ defmodule Clubeira.Billing do
           | {:error, atom() | Ecto.Changeset.t()}
   defdelegate start_payment(scope, attributes), to: PaymentStarter, as: :start
 
+  @doc false
+  @spec change_payment_start_request(term()) :: Ecto.Changeset.t()
+  def change_payment_start_request(attributes \\ %{}) do
+    PaymentStartRequest.change(attributes)
+  end
+
   @spec start_billing_agreement(Scope.t(), map()) ::
           {:ok,
            %{
@@ -64,6 +79,12 @@ defmodule Clubeira.Billing do
   defdelegate start_billing_agreement(scope, attributes),
     to: BillingAgreementStarter,
     as: :start
+
+  @doc false
+  @spec change_billing_agreement_start_request(term()) :: Ecto.Changeset.t()
+  def change_billing_agreement_start_request(attributes \\ %{}) do
+    BillingAgreementStartRequest.change(attributes)
+  end
 
   @spec refund_payment(Scope.t(), Ecto.UUID.t(), map()) ::
           {:ok, Refund.t()} | {:error, atom() | Ecto.Changeset.t()}

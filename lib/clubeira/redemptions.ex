@@ -22,10 +22,14 @@ defmodule Clubeira.Redemptions do
   alias Clubeira.Redemptions.Redemption
   alias Clubeira.Redemptions.RedemptionAttempt
   alias Clubeira.Redemptions.RedemptionReader
+  alias Clubeira.Redemptions.ValidationCredentialRevocationRequest
   alias Clubeira.Redemptions.ValidationCredentialRevoker
+  alias Clubeira.Redemptions.ValidationCredentialRotationRequest
   alias Clubeira.Redemptions.ValidationCredentialRotator
   alias Clubeira.Redemptions.ValidationPointLifecycle
+  alias Clubeira.Redemptions.ValidationPointLifecycleRequest
   alias Clubeira.Redemptions.ValidationPointProvisioner
+  alias Clubeira.Redemptions.ValidationPointProvisionRequest
   alias Clubeira.Redemptions.ValidationPointReader
   alias Clubeira.Repo
   alias Clubeira.Tenancy.Scope
@@ -81,6 +85,12 @@ defmodule Clubeira.Redemptions do
     to: ValidationPointProvisioner,
     as: :provision
 
+  @doc false
+  @spec change_validation_point_provision_request(term()) :: Ecto.Changeset.t()
+  def change_validation_point_provision_request(attributes \\ %{}) do
+    ValidationPointProvisionRequest.change(attributes)
+  end
+
   @doc """
   Lists validation points and their latest credential metadata for polo admins.
   """
@@ -97,6 +107,12 @@ defmodule Clubeira.Redemptions do
     to: ValidationPointLifecycle,
     as: :transition
 
+  @doc false
+  @spec change_validation_point_lifecycle_request(term()) :: Ecto.Changeset.t()
+  def change_validation_point_lifecycle_request(attributes \\ %{}) do
+    ValidationPointLifecycleRequest.change(attributes)
+  end
+
   @doc """
   Replaces the current API validation credential with a new immutable version.
   """
@@ -106,6 +122,12 @@ defmodule Clubeira.Redemptions do
     to: ValidationCredentialRotator,
     as: :rotate
 
+  @doc false
+  @spec change_validation_credential_rotation_request(term()) :: Ecto.Changeset.t()
+  def change_validation_credential_rotation_request(attributes \\ %{}) do
+    ValidationCredentialRotationRequest.change(attributes)
+  end
+
   @doc """
   Revokes the current API validation credential without replacing it.
   """
@@ -114,6 +136,12 @@ defmodule Clubeira.Redemptions do
   defdelegate revoke_validation_credential(scope, credential_id, attributes),
     to: ValidationCredentialRevoker,
     as: :revoke
+
+  @doc false
+  @spec change_validation_credential_revocation_request(term()) :: Ecto.Changeset.t()
+  def change_validation_credential_revocation_request(attributes \\ %{}) do
+    ValidationCredentialRevocationRequest.change(attributes)
+  end
 
   @spec confirm(Scope.t(), map()) ::
           {:ok, Redemption.t()} | {:error, error_reason() | Ecto.Changeset.t()}

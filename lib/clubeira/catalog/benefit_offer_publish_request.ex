@@ -3,7 +3,7 @@ defmodule Clubeira.Catalog.BenefitOfferPublishRequest do
 
   use Ecto.Schema
 
-  import Ecto.Changeset
+  import Ecto.Changeset, except: [change: 1, change: 2]
 
   @primary_key false
   @fields ~w(
@@ -75,10 +75,31 @@ defmodule Clubeira.Catalog.BenefitOfferPublishRequest do
           idempotency_key: String.t()
         }
 
-  @spec new(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
-  def new(attributes) when is_map(attributes) do
+  @spec change(term()) :: Ecto.Changeset.t()
+  def change(attributes \\ %{})
+
+  def change(attributes) when is_map(attributes) and not is_struct(attributes) do
+    changeset(attributes)
+  end
+
+  def change(_attributes), do: invalid_changeset()
+
+  @spec new(term()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
+  def new(attributes) when is_map(attributes) and not is_struct(attributes) do
+    attributes
+    |> flatten()
+    |> changeset()
+    |> apply_action(:publish_benefit_offer)
+  end
+
+  def new(_attributes) do
+    invalid_changeset()
+    |> apply_action(:publish_benefit_offer)
+  end
+
+  defp changeset(attributes) do
     %__MODULE__{}
-    |> cast(flatten(attributes), @fields)
+    |> cast(attributes, @fields)
     |> update_change(:code, &String.trim/1)
     |> update_change(:name, &String.trim/1)
     |> update_change(:title, &String.trim/1)
@@ -110,10 +131,13 @@ defmodule Clubeira.Catalog.BenefitOfferPublishRequest do
     |> validate_benefit_value()
     |> normalize_decimal_scale(:percentage_value, 4)
     |> normalize_decimal_scale(:amount_value, 2)
-    |> apply_action(:publish_benefit_offer)
   end
 
-  def new(_attributes), do: new(%{})
+  defp invalid_changeset do
+    %__MODULE__{}
+    |> Ecto.Changeset.change()
+    |> add_error(:base, "must be a map")
+  end
 
   defp flatten(attributes) do
     offer = child_map(attributes, "offer")
