@@ -3,8 +3,8 @@ defmodule Clubeira.Directory.BackofficePlaceReaderTest do
 
   alias Clubeira.Directory
   alias Clubeira.Factory
-  alias Clubeira.Repo
   alias Clubeira.RedemptionsFixtures
+  alias Clubeira.Repo
   alias Clubeira.ReviewsFixtures
 
   test "an authorized admin gets one exact polo place participation" do

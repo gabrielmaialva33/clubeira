@@ -290,6 +290,22 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileControllerTest do
     end
   end
 
+  test "the profile contract requires one idempotency key", %{conn: conn} do
+    fixture = ReviewsFixtures.pending_review!()
+    admin_scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    token = authenticate!(admin_scope.actor_user_id)
+
+    assert conn
+           |> put_req_header("authorization", "Bearer #{token}")
+           |> put(
+             "/api/v1/polos/#{fixture.polo_slug}/backoffice/places/#{fixture.ids.place}/profile",
+             profile_request(fixture)
+           )
+           |> json_response(422) == %{"errors" => %{"detail" => "Unprocessable Content"}}
+
+    assert Repo.aggregate(Key, :count) == 0
+  end
+
   test "publishing records one versioned event, outbox envelope and audit without contact data",
        %{conn: conn} do
     fixture = ReviewsFixtures.pending_review!()
@@ -527,8 +543,14 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileControllerTest do
       put_in(profile_request(fixture), ["contact", "email"], "sem-arroba"),
       put_in(profile_request(fixture), ["contact", "phone"], "+1 212 555 0100"),
       put_in(profile_request(fixture), ["contact", "phone"], "ligue (88) 99999-0101"),
+      Map.put(profile_request(fixture), "contact", []),
       put_in(profile_request(fixture), ["weekly_hours"], []),
+      Map.put(profile_request(fixture), "weekly_hours", %{}),
       put_in(profile_request(fixture), ["special_hours"], false),
+      Map.put(profile_request(fixture), "special_hours", ["invalid-day"]),
+      Map.put(profile_request(fixture), "special_hours", [
+        %{"date" => "2026-12-25", "kind" => "closed", "windows" => %{}}
+      ]),
       put_in(profile_request(fixture), ["special_hours"], [
         %{
           "date" => "2026-12-25",

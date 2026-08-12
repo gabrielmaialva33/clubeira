@@ -134,6 +134,43 @@ defmodule ClubeiraWeb.Backoffice.PlaceLiveTest do
              Directory.get_backoffice_place(admin_scope, fixture.ids.polo_place)
   end
 
+  test "validates the profile form live and blocks an invalid publication", %{conn: conn} do
+    fixture = RedemptionsFixtures.create!()
+    admin_scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    Factory.insert(:place_category, key: "cafe", name: "Cafe")
+    session = authenticate!(admin_scope.actor_user_id)
+
+    {:ok, view, _html} =
+      conn
+      |> init_test_session(%{"backoffice_session_token" => session.token})
+      |> live("/admin/places/#{fixture.ids.polo_place}?polo=#{fixture.polo_slug}")
+
+    invalid_profile = %{
+      public_email: "invalid-email",
+      public_phone: "+5588999990101",
+      category_keys: ["cafe"]
+    }
+
+    view
+    |> form("#place-profile-form", profile: invalid_profile)
+    |> render_change()
+
+    assert has_element?(view, "#profile_public_email.border-red-500")
+
+    view
+    |> form("#place-profile-form", profile: invalid_profile)
+    |> render_submit()
+
+    assert has_element?(view, "#profile_public_email.border-red-500")
+
+    assert %{rows: [[0]]} =
+             RedemptionsFixtures.scoped_query!(
+               fixture,
+               "SELECT count(*) FROM polo_place_profiles WHERE polo_place_id = $1",
+               [fixture.ids.polo_place]
+             )
+  end
+
   test "rejects a stale profile editor and reloads the winning revision", %{conn: conn} do
     fixture = RedemptionsFixtures.create!()
     admin_scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
@@ -180,6 +217,44 @@ defmodule ClubeiraWeb.Backoffice.PlaceLiveTest do
     refute input_value(view, "#profile_idempotency_key") == old_key
 
     assert {:ok, %{profile: %{revision: 2, public_email: "vencedor@perfil.example"}}} =
+             Directory.get_backoffice_place(admin_scope, fixture.ids.polo_place)
+  end
+
+  test "shows a field error when a selected category becomes unavailable", %{conn: conn} do
+    fixture = RedemptionsFixtures.create!()
+    admin_scope = ReviewsFixtures.grant_moderator!(fixture, role_key: "admin")
+    category = Factory.insert(:place_category, key: "cafe", name: "Cafe")
+
+    assert {:ok, _profile} =
+             Directory.publish_place_profile(admin_scope, fixture.ids.place, %{
+               contact: %{email: "categorias@perfil.example", phone: "+5588999990101"},
+               category_keys: [category.key],
+               weekly_hours: [%{weekday: 1, opens_at: "09:00", closes_at: "18:00"}],
+               special_hours: [],
+               expected_polo_place_id: fixture.ids.polo_place,
+               expected_revision: 0,
+               idempotency_key: "place-live-profile-category"
+             })
+
+    session = authenticate!(admin_scope.actor_user_id)
+
+    {:ok, view, _html} =
+      conn
+      |> init_test_session(%{"backoffice_session_token" => session.token})
+      |> live("/admin/places/#{fixture.ids.polo_place}?polo=#{fixture.polo_slug}")
+
+    category
+    |> Ecto.Changeset.change(status: "retired")
+    |> Repo.update!()
+
+    view
+    |> form("#place-profile-form")
+    |> render_submit()
+
+    assert has_element?(view, "#flash-error")
+    assert has_element?(view, "#profile-category-field > div > p")
+
+    assert {:ok, %{profile: %{revision: 1}}} =
              Directory.get_backoffice_place(admin_scope, fixture.ids.polo_place)
   end
 

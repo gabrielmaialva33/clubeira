@@ -6,8 +6,8 @@ defmodule ClubeiraWeb.Backoffice.PlaceLive do
   alias Clubeira.Accounts
   alias Clubeira.Directory
   alias Clubeira.Tenancy.Scope
-  alias ClubeiraWeb.BackofficeComponents
   alias ClubeiraWeb.Backoffice.PlaceProfileForm
+  alias ClubeiraWeb.BackofficeComponents
 
   @lifecycle_command_fields ~w(
     action
@@ -264,7 +264,10 @@ defmodule ClubeiraWeb.Backoffice.PlaceLive do
   end
 
   defp handle_profile_result({:error, :invalid_categories}, socket, changeset) do
-    changeset = Ecto.Changeset.add_error(changeset, :category_keys, "contains unavailable keys")
+    changeset =
+      changeset
+      |> Ecto.Changeset.add_error(:category_keys, "contains unavailable keys")
+      |> Map.put(:action, :publish_place_profile)
 
     {:noreply,
      socket

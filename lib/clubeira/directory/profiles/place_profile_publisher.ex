@@ -79,7 +79,6 @@ defmodule Clubeira.Directory.PlaceProfilePublisher do
            publish_new!(
              repo,
              scope,
-             place_id,
              participation,
              categories,
              request,
@@ -96,14 +95,13 @@ defmodule Clubeira.Directory.PlaceProfilePublisher do
     end
   end
 
-  defp publish_new!(repo, scope, place_id, participation, categories, request, key_id, now) do
+  defp publish_new!(repo, scope, participation, categories, request, key_id, now) do
     profile = lock_profile(repo, scope, participation)
 
     if expected_profile?(participation, profile, request) do
       complete_publication!(
         repo,
         scope,
-        place_id,
         participation,
         profile,
         categories,
@@ -137,7 +135,6 @@ defmodule Clubeira.Directory.PlaceProfilePublisher do
   defp complete_publication!(
          repo,
          scope,
-         place_id,
          participation,
          existing,
          categories,
@@ -150,12 +147,20 @@ defmodule Clubeira.Directory.PlaceProfilePublisher do
     periods = replace_opening_periods!(repo, scope, profile, request, now)
 
     result = %{
-      "place_id" => place_id,
+      "place_id" => participation.place_id,
       "polo_place_id" => participation.id,
       "profile" => PlaceProfileView.build(profile, categories, periods)
     }
 
-    record_publication!(repo, scope, place_id, profile, categories, request, now)
+    record_publication!(
+      repo,
+      scope,
+      participation.place_id,
+      profile,
+      categories,
+      request,
+      now
+    )
 
     Idempotency.complete!(
       repo,

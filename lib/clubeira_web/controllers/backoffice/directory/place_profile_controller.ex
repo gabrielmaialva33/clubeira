@@ -77,9 +77,8 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileController do
        when is_map(body_params) and not is_struct(body_params) do
     with :ok <- validate_object_keys(body_params, @profile_fields),
          :ok <- validate_object_keys(Map.get(body_params, "contact"), @contact_fields),
-         :ok <- validate_list_keys(Map.get(body_params, "weekly_hours"), @weekly_hour_fields),
-         :ok <- validate_special_hours(Map.get(body_params, "special_hours")) do
-      :ok
+         :ok <- validate_list_keys(Map.get(body_params, "weekly_hours"), @weekly_hour_fields) do
+      validate_special_hours(Map.get(body_params, "special_hours"))
     end
   end
 

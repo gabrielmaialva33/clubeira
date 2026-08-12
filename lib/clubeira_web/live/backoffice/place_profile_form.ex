@@ -18,6 +18,7 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileForm do
     expected_revision
     idempotency_key
   )a
+  @email_pattern ~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/u
 
   embedded_schema do
     field :public_email, :string
@@ -58,7 +59,7 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileForm do
     }
   end
 
-  @spec change(t(), map()) :: Ecto.Changeset.t()
+  @spec change(t(), term()) :: Ecto.Changeset.t()
   def change(profile_form, attributes \\ %{})
 
   def change(%__MODULE__{} = profile_form, attributes)
@@ -77,6 +78,8 @@ defmodule ClubeiraWeb.Backoffice.PlaceProfileForm do
       drop_param: :special_hours_drop
     )
     |> validate_required(@fields)
+    |> validate_length(:public_email, min: 3, max: 254)
+    |> validate_format(:public_email, @email_pattern)
     |> validate_length(:category_keys, min: 1, max: 8)
     |> validate_length(:weekly_hours, min: 1, max: 28)
     |> validate_length(:special_hours, max: 64)
