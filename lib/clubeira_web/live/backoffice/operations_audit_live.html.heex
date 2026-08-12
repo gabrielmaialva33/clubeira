@@ -12,15 +12,15 @@
         <p class="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
           {gettext("Operational evidence")}
         </p>
-        <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">
+        <h1 class="clubeira-page-title mt-1.5">
           {gettext("Audit trail")}
         </h1>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+        <p class="clubeira-page-copy mt-1.5">
           {gettext("Append-only operational facts without private metadata or client context.")}
         </p>
       </div>
-      <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
-        <span class="font-black text-slate-950">{@page.limit}</span>
+      <div class="rounded-xl border border-clubeira-line bg-white px-4 py-3 text-sm">
+        <span class="font-bold text-slate-950">{@page.limit}</span>
         <span class="ml-1 text-slate-500">{gettext("items per page")}</span>
       </div>
     </header>
@@ -30,20 +30,20 @@
         navigate={
           ~p"/admin/operations/outbox?#{[polo: @current_polo.slug, status: "dead_letter"]}"
         }
-        class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:border-blue-200 hover:text-blue-700"
+        class="rounded-xl border border-clubeira-line bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:border-blue-200 hover:text-blue-700"
       >
         {gettext("Outbox")}
       </.link>
       <.link
         navigate={~p"/admin/operations/audit?#{[polo: @current_polo.slug]}"}
         aria-current="page"
-        class="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white"
+        class="rounded-xl bg-clubeira-orange px-4 py-2.5 text-sm font-bold text-white"
       >
         {gettext("Audit trail")}
       </.link>
     </nav>
 
-    <section class="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]">
+    <section class="mt-7 overflow-hidden rounded-xl border border-clubeira-line bg-white">
       <div id="audit-events" phx-update="stream" class="divide-y divide-slate-100">
         <div
           id="audit-events-empty"
@@ -59,7 +59,7 @@
           class="grid gap-5 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(240px,0.6fr)] lg:items-center"
         >
           <div class="min-w-0">
-            <p class="text-sm font-black capitalize text-slate-950">{humanized(event.action)}</p>
+            <p class="text-sm font-bold capitalize text-slate-950">{humanized(event.action)}</p>
             <p class="mt-1 text-xs font-semibold capitalize text-slate-500">
               {humanized(event.resource_type)}
             </p>

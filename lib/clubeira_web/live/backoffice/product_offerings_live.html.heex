@@ -12,25 +12,25 @@
         <p class="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
           {gettext("Commercial catalog")}
         </p>
-        <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">
+        <h1 class="clubeira-page-title mt-1.5">
           {gettext("Subscription offerings")}
         </h1>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+        <p class="clubeira-page-copy mt-1.5">
           {gettext("Compose purchasable plans from immutable published benefits.")}
         </p>
       </div>
       <.link
         id="commercial-benefits-link"
         navigate={~p"/admin/commercial/benefits?#{[polo: @current_polo.slug]}"}
-        class="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-700"
+        class="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-clubeira-line bg-white px-5 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700"
       >
         <.icon name="hero-arrow-left" class="size-4" />
         {gettext("Benefits")}
       </.link>
     </header>
 
-    <section class="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:p-6">
-      <h2 class="text-lg font-black text-slate-950">{gettext("Publish offering")}</h2>
+    <section class="mt-7 rounded-xl border border-clubeira-line bg-white p-5 sm:p-6">
+      <h2 class="text-lg font-bold text-slate-950">{gettext("Publish offering")}</h2>
       <p class="mt-1 text-sm leading-6 text-slate-500">
         {gettext("The plan, price and entitlement package are committed in one transaction.")}
       </p>
@@ -154,7 +154,7 @@
           <button
             id="publish-product-offering"
             type="submit"
-            class="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-6 text-sm font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,.2)] transition hover:bg-blue-700"
+            class="inline-flex h-11 items-center justify-center rounded-xl bg-clubeira-orange px-6 text-sm font-bold text-white transition hover:bg-orange-600"
           >
             {gettext("Publish offering")}
           </button>
@@ -166,7 +166,7 @@
       for={@filter_form}
       id="product-offering-filters"
       phx-submit="filter"
-      class="mt-7 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)_auto_auto] sm:items-end"
+      class="mt-7 grid gap-3 rounded-xl border border-clubeira-line bg-white p-4 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)_auto_auto] sm:items-end"
     >
       <.input
         field={@filter_form[:status]}
@@ -184,19 +184,19 @@
       <button
         id="apply-product-offering-filters"
         type="submit"
-        class="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-bold text-white"
+        class="inline-flex h-11 items-center justify-center rounded-xl bg-clubeira-orange px-5 text-sm font-bold text-white"
       >
         {gettext("Apply filters")}
       </button>
       <.link
         patch={~p"/admin/commercial/offerings?#{[polo: @current_polo.slug]}"}
-        class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600"
+        class="inline-flex h-11 items-center justify-center rounded-xl border border-clubeira-line px-4 text-sm font-bold text-slate-600"
       >
         {gettext("Clear filters")}
       </.link>
     </.form>
 
-    <section class="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]">
+    <section class="mt-7 overflow-hidden rounded-xl border border-clubeira-line bg-white">
       <div id="product-offerings-inventory" phx-update="stream" class="divide-y divide-slate-100">
         <div
           id="product-offerings-empty"
@@ -216,12 +216,12 @@
             <%= if offering.latest_version do %>
               <h2
                 data-version-status="published"
-                class="truncate text-sm font-black text-slate-950"
+                class="truncate text-sm font-bold text-slate-950"
               >
                 {offering.latest_version.name}
               </h2>
             <% else %>
-              <h2 data-version-status="missing" class="truncate text-sm font-black text-slate-500">
+              <h2 data-version-status="missing" class="truncate text-sm font-bold text-slate-500">
                 {gettext("No published version")}
               </h2>
             <% end %>
@@ -296,7 +296,7 @@
       <.link
         id="product-offerings-next-page"
         patch={@next_page_path}
-        class="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white"
+        class="inline-flex h-11 items-center gap-2 rounded-xl bg-clubeira-orange px-5 text-sm font-bold text-white"
       >
         {gettext("Next page")}
         <.icon name="hero-arrow-right" class="size-4" />

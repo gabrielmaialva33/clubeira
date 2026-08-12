@@ -12,15 +12,15 @@
         <p class="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
           {gettext("Operational recovery")}
         </p>
-        <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">
+        <h1 class="clubeira-page-title mt-1.5">
           {gettext("Transactional outbox")}
         </h1>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+        <p class="clubeira-page-copy mt-1.5">
           {gettext("Delivery state without event payloads, worker identity or private errors.")}
         </p>
       </div>
-      <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
-        <span class="font-black text-slate-950">{@page.limit}</span>
+      <div class="rounded-xl border border-clubeira-line bg-white px-4 py-3 text-sm">
+        <span class="font-bold text-slate-950">{@page.limit}</span>
         <span class="ml-1 text-slate-500">{gettext("items per page")}</span>
       </div>
     </header>
@@ -31,19 +31,19 @@
           ~p"/admin/operations/outbox?#{[polo: @current_polo.slug, status: "dead_letter"]}"
         }
         aria-current="page"
-        class="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white"
+        class="rounded-xl bg-clubeira-orange px-4 py-2.5 text-sm font-bold text-white"
       >
         {gettext("Outbox")}
       </.link>
       <.link
         navigate={~p"/admin/operations/audit?#{[polo: @current_polo.slug]}"}
-        class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:border-blue-200 hover:text-blue-700"
+        class="rounded-xl border border-clubeira-line bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:border-blue-200 hover:text-blue-700"
       >
         {gettext("Audit trail")}
       </.link>
     </nav>
 
-    <section class="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]">
+    <section class="mt-7 overflow-hidden rounded-xl border border-clubeira-line bg-white">
       <div id="outbox-messages" phx-update="stream" class="divide-y divide-slate-100">
         <div
           id="outbox-messages-empty"
@@ -59,7 +59,7 @@
           class="grid gap-5 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.55fr)_auto] lg:items-center"
         >
           <div class="min-w-0">
-            <p class="truncate text-sm font-black text-slate-950">{message.topic}</p>
+            <p class="truncate text-sm font-bold text-slate-950">{message.topic}</p>
             <p class="mt-1 truncate text-xs font-semibold text-slate-500">
               {message.event.type} · {message.event.aggregate_type}
             </p>
@@ -73,7 +73,7 @@
               <dt class="font-bold uppercase tracking-wide text-slate-400">
                 {gettext("Attempts")}
               </dt>
-              <dd class="mt-1 text-sm font-black text-slate-800">{message.attempt_count}</dd>
+              <dd class="mt-1 text-sm font-bold text-slate-800">{message.attempt_count}</dd>
             </div>
             <div class="rounded-xl bg-slate-50 px-3 py-2.5">
               <dt class="font-bold uppercase tracking-wide text-slate-400">
@@ -105,7 +105,7 @@
                   id={"outbox-retry-submit-#{message.id}"}
                   type="submit"
                   phx-disable-with={gettext("Requeueing...")}
-                  class="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-xs font-black text-white shadow-[0_8px_22px_rgba(249,115,22,.2)] transition hover:bg-orange-600 disabled:cursor-wait disabled:opacity-70"
+                  class="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-orange-600 disabled:cursor-wait disabled:opacity-70"
                 >
                   <.icon name="hero-arrow-path" class="size-4" />
                   {gettext("Requeue")}

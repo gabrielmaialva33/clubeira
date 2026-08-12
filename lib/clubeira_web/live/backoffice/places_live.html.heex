@@ -9,18 +9,18 @@
   <div id="places-page" class="mx-auto max-w-[1500px]">
     <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
+        <p class="clubeira-page-kicker">
           {gettext("Partner network")}
         </p>
-        <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">
+        <h1 class="clubeira-page-title mt-1.5">
           {gettext("Places")}
         </h1>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+        <p class="clubeira-page-copy mt-1.5">
           {gettext("Operational participation and public-profile inventory for this polo.")}
         </p>
       </div>
-      <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
-        <span class="font-black text-slate-950">{@page.limit}</span>
+      <div class="rounded-xl border border-clubeira-line bg-white px-4 py-3 text-sm">
+        <span class="font-bold text-slate-950">{@page.limit}</span>
         <span class="ml-1 text-slate-500">{gettext("items per page")}</span>
       </div>
     </header>
@@ -29,7 +29,7 @@
       for={@filter_form}
       id="place-filters"
       phx-change="filter"
-      class="mt-7 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end"
+      class="mt-7 grid gap-3 rounded-xl border border-clubeira-line bg-white p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end"
     >
       <div>
         <label for={@filter_form[:status].id} class="text-xs font-bold text-slate-700">
@@ -38,7 +38,7 @@
         <select
           id={@filter_form[:status].id}
           name={@filter_form[:status].name}
-          class="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          class="mt-2 h-11 w-full rounded-xl border border-clubeira-line bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
         >
           <option value="" selected={@filter_form[:status].value == ""}>
             {gettext("All statuses")}
@@ -65,7 +65,7 @@
         <select
           id={@filter_form[:profile_status].id}
           name={@filter_form[:profile_status].name}
-          class="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          class="mt-2 h-11 w-full rounded-xl border border-clubeira-line bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
         >
           <option value="" selected={@filter_form[:profile_status].value == ""}>
             {gettext("All profiles")}
@@ -81,13 +81,13 @@
 
       <.link
         patch={~p"/admin/places?#{[polo: @current_polo.slug]}"}
-        class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600 transition hover:border-blue-200 hover:text-blue-700"
+        class="inline-flex h-11 items-center justify-center rounded-xl border border-clubeira-line px-4 text-sm font-bold text-slate-600 transition hover:border-blue-200 hover:text-blue-700"
       >
         {gettext("Clear filters")}
       </.link>
     </.form>
 
-    <section class="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]">
+    <section class="mt-7 overflow-hidden rounded-xl border border-clubeira-line bg-white">
       <div id="places-inventory" phx-update="stream" class="divide-y divide-slate-100">
         <div
           id="places-inventory-empty"
@@ -103,7 +103,7 @@
           class="grid gap-4 px-5 py-5 transition hover:bg-slate-50/80 sm:px-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] lg:items-center"
         >
           <div class="flex min-w-0 items-center gap-4">
-            <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-sm font-black text-blue-700">
+            <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-sm font-bold text-blue-700">
               {participation.place.name |> String.first() |> String.upcase()}
             </span>
             <div class="min-w-0">
@@ -112,7 +112,7 @@
                 navigate={~p"/admin/places/#{participation.id}?#{[polo: @current_polo.slug]}"}
                 class="group block"
               >
-                <h2 class="truncate text-sm font-black text-slate-950 transition group-hover:text-blue-700">
+                <h2 class="truncate text-sm font-bold text-slate-950 transition group-hover:text-blue-700">
                   {participation.place.name}
                 </h2>
                 <p class="mt-1 truncate text-xs text-slate-400">{participation.place.slug}</p>
@@ -146,7 +146,7 @@
       <.link
         id="places-next-page"
         patch={@next_page_path}
-        class="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,.2)] transition hover:bg-blue-700"
+        class="inline-flex h-11 items-center gap-2 rounded-xl bg-clubeira-orange px-5 text-sm font-bold text-white transition hover:bg-orange-600"
       >
         {gettext("Next page")}
         <.icon name="hero-arrow-right" class="size-4" />

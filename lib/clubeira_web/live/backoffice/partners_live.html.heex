@@ -12,10 +12,10 @@
         <p class="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
           {gettext("Partner network")}
         </p>
-        <h1 class="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">
+        <h1 class="clubeira-page-title mt-1.5">
           {gettext("Partners and access")}
         </h1>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+        <p class="clubeira-page-copy mt-1.5">
           {gettext(
             "Onboard establishments and control verified operator access without exposing private identifiers."
           )}
@@ -24,7 +24,7 @@
       <.link
         id="partner-agreements-link"
         navigate={~p"/admin/partners/agreements?#{[polo: @current_polo.slug]}"}
-        class="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-700"
+        class="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-clubeira-line bg-white px-5 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700"
       >
         {gettext("Partner agreements")}
         <.icon name="hero-arrow-right" class="size-4" />
@@ -32,8 +32,8 @@
     </header>
 
     <div class="mt-7 grid gap-6 xl:grid-cols-2">
-      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:p-6">
-        <h2 class="text-lg font-black text-slate-950">{gettext("Onboard partner")}</h2>
+      <section class="rounded-xl border border-clubeira-line bg-white p-5 sm:p-6">
+        <h2 class="text-lg font-bold text-slate-950">{gettext("Onboard partner")}</h2>
         <p class="mt-1 text-sm leading-6 text-slate-500">
           {gettext(
             "Creates the organization, protected CNPJ, place and polo participation atomically."
@@ -93,7 +93,7 @@
             <button
               id="onboard-partner"
               type="submit"
-              class="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-6 text-sm font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,.2)] transition hover:bg-blue-700"
+              class="inline-flex h-11 items-center justify-center rounded-xl bg-clubeira-orange px-6 text-sm font-bold text-white transition hover:bg-orange-600"
             >
               {gettext("Create partner")}
             </button>
@@ -101,8 +101,8 @@
         </.form>
       </section>
 
-      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:p-6">
-        <h2 class="text-lg font-black text-slate-950">{gettext("Grant operator access")}</h2>
+      <section class="rounded-xl border border-clubeira-line bg-white p-5 sm:p-6">
+        <h2 class="text-lg font-bold text-slate-950">{gettext("Grant operator access")}</h2>
         <p class="mt-1 text-sm leading-6 text-slate-500">
           {gettext(
             "The account must already be active, verified and affiliated with the place operator."
@@ -136,7 +136,7 @@
               id="partner-access-place-id"
               name="place_id"
               required
-              class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-950 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
             >
               <option :for={place <- @available_places} value={place.place.id}>
                 {place.place.name}
@@ -165,7 +165,7 @@
       for={@filter_form}
       id="partner-access-filters"
       phx-submit="filter"
-      class="mt-7 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,.035)] sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)_auto_auto] sm:items-end"
+      class="mt-7 grid gap-3 rounded-xl border border-clubeira-line bg-white p-4 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)_auto_auto] sm:items-end"
     >
       <.input
         field={@filter_form[:status]}
@@ -187,19 +187,19 @@
       <button
         id="apply-partner-access-filters"
         type="submit"
-        class="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-bold text-white"
+        class="inline-flex h-11 items-center justify-center rounded-xl bg-clubeira-orange px-5 text-sm font-bold text-white"
       >
         {gettext("Apply filters")}
       </button>
       <.link
         patch={~p"/admin/partners?#{[polo: @current_polo.slug]}"}
-        class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600"
+        class="inline-flex h-11 items-center justify-center rounded-xl border border-clubeira-line px-4 text-sm font-bold text-slate-600"
       >
         {gettext("Clear filters")}
       </.link>
     </.form>
 
-    <section class="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.035)]">
+    <section class="mt-7 overflow-hidden rounded-xl border border-clubeira-line bg-white">
       <div id="partner-accesses-inventory" phx-update="stream" class="divide-y divide-slate-100">
         <div
           id="partner-accesses-empty"
@@ -216,7 +216,7 @@
           class="grid gap-5 px-5 py-5 sm:px-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_minmax(340px,0.9fr)] xl:items-start"
         >
           <div class="min-w-0">
-            <h2 class="truncate text-sm font-black text-slate-950">{access.user.email}</h2>
+            <h2 class="truncate text-sm font-bold text-slate-950">{access.user.email}</h2>
             <p class="mt-1 text-xs text-slate-400">
               {gettext("Access ID")}: {access.id}
             </p>
@@ -273,7 +273,7 @@
       <.link
         id="partner-accesses-next-page"
         patch={@next_page_path}
-        class="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white"
+        class="inline-flex h-11 items-center gap-2 rounded-xl bg-clubeira-orange px-5 text-sm font-bold text-white"
       >
         {gettext("Next page")}
         <.icon name="hero-arrow-right" class="size-4" />
