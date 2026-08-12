@@ -10,7 +10,18 @@ defmodule ClubeiraWeb.BackofficeComponents do
   attr :flash, :map, required: true
 
   attr :active_section, :atom,
-    values: [:overview, :places, :subscriptions, :payments],
+    values: [
+      :overview,
+      :places,
+      :partners,
+      :commercial,
+      :validation,
+      :subscriptions,
+      :payments,
+      :platform_billing,
+      :moderation,
+      :operations
+    ],
     default: :overview
 
   slot :inner_block, required: true
@@ -22,9 +33,31 @@ defmodule ClubeiraWeb.BackofficeComponents do
       |> assign(:capabilities, MapSet.new(assigns.current_polo.capabilities))
       |> assign(:dashboard_path, ~p"/admin?#{[polo: assigns.current_polo.slug]}")
       |> assign(:places_path, ~p"/admin/places?#{[polo: assigns.current_polo.slug]}")
+      |> assign(:partners_path, ~p"/admin/partners?#{[polo: assigns.current_polo.slug]}")
+      |> assign(
+        :commercial_path,
+        ~p"/admin/commercial/benefits?#{[polo: assigns.current_polo.slug]}"
+      )
+      |> assign(
+        :validation_path,
+        ~p"/admin/validation-points?#{[polo: assigns.current_polo.slug]}"
+      )
       |> assign(
         :subscriptions_path,
         ~p"/admin/subscriptions?#{[polo: assigns.current_polo.slug]}"
+      )
+      |> assign(:payments_path, ~p"/admin/payments?#{[polo: assigns.current_polo.slug]}")
+      |> assign(
+        :platform_billing_path,
+        ~p"/admin/platform-billing?#{[polo: assigns.current_polo.slug]}"
+      )
+      |> assign(
+        :moderation_path,
+        ~p"/admin/moderation/reviews?#{[polo: assigns.current_polo.slug]}"
+      )
+      |> assign(
+        :operations_path,
+        ~p"/admin/operations/outbox?#{[polo: assigns.current_polo.slug, status: "dead_letter"]}"
       )
 
     ~H"""
@@ -85,6 +118,30 @@ defmodule ClubeiraWeb.BackofficeComponents do
               active={@active_section == :places}
             />
             <.nav_item
+              :if={MapSet.member?(@capabilities, :manage_partners)}
+              id="backoffice-nav-partners"
+              navigate={@partners_path}
+              icon="hero-user-group"
+              label={gettext("Partners")}
+              active={@active_section == :partners}
+            />
+            <.nav_item
+              :if={MapSet.member?(@capabilities, :manage_partners)}
+              id="backoffice-nav-commercial"
+              navigate={@commercial_path}
+              icon="hero-ticket"
+              label={gettext("Commercial")}
+              active={@active_section == :commercial}
+            />
+            <.nav_item
+              :if={MapSet.member?(@capabilities, :manage_partners)}
+              id="backoffice-nav-validation"
+              navigate={@validation_path}
+              icon="hero-qr-code"
+              label={gettext("Validation")}
+              active={@active_section == :validation}
+            />
+            <.nav_item
               :if={MapSet.member?(@capabilities, :manage_billing)}
               id="backoffice-nav-subscriptions"
               navigate={@subscriptions_path}
@@ -95,10 +152,34 @@ defmodule ClubeiraWeb.BackofficeComponents do
             <.nav_item
               :if={MapSet.member?(@capabilities, :manage_billing)}
               id="backoffice-nav-finance"
-              href={"#{@dashboard_path}#payments-section"}
+              navigate={@payments_path}
               icon="hero-banknotes"
               label={gettext("Finance")}
               active={@active_section == :payments}
+            />
+            <.nav_item
+              :if={MapSet.member?(@capabilities, :manage_billing)}
+              id="backoffice-nav-platform-billing"
+              navigate={@platform_billing_path}
+              icon="hero-building-library"
+              label={gettext("Clubeira billing")}
+              active={@active_section == :platform_billing}
+            />
+            <.nav_item
+              :if={MapSet.member?(@capabilities, :moderate_reviews)}
+              id="backoffice-nav-moderation"
+              navigate={@moderation_path}
+              icon="hero-shield-check"
+              label={gettext("Moderation")}
+              active={@active_section == :moderation}
+            />
+            <.nav_item
+              :if={MapSet.member?(@capabilities, :manage_operations)}
+              id="backoffice-nav-operations"
+              navigate={@operations_path}
+              icon="hero-command-line"
+              label={gettext("Operations")}
+              active={@active_section == :operations}
             />
           </div>
         </nav>
