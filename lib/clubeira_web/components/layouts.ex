@@ -11,6 +11,14 @@ defmodule ClubeiraWeb.Layouts do
   # and other static content.
   embed_templates "layouts/*"
 
+  @doc false
+  def html_language do
+    case Gettext.get_locale(ClubeiraWeb.Gettext) do
+      "pt_BR" -> "pt-BR"
+      locale -> locale
+    end
+  end
+
   @doc """
   Renders your app layout.
 

@@ -18,7 +18,21 @@
 @custom-variant phx-submit-loading (.phx-submit-loading&, .phx-submit-loading &);
 @custom-variant phx-change-loading (.phx-change-loading&, .phx-change-loading &);
 
+@theme {
+  --font-sans: "Inter", "SF Pro Text", "SF Pro Display", ui-sans-serif, system-ui, sans-serif;
+  --color-clubeira-navy: #081b33;
+  --color-clubeira-blue: #2563eb;
+  --color-clubeira-orange: #f97316;
+}
+
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
-/* This file is for your main application CSS */
+html { scroll-behavior: smooth; }
+
+body { letter-spacing: -0.01em; }
+
+::selection {
+  background: rgb(37 99 235 / 0.18);
+  color: #081b33;
+}

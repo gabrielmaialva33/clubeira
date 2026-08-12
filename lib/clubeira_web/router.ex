@@ -19,6 +19,7 @@ defmodule ClubeiraWeb.Router do
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
+    plug ClubeiraWeb.Plugs.ApiLocale, default_locale: "pt_BR", store_in_session: true
     plug :fetch_live_flash
     plug :put_root_layout, html: {ClubeiraWeb.Layouts, :root}
     plug :protect_from_forgery
@@ -29,6 +30,10 @@ defmodule ClubeiraWeb.Router do
     plug :accepts, ["json"]
     plug ClubeiraWeb.Plugs.ApiLocale
     plug :put_secure_browser_headers, @secure_headers
+  end
+
+  pipeline :private_browser do
+    plug ClubeiraWeb.Plugs.PrivateNoStore
   end
 
   pipeline :authenticated_api do

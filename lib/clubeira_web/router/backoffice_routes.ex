@@ -3,6 +3,30 @@ defmodule ClubeiraWeb.Router.BackofficeRoutes do
 
   defmacro backoffice_routes do
     quote do
+      scope "/admin", ClubeiraWeb, as: :admin do
+        pipe_through [:browser, :private_browser]
+
+        get "/login", Auth.BrowserSessionController, :new
+        delete "/logout", Auth.BrowserSessionController, :delete
+      end
+
+      scope "/admin", ClubeiraWeb, as: :admin do
+        pipe_through [:browser, :private_browser, :login_api]
+
+        post "/login", Auth.BrowserSessionController, :create
+      end
+
+      scope "/admin", ClubeiraWeb.Backoffice, as: :admin do
+        pipe_through [:browser, :private_browser]
+
+        live_session :backoffice,
+          on_mount: [{ClubeiraWeb.BackofficeAuth, :ensure_authenticated}] do
+          live "/", DashboardLive, :index
+          live "/places", PlacesLive, :index
+          live "/places/:polo_place_id", PlaceLive, :show
+        end
+      end
+
       scope "/api/v1/polos/:polo_slug/backoffice", ClubeiraWeb.Backoffice, as: :backoffice do
         pipe_through [:api, :authenticated_api]
 

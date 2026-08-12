@@ -1,14 +1,17 @@
 defmodule ClubeiraWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :clubeira
 
-  # The session will be stored in the cookie and signed,
-  # this means its contents can be read but not tampered with.
-  # Set :encryption_salt if you would also like to encrypt it.
+  # Browser session values are encrypted and signed inside the cookie. The
+  # backoffice stores only its opaque account token here; PostgreSQL keeps the
+  # corresponding SHA-256 digest and lifecycle state.
   @session_options [
     store: :cookie,
     key: "_clubeira_key",
     signing_salt: "ykiAnQ2e",
-    same_site: "Lax"
+    encryption_salt: "TS9EB4hJ",
+    same_site: "Lax",
+    http_only: true,
+    secure: Application.compile_env(:clubeira, :secure_browser_cookies, false)
   ]
 
   socket "/live", Phoenix.LiveView.Socket,
