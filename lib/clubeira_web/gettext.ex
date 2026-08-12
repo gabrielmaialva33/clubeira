@@ -21,5 +21,7 @@ defmodule ClubeiraWeb.Gettext do
 
   See the [Gettext Docs](https://gettext.hexdocs.pm) for detailed usage.
   """
-  use Gettext.Backend, otp_app: :clubeira
+  use Gettext.Backend,
+    otp_app: :clubeira,
+    plural_forms: ClubeiraWeb.Gettext.Plural
 end
